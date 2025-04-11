@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Nomu Fishy - With Start & Replay</title>
+
+    <!-- Load Londrina Solid from Google Fonts -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Londrina+Solid&display=swap"
+    />
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+      /* Apply Londrina Solid globally (you can also specify body, .overlay, etc.) */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        font-family: "Londrina Solid", sans-serif; /* Use our new font */
+      }
+
+      body {
+        background: #222 url("img/bg.jpg") center center no-repeat;
+        background-size: cover;
+        overflow: hidden;
+        user-select: none;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: relative; /* allows overlays to be "position: absolute" */
+      }
+
+      /* Game canvas */
+      #gameCanvas {
+        display: block;
+        background: transparent;
+        touch-action: none;
+        max-width: 100%;
+        max-height: 100%;
+      }
+
+      /* Overlays (start screen & game over) */
+      .overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999; /* on top of the canvas */
+      }
+      .hidden {
+        display: none;
+      }
+      .overlay h1,
+      .overlay button,
+      .overlay p {
+        color: #fff;
+        margin: 8px;
+      }
+      .overlay button {
+        font-size: 18px;
+        padding: 8px 16px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Start Screen Overlay -->
+    <div id="startScreen" class="overlay">
+      <h1>Nomu Fishy</h1>
+      <div id="telegramStatus" style="color: white; margin: 10px"></div>
+      <button id="startBtn">Start Game</button>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="gameOverScreen" class="overlay hidden">
+      <h1>GAME OVER!</h1>
+      <p id="finalScore"></p>
+      <button id="playAgainBtn">Play Again</button>
+    </div>
+
+    <script>
+      console.log("Script started executing");
+
+      // Initialize Telegram Web App
+      let tg;
+      let userData;
+      let userId;
+
+      try {
+        tg = window.Telegram.WebApp;
+        console.log("Telegram WebApp object:", tg);
+
+        if (!tg) {
+          throw new Error("Telegram WebApp object not found");
+        }
+
+        userData = tg.initDataUnsafe?.user;
+        console.log("Telegram user data:", userData);
+
+        if (!userData) {
+          throw new Error("No user data available");
+        }
+
+        userId = userData.id;
+        console.log("Telegram user ID:", userId);
+
+        tg.expand(); // Expand the web app to full screen
+      } catch (error) {
+        console.error("Telegram initialization error:", error);
+      }
+
+      // Update status display
+      const statusDiv = document.getElementById("telegramStatus");
+      if (userId) {
+        statusDiv.textContent = `Telegram connected ✓ (User: ${
+          userData?.username || userData?.first_name || "Anonymous"
+        })`;
+        statusDiv.style.color = "lightgreen";
+      } else {
+        statusDiv.textContent =
+          "⚠️ Not connected to Telegram - Please access through Telegram bot";
+        statusDiv.style.color = "red";
+      }
+
+      // For sending score to your API
+      async function sendScoreToAPI(score) {
+        if (!userId) {
+          console.error("Cannot send score: No Telegram user ID available");
+          return;
+        }
+        console.log("Attempting to send score:", {
+          userId,
+          username: userData?.username || userData?.first_name || "Anonymous",
+          score,
+        });
+        try {
+          const response = await fetch("/api/scores", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              userId: userId,
+              username:
+                userData?.username || userData?.first_name || "Anonymous",
+              score: score,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(
+              "Failed to send score. Status:",
+              response.status,
+              "Error:",
+              errorText
+            );
+            throw new Error(`Failed to send score: ${errorText}`);
+          }
+          const result = await response.json();
+          console.log("Score sent successfully:", result);
+        } catch (error) {
+          console.error("Error sending score:", error);
+        }
+      }
+
+      // Canvas setup
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      let WIDTH = 800; // nominal design width
+      let HEIGHT = 600; // nominal design height
+
+      function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        WIDTH = canvas.width;
+        HEIGHT = canvas.height;
+      }
+      window.addEventListener("resize", resizeCanvas);
+
+      // Overlays
+      const startScreen = document.getElementById("startScreen");
+      const gameOverScreen = document.getElementById("gameOverScreen");
+      const startBtn = document.getElementById("startBtn");
+      const playAgainBtn = document.getElementById("playAgainBtn");
+      const finalScoreElem = document.getElementById("finalScore");
+
+      function showStartScreen() {
+        startScreen.classList.remove("hidden");
+      }
+      function hideStartScreen() {
+        startScreen.classList.add("hidden");
+      }
+      function showGameOverScreen(score) {
+        finalScoreElem.textContent = `Your Score: ${score}`;
+        gameOverScreen.classList.remove("hidden");
+      }
+      function hideGameOverScreen() {
+        gameOverScreen.classList.add("hidden");
+      }
+
+      // Game states
+      let gameState = "start";
+      let isGameOver = false;
+
+      // Weighted fish definitions
+      const fishTypeDefinitions = [
+        { src: "img/fish1.png", minSize: 10, maxSize: 40, weight: 0.43 },
+        { src: "img/fish2.png", minSize: 20, maxSize: 60, weight: 0.25 },
+        { src: "img/fish3.png", minSize: 25, maxSize: 80, weight: 0.2 },
+        { src: "img/fish4.png", minSize: 35, maxSize: 100, weight: 0.1 },
+        { src: "img/fish6.png", minSize: 200, maxSize: 300, weight: 0.015 },
+        { src: "img/fish5.png", minSize: 400, maxSize: 500, weight: 0.005 },
+      ];
+
+      // Preload fish images
+      const fishTypes = fishTypeDefinitions.map((def) => {
+        const image = new Image();
+        image.src = def.src;
+        return {
+          image,
+          minSize: def.minSize,
+          maxSize: def.maxSize,
+          weight: def.weight,
+        };
+      });
+
+      // Load player image
+      const playerImg = new Image();
+      playerImg.src = "img/player_fish.png";
+
+      // Game variables
+      let fishList = [];
+      let score = 0;
+      let player;
+      let touchTarget = null;
+      const keys = { left: false, right: false, up: false, down: false };
+
+      // Utility
+      function getRandom(min, max) {
+        return Math.random() * (max - min) + min;
+      }
+      function calculateFishScore(fishSize) {
+        return Math.floor(fishSize);
+      }
+      function getRandomWeightedFishType(fishTypes) {
+        const totalWeight = fishTypes.reduce((sum, ft) => sum + ft.weight, 0);
+        let randomVal = Math.random() * totalWeight;
+        for (const ft of fishTypes) {
+          if (randomVal < ft.weight) {
+            return ft;
+          }
+          randomVal -= ft.weight;
+        }
+        return fishTypes[fishTypes.length - 1];
+      }
+
+      // ---------------------------------------------
+      // Fish class
+      // ---------------------------------------------
+      class Fish {
+        constructor(x, y, speedX, speedY, sprite, maxSide, isPlayer = false) {
+          this.x = x;
+          this.y = y;
+          this.speedX = speedX;
+          this.speedY = speedY;
+          this.sprite = sprite;
+          this.maxSide = maxSide;
+          this.isPlayer = isPlayer;
+
+          if (isPlayer) {
+            this.velocityX = 0;
+            this.velocityY = 0;
+            this.acceleration = 0.055;
+            this.friction = 0.99;
+            this.maxSpeed = 10;
+          } else {
+            this.acceleration = 0.05;
+            this.maxSpeed = Math.abs(speedX) * 1.2;
+          }
+
+          this.width = null;
+          this.height = null;
+        }
+
+        calculateDimensions() {
+          const w = this.sprite.naturalWidth;
+          const h = this.sprite.naturalHeight;
+          if (w === 0 || h === 0) {
+            this.width = this.maxSide;
+            this.height = this.maxSide;
+            return;
+          }
+          const aspect = w / h;
+          if (aspect > 1) {
+            this.width = this.maxSide;
+            this.height = this.maxSide / aspect;
+          } else {
+            this.height = this.maxSide;
+            this.width = this.maxSide * aspect;
+          }
+        }
+
+        draw(ctx) {
+          if (!this.sprite.complete) return;
+          if (this.width === null || this.height === null) {
+            this.calculateDimensions();
+          }
+          const isMovingLeft = this.isPlayer
+            ? this.velocityX < 0
+            : this.speedX < 0;
+
+          if (isMovingLeft) {
+            ctx.save();
+            ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+            ctx.scale(-1, 1);
+            ctx.drawImage(
+              this.sprite,
+              -this.width / 2,
+              -this.height / 2,
+              this.width,
+              this.height
+            );
+            ctx.restore();
+          } else {
+            ctx.drawImage(this.sprite, this.x, this.y, this.width, this.height);
+          }
+        }
+
+        getBounds() {
+          const collisionScale = 0.7;
+          const radiusX = ((this.width || 0) * collisionScale) / 2;
+          const radiusY = ((this.height || 0) * collisionScale) / 2;
+          const centerX = this.x + (this.width || 0) / 2;
+          const centerY = this.y + (this.height || 0) / 2;
+          return { centerX, centerY, radiusX, radiusY };
+        }
+
+        // Update with deltaTime in seconds
+        update(deltaTime) {
+          const deltaFrames = deltaTime * 60; // scales to ~"per-frame" at 60 fps
+          if (this.isPlayer) {
+            // friction
+            const frictionFactor = Math.pow(this.friction, deltaFrames);
+            this.velocityX *= frictionFactor;
+            this.velocityY *= frictionFactor;
+
+            // position update
+            this.x += this.velocityX * deltaFrames;
+            this.y += this.velocityY * deltaFrames;
+
+            // clamp to screen
+            if (this.width && this.height) {
+              if (this.x < 0) {
+                this.x = 0;
+                this.velocityX = 0;
+              }
+              if (this.y < 0) {
+                this.y = 0;
+                this.velocityY = 0;
+              }
+              if (this.x + this.width > WIDTH) {
+                this.x = WIDTH - this.width;
+                this.velocityX = 0;
+              }
+              if (this.y + this.height > HEIGHT) {
+                this.y = HEIGHT - this.height;
+                this.velocityY = 0;
+              }
+            }
+          } else {
+            // accelerate horizontal speed until max
+            if (Math.abs(this.speedX) < this.maxSpeed) {
+              this.speedX +=
+                this.acceleration * Math.sign(this.speedX) * deltaFrames;
+            }
+            this.x += this.speedX * deltaFrames;
+          }
+        }
+      }
+
+      // ---------------------------------------------
+      // Spawn enemy fish
+      // ---------------------------------------------
+      function spawnFish() {
+        const chosenType = getRandomWeightedFishType(fishTypes);
+        const fishSize = getRandom(chosenType.minSize, chosenType.maxSize);
+        const fromLeft = Math.random() < 0.5;
+        const x = fromLeft ? -fishSize : WIDTH;
+        const y = getRandom(0, HEIGHT - fishSize);
+
+        const sizeFactor = 1 - fishSize / 500;
+        const minSpeed = 0.3 + 0.5 * sizeFactor;
+        const maxSpeed = 1.5 + 0.3 * sizeFactor;
+        const baseSpeed = getRandom(minSpeed, maxSpeed);
+        const speedX = fromLeft ? baseSpeed : -baseSpeed;
+
+        const enemy = new Fish(
+          x,
+          y,
+          speedX,
+          0,
+          chosenType.image,
+          fishSize,
+          false
+        );
+        fishList.push(enemy);
+      }
+
+      function checkCollisionOval(a, b) {
+        const A = a.getBounds();
+        const B = b.getBounds();
+        const dx = A.centerX - B.centerX;
+        const dy = A.centerY - B.centerY;
+        const minX = A.radiusX + B.radiusX;
+        const minY = A.radiusY + B.radiusY;
+        return Math.abs(dx) < minX && Math.abs(dy) < minY;
+      }
+
+      // ---------------------------------------------
+      // updateGame
+      // ---------------------------------------------
+      function updateGame(deltaTime) {
+        // If not in "playing" mode, skip updates
+        if (gameState !== "playing") return;
+        if (isGameOver) return;
+
+        // Movement controls
+        const accel = player.acceleration * deltaTime * 60;
+        if (keys.left) player.velocityX -= accel;
+        if (keys.right) player.velocityX += accel;
+        if (keys.up) player.velocityY -= accel;
+        if (keys.down) player.velocityY += accel;
+
+        // Touch/mouse movement
+        if (touchTarget && player.width && player.height) {
+          const px = player.x + player.width / 2;
+          const py = player.y + player.height / 2;
+          const dx = touchTarget.x - px;
+          const dy = touchTarget.y - py;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 1) {
+            const ax = (dx / dist) * accel;
+            const ay = (dy / dist) * accel;
+            player.velocityX += ax;
+            player.velocityY += ay;
+          }
+        }
+
+        // Limit top speed
+        const spd = Math.sqrt(player.velocityX ** 2 + player.velocityY ** 2);
+        if (spd > player.maxSpeed) {
+          const ratio = player.maxSpeed / spd;
+          player.velocityX *= ratio;
+          player.velocityY *= ratio;
+        }
+
+        // Update player
+        player.update(deltaTime);
+
+        // Update enemies
+        for (let i = fishList.length - 1; i >= 0; i--) {
+          const enemy = fishList[i];
+          enemy.update(deltaTime);
+
+          // Remove if off-screen
+          const bounds = enemy.getBounds();
+          if (
+            bounds.centerX + bounds.radiusX < -200 ||
+            bounds.centerX - bounds.radiusX > WIDTH + 200
+          ) {
+            fishList.splice(i, 1);
+            continue;
+          }
+
+          // Collision check
+          if (checkCollisionOval(player, enemy)) {
+            // Compare bounding ellipse sizes
+            if (player.getBounds().radiusX > enemy.getBounds().radiusX) {
+              // Player eats smaller fish
+              score += calculateFishScore(enemy.maxSide);
+              const baseGrowth = Math.sqrt(enemy.maxSide) * 0.05;
+              const growthAmount = Math.min(baseGrowth, 1.5);
+              player.maxSide += growthAmount;
+              player.width = null;
+              player.height = null;
+
+              fishList.splice(i, 1);
+            } else {
+              // Game over
+              console.log("Game Over triggered! Score:", score);
+              isGameOver = true;
+              gameState = "over";
+              console.log("Attempting to send score...");
+              sendScoreToAPI(score);
+              showGameOverScreen(score);
+            }
+          }
+        }
+
+        // Spawn fish with same probability logic, scaled by deltaTime
+        if (Math.random() < 0.03 * deltaTime * 60 && fishList.length < 20) {
+          spawnFish();
+        }
+      }
+
+      // ---------------------------------------------
+      // renderGame
+      // ---------------------------------------------
+      function renderGame() {
+        ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+        // Draw the player
+        if (player) {
+          player.draw(ctx);
+        }
+
+        // Draw enemies
+        for (const fish of fishList) {
+          fish.draw(ctx);
+        }
+
+        // Draw score with Londrina Solid
+        ctx.fillStyle = "#fff";
+        ctx.font = "20px Londrina Solid, sans-serif";
+        ctx.fillText("Score: " + score, 20, 30);
+
+        // Draw touch indicator
+        if (touchTarget) {
+          ctx.beginPath();
+          ctx.arc(touchTarget.x, touchTarget.y, 15, 0, Math.PI * 2);
+          ctx.strokeStyle = "#ffffff88";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+
+        // REMOVED the old "GAME OVER!" text block that was drawn here.
+      }
+
+      // ---------------------------------------------
+      // gameLoop with deltaTime
+      // ---------------------------------------------
+      let lastTime = 0;
+      function gameLoop(timestamp) {
+        const deltaTime = (timestamp - lastTime) / 1000;
+        lastTime = timestamp;
+
+        // Update & render
+        updateGame(deltaTime);
+        renderGame();
+
+        requestAnimationFrame(gameLoop);
+      }
+
+      // ---------------------------------------------
+      // initGame: reset all main variables
+      // ---------------------------------------------
+      function initGame() {
+        resizeCanvas();
+        score = 0;
+        isGameOver = false;
+        fishList = [];
+        player = new Fish(WIDTH / 2, HEIGHT / 2, 0, 0, playerImg, 25, true);
+
+        // Spawn a few fish initially
+        for (let i = 0; i < 3; i++) {
+          spawnFish();
+        }
+      }
+
+      // ---------------------------------------------
+      // Start & Replay handling
+      // ---------------------------------------------
+      startBtn.onclick = () => {
+        hideStartScreen(); // hide start overlay
+        gameState = "playing"; // mark game as active
+        initGame(); // reset all game variables
+      };
+      playAgainBtn.onclick = () => {
+        hideGameOverScreen(); // hide game over overlay
+        gameState = "playing"; // back to playing
+        initGame(); // reset
+      };
+
+      // ---------------------------------------------------------
+      // Touch & Mouse event handlers
+      // ---------------------------------------------------------
+      canvas.addEventListener("touchstart", (e) => {
+        const touch = e.touches[0];
+        if (touch) {
+          const rect = canvas.getBoundingClientRect();
+          touchTarget = {
+            x: touch.clientX - rect.left,
+            y: touch.clientY - rect.top,
+          };
+        }
+      });
+      canvas.addEventListener("touchmove", (e) => {
+        const touch = e.touches[0];
+        if (touch) {
+          const rect = canvas.getBoundingClientRect();
+          touchTarget = {
+            x: touch.clientX - rect.left,
+            y: touch.clientY - rect.top,
+          };
+        }
+      });
+      canvas.addEventListener("touchend", () => {
+        touchTarget = null;
+      });
+
+      canvas.addEventListener("mousedown", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        touchTarget = {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        };
+      });
+      canvas.addEventListener("mousemove", (e) => {
+        if (e.buttons > 0) {
+          const rect = canvas.getBoundingClientRect();
+          touchTarget = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+          };
+        }
+      });
+      canvas.addEventListener("mouseup", () => {
+        touchTarget = null;
+      });
+
+      // Keyboard events
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowLeft" || e.key === "a") keys.left = true;
+        if (e.key === "ArrowRight" || e.key === "d") keys.right = true;
+        if (e.key === "ArrowUp" || e.key === "w") keys.up = true;
+        if (e.key === "ArrowDown" || e.key === "s") keys.down = true;
+      });
+      window.addEventListener("keyup", (e) => {
+        if (e.key === "ArrowLeft" || e.key === "a") keys.left = false;
+        if (e.key === "ArrowRight" || e.key === "d") keys.right = false;
+        if (e.key === "ArrowUp" || e.key === "w") keys.up = false;
+        if (e.key === "ArrowDown" || e.key === "s") keys.down = false;
+      });
+
+      // ---------------------------------------------------------
+      // Wait for images to load, then start the animation loop.
+      // By default, we stay in "start" mode until user clicks Start Game.
+      // ---------------------------------------------------------
+      Promise.all([
+        new Promise((resolve) => (playerImg.onload = resolve)),
+        ...fishTypes.map(
+          ({ image }) => new Promise((resolve) => (image.onload = resolve))
+        ),
+      ]).then(() => {
+        resizeCanvas();
+        showStartScreen(); // show the start screen
+        requestAnimationFrame(gameLoop);
+      });
+    </script>
+  </body>
+</html>
