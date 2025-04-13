@@ -18,6 +18,14 @@
       rel="stylesheet"
     />
 
+    <!-- Add audio elements -->
+    <audio id="backgroundMusic" loop>
+      <source src="sounds/background.mp3" type="audio/mpeg" />
+    </audio>
+    <audio id="eatSound">
+      <source src="sounds/eat.mp3" type="audio/mpeg" />
+    </audio>
+
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
       /* Apply Londrina Solid globally (you can also specify body, .overlay, etc.) */
@@ -119,6 +127,7 @@
       <p>The larger the fish the more points you get.</p>
       <p>You high score is <span id="highScore">0</span>.</p>
       <button id="startBtn">Start Game</button>
+      <button id="soundBtn" style="margin-top: 12px">🔊 Sound On</button>
     </div>
 
     <!-- Game Over Overlay -->
@@ -288,6 +297,66 @@
       let player;
       let touchTarget = null;
       const keys = { left: false, right: false, up: false, down: false };
+      let bubbles = [];
+      let waterTrails = [];
+      let backgroundMusic;
+      let eatSound;
+      let isSoundEnabled = true; // Add sound state variable
+
+      // Initialize audio
+      function initAudio() {
+        backgroundMusic = document.getElementById("backgroundMusic");
+        eatSound = document.getElementById("eatSound");
+
+        // Set volume levels
+        backgroundMusic.volume = 0.3;
+        eatSound.volume = 0.5;
+      }
+
+      // Start audio playback
+      function startAudio() {
+        if (backgroundMusic && isSoundEnabled) {
+          try {
+            backgroundMusic.play();
+          } catch (error) {
+            console.log("Audio playback failed:", error);
+          }
+        }
+      }
+
+      // Toggle sound
+      function toggleSound() {
+        isSoundEnabled = !isSoundEnabled;
+        if (backgroundMusic) {
+          if (isSoundEnabled) {
+            startAudio();
+            backgroundMusic.volume = 0.3;
+            eatSound.volume = 0.5;
+          } else {
+            backgroundMusic.pause();
+            backgroundMusic.volume = 0;
+            eatSound.volume = 0;
+          }
+        }
+        // Update button text
+        const soundBtn = document.getElementById("soundBtn");
+        if (soundBtn) {
+          soundBtn.textContent = isSoundEnabled
+            ? "🔊 Sound On"
+            : "🔈 Sound Off";
+        }
+      }
+
+      // Play eat sound
+      function playEatSound() {
+        if (!isSoundEnabled) return;
+        eatSound.currentTime = 0;
+        try {
+          eatSound.play();
+        } catch (error) {
+          console.log("Eat sound playback failed:", error);
+        }
+      }
 
       // Utility
       function getRandom(min, max) {
@@ -309,6 +378,47 @@
       }
 
       // ---------------------------------------------
+      // WaterTrail class for movement effects
+      // ---------------------------------------------
+      class WaterTrail {
+        constructor(x, y, direction, fishSize) {
+          this.x = x;
+          this.y = y;
+          // Scale particle size based on fish size (min 2, max 8)
+          const baseSize = Math.min(8, Math.max(2, fishSize * 0.1));
+          this.size = getRandom(baseSize * 0.8, baseSize * 1.2);
+          this.life = 1.0;
+          this.fadeSpeed = getRandom(0.02, 0.04);
+          this.direction = direction;
+          // Scale offset based on fish size
+          const offsetScale = Math.min(3, Math.max(1, fishSize * 0.03));
+          this.offsetX = getRandom(-offsetScale, offsetScale);
+          this.offsetY = getRandom(-offsetScale, offsetScale);
+        }
+
+        update(deltaTime) {
+          this.life -= this.fadeSpeed * deltaTime * 60;
+          // Move slightly in the opposite direction of the fish
+          this.x += this.direction * 0.5 * deltaTime * 60;
+        }
+
+        draw(ctx) {
+          if (this.life <= 0) return;
+
+          ctx.beginPath();
+          ctx.arc(
+            this.x + this.offsetX,
+            this.y + this.offsetY,
+            this.size,
+            0,
+            Math.PI * 2
+          );
+          ctx.fillStyle = `rgba(255, 255, 255, ${this.life * 0.05})`; // Very subtle white
+          ctx.fill();
+        }
+      }
+
+      // ---------------------------------------------
       // Fish class
       // ---------------------------------------------
       class Fish {
@@ -320,6 +430,14 @@
           this.sprite = sprite;
           this.maxSide = maxSide;
           this.isPlayer = isPlayer;
+          this.lastTrailTime = 0;
+
+          // Add oscillation properties for enemy fish
+          if (!isPlayer) {
+            this.oscillationSpeed = getRandom(0.005, 0.01); // Very slow oscillation
+            this.oscillationAmount = getRandom(0.05, 0.1); // Small amount of movement
+            this.oscillationOffset = getRandom(0, Math.PI * 2); // Random phase
+          }
 
           if (isPlayer) {
             this.velocityX = 0;
@@ -381,11 +499,26 @@
         }
 
         getBounds() {
-          const collisionScale = 0.7;
+          const collisionScale = 0.6;
           const radiusX = ((this.width || 0) * collisionScale) / 2;
           const radiusY = ((this.height || 0) * collisionScale) / 2;
-          const centerX = this.x + (this.width || 0) / 2;
-          const centerY = this.y + (this.height || 0) / 2;
+
+          // Calculate center position
+          let centerX = this.x + (this.width || 0) / 2;
+          let centerY = this.y + (this.height || 0) / 2;
+
+          // Shift center forward in direction of movement
+          const isMovingLeft = this.isPlayer
+            ? this.velocityX < 0
+            : this.speedX < 0;
+          const shiftAmount = (this.width || 0) * 0.07; // Shift forward by 15% of width
+
+          if (isMovingLeft) {
+            centerX -= shiftAmount;
+          } else {
+            centerX += shiftAmount;
+          }
+
           return { centerX, centerY, radiusX, radiusY };
         }
 
@@ -422,13 +555,98 @@
               }
             }
           } else {
+            // Add horizontal oscillation for enemy fish
+            const oscillation =
+              Math.sin(
+                performance.now() * this.oscillationSpeed +
+                  this.oscillationOffset
+              ) * this.oscillationAmount;
+
             // accelerate horizontal speed until max
             if (Math.abs(this.speedX) < this.maxSpeed) {
               this.speedX +=
                 this.acceleration * Math.sign(this.speedX) * deltaFrames;
             }
             this.x += this.speedX * deltaFrames;
+            this.y += oscillation * deltaFrames;
           }
+        }
+
+        // Add method to create water trails
+        createWaterTrail() {
+          if (!this.width || !this.height) return;
+
+          const now = performance.now();
+          if (now - this.lastTrailTime < 50) return;
+          this.lastTrailTime = now;
+
+          const isMovingLeft = this.isPlayer
+            ? this.velocityX < 0
+            : this.speedX < 0;
+          const speed = this.isPlayer
+            ? Math.sqrt(
+                this.velocityX * this.velocityX +
+                  this.velocityY * this.velocityY
+              )
+            : Math.abs(this.speedX);
+
+          // Only create trails if moving fast enough
+          if (speed > 0.5) {
+            // Create 1-2 trail particles
+            const count = Math.random() < 0.3 ? 2 : 1;
+            for (let i = 0; i < count; i++) {
+              waterTrails.push(
+                new WaterTrail(
+                  this.x + (isMovingLeft ? this.width : 0),
+                  this.y + this.height * 0.5,
+                  isMovingLeft ? 1 : -1,
+                  this.maxSide // Pass the fish size to the trail
+                )
+              );
+            }
+          }
+        }
+      }
+
+      // ---------------------------------------------
+      // Bubble class for decorative bubbles
+      // ---------------------------------------------
+      class Bubble {
+        constructor(baseX) {
+          this.reset(baseX);
+        }
+
+        reset(baseX) {
+          // Add some random offset from the base X position
+          this.x = baseX + getRandom(-10, 10);
+          this.y = HEIGHT + 20; // Start below screen
+          this.size = getRandom(3, 8);
+          this.speed = getRandom(2, 3.5);
+          this.opacity = getRandom(0.2, 0.4);
+          this.wobbleAmount = getRandom(0.1, 0.3);
+          this.wobbleSpeed = getRandom(0.02, 0.05);
+          this.wobbleOffset = getRandom(0, Math.PI * 2);
+        }
+
+        update(deltaTime) {
+          this.y -= this.speed * deltaTime * 60;
+          this.x +=
+            Math.sin(this.wobbleOffset + performance.now() * this.wobbleSpeed) *
+            this.wobbleAmount *
+            deltaTime *
+            60;
+
+          // Reset if above screen
+          if (this.y < -20) {
+            this.reset();
+          }
+        }
+
+        draw(ctx) {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+          ctx.fill();
         }
       }
 
@@ -463,11 +681,34 @@
       function checkCollisionOval(a, b) {
         const A = a.getBounds();
         const B = b.getBounds();
+
+        // Calculate the distance between centers
         const dx = A.centerX - B.centerX;
         const dy = A.centerY - B.centerY;
-        const minX = A.radiusX + B.radiusX;
-        const minY = A.radiusY + B.radiusY;
-        return Math.abs(dx) < minX && Math.abs(dy) < minY;
+
+        // Calculate the sum of the radii
+        const sumRadiiX = A.radiusX + B.radiusX;
+        const sumRadiiY = A.radiusY + B.radiusY;
+
+        // Check if the distance is less than the sum of the radii
+        return (
+          (dx * dx) / (sumRadiiX * sumRadiiX) +
+            (dy * dy) / (sumRadiiY * sumRadiiY) <=
+          1
+        );
+      }
+
+      // Function to spawn a group of bubbles
+      function spawnBubbleGroup() {
+        const groupSize = Math.floor(getRandom(3, 5)); // 3 or 4 bubbles
+        const baseX = getRandom(50, WIDTH - 50); // Spawn away from edges
+
+        for (let i = 0; i < groupSize; i++) {
+          if (bubbles.length < 8) {
+            // Still respect the max bubble limit
+            bubbles.push(new Bubble(baseX));
+          }
+        }
       }
 
       // ---------------------------------------------
@@ -477,6 +718,35 @@
         // If not in "playing" mode, skip updates
         if (gameState !== "playing") return;
         if (isGameOver) return;
+
+        // Update bubbles
+        for (const bubble of bubbles) {
+          bubble.update(deltaTime);
+        }
+
+        // Update water trails
+        for (let i = waterTrails.length - 1; i >= 0; i--) {
+          const trail = waterTrails[i];
+          trail.update(deltaTime);
+          if (trail.life <= 0) {
+            waterTrails.splice(i, 1);
+          }
+        }
+
+        // Create water trails for player
+        if (player) {
+          player.createWaterTrail();
+        }
+
+        // Create water trails for enemies
+        for (const fish of fishList) {
+          fish.createWaterTrail();
+        }
+
+        // Spawn new bubble groups occasionally
+        if (Math.random() < 0.002 * deltaTime * 60 && bubbles.length < 5) {
+          spawnBubbleGroup();
+        }
 
         // Movement controls
         const accel = player.acceleration * deltaTime * 60;
@@ -538,6 +808,9 @@
               player.width = null;
               player.height = null;
 
+              // Play eat sound
+              playEatSound();
+
               fishList.splice(i, 1);
             } else {
               // Game over
@@ -552,7 +825,7 @@
         }
 
         // Spawn fish with same probability logic, scaled by deltaTime
-        if (Math.random() < 0.03 * deltaTime * 60 && fishList.length < 20) {
+        if (Math.random() < 0.03 * deltaTime * 60 && fishList.length < 30) {
           spawnFish();
         }
       }
@@ -563,14 +836,56 @@
       function renderGame() {
         ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
+        // Draw bubbles first (behind everything)
+        for (const bubble of bubbles) {
+          bubble.draw(ctx);
+        }
+
+        // Draw water trails
+        for (const trail of waterTrails) {
+          trail.draw(ctx);
+        }
+
         // Draw the player
         if (player) {
           player.draw(ctx);
+          /* Comment out player collision box
+          const playerBounds = player.getBounds();
+          ctx.beginPath();
+          ctx.ellipse(
+            playerBounds.centerX,
+            playerBounds.centerY,
+            playerBounds.radiusX,
+            playerBounds.radiusY,
+            0,
+            0,
+            Math.PI * 2
+          );
+          ctx.strokeStyle = "#00ff0088";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          */
         }
 
         // Draw enemies
         for (const fish of fishList) {
           fish.draw(ctx);
+          /* Comment out enemy collision boxes
+          const fishBounds = fish.getBounds();
+          ctx.beginPath();
+          ctx.ellipse(
+            fishBounds.centerX,
+            fishBounds.centerY,
+            fishBounds.radiusX,
+            fishBounds.radiusY,
+            0,
+            0,
+            Math.PI * 2
+          );
+          ctx.strokeStyle = "#ff000088";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          */
         }
 
         // Draw score with Londrina Solid
@@ -586,8 +901,6 @@
           ctx.lineWidth = 2;
           ctx.stroke();
         }
-
-        // REMOVED the old "GAME OVER!" text block that was drawn here.
       }
 
       // ---------------------------------------------
@@ -613,12 +926,20 @@
         score = 0;
         isGameOver = false;
         fishList = [];
+        bubbles = [];
+        waterTrails = [];
         player = new Fish(WIDTH / 2, HEIGHT / 2, 0, 0, playerImg, 25, true);
+
+        // Initialize audio immediately
+        initAudio();
 
         // Spawn a few fish initially
         for (let i = 0; i < 3; i++) {
           spawnFish();
         }
+
+        // Spawn an initial bubble group
+        spawnBubbleGroup();
       }
 
       // ---------------------------------------------
@@ -707,7 +1028,30 @@
         ),
       ]).then(() => {
         resizeCanvas();
-        showStartScreen(); // show the start screen
+        showStartScreen();
+
+        // Initialize audio (but don't start playing yet)
+        initAudio();
+
+        // Add sound button event listener
+        document.getElementById("soundBtn").onclick = toggleSound;
+
+        // Add click event to start screen to start audio
+        document
+          .getElementById("startScreen")
+          .addEventListener("click", function firstInteraction() {
+            startAudio();
+            // Remove the event listener after first interaction
+            this.removeEventListener("click", firstInteraction);
+          });
+
+        // Also try to start on any mouse movement
+        document.addEventListener("mousemove", function firstInteraction() {
+          startAudio();
+          // Remove the event listener after first interaction
+          document.removeEventListener("mousemove", firstInteraction);
+        });
+
         requestAnimationFrame(gameLoop);
       });
     </script>
