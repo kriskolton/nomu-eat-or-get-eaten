@@ -138,7 +138,7 @@ function setupBotCommands() {
 
     const keyboard = {
       inline_keyboard: [
-        [{ text: "🎮 Play Game", url: process.env.GAME_URL }],
+        // [{ text: "🎮 Play Game", url: process.env.GAME_URL }],
         [{ text: "🏆 View High Scores", callback_data: "highscores" }],
         [{ text: "📊 My Stats", callback_data: "mystats" }],
       ],
@@ -153,20 +153,20 @@ function setupBotCommands() {
     );
   });
 
-  bot.onText(/\/play/, async (msg) => {
-    const chatId = msg.chat.id;
+  // bot.onText(/\/play/, async (msg) => {
+  //   const chatId = msg.chat.id;
 
-    const keyboard = {
-      inline_keyboard: [[{ text: "🎮 Play Now", url: process.env.GAME_URL }]],
-    };
+  //   const keyboard = {
+  //     inline_keyboard: [[{ text: "🎮 Play Now", url: process.env.GAME_URL }]],
+  //   };
 
-    await bot.sendMessage(
-      chatId,
-      "Ready to play Fish Eater Surf? 🐟\n\n" +
-        "Click the button below to start the game!",
-      { reply_markup: keyboard }
-    );
-  });
+  //   await bot.sendMessage(
+  //     chatId,
+  //     "Ready to play Fish Eater Surf? 🐟\n\n" +
+  //       "Click the button below to start the game!",
+  //     { reply_markup: keyboard }
+  //   );
+  // });
 
   // Handle callback queries from inline keyboard
   bot.on("callback_query", async (callbackQuery) => {

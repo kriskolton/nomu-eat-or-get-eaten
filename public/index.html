@@ -6,12 +6,16 @@
       name="viewport"
       content="width=device-width, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Nomu Fishy - With Start & Replay</title>
+    <title>Nomu: Eat or Get Eaten</title>
 
     <!-- Load Londrina Solid from Google Fonts -->
     <link
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Londrina+Solid&display=swap"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
     />
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -72,8 +76,17 @@
       }
       .overlay button {
         font-size: 18px;
+        font-weight: bold;
+        color: #fff;
         padding: 8px 16px;
         cursor: pointer;
+        border-radius: 40px;
+        background-color: #f78719;
+        font-family: "Londrina Solid", sans-serif;
+      }
+      p {
+        font-family: "Poppins", sans-serif;
+        font-size: 14px;
       }
     </style>
   </head>
@@ -81,9 +94,30 @@
     <canvas id="gameCanvas"></canvas>
 
     <!-- Start Screen Overlay -->
-    <div id="startScreen" class="overlay">
-      <h1>Nomu Fishy</h1>
-      <div id="telegramStatus" style="color: white; margin: 10px"></div>
+    <div id="startScreen" class="overlay" style="text-align: center">
+      <img
+        src="img/title.png"
+        alt="Eat or Get Eaten"
+        style="max-width: 90%; height: auto; padding: 12px"
+      />
+      <div
+        id="telegramStatus"
+        style="
+          color: white;
+          font-family: 'Poppins', sans-serif;
+          max-width: 90%;
+          margin-bottom: 24px;
+        "
+      ></div>
+      <p style="font-size: 24px; font-weight: bold; letter-spacing: 1px">
+        Rules
+      </p>
+      <p>
+        Use the touch screen or arrow keys (↑→↓←) to control Nomu. Eat the
+        smaller fish to grow. Don't let the bigger fish eat you!
+      </p>
+      <p>The larger the fish the more points you get.</p>
+      <p>You high score is <span id="highScore">0</span>.</p>
       <button id="startBtn">Start Game</button>
     </div>
 
@@ -134,7 +168,7 @@
         statusDiv.style.color = "lightgreen";
       } else {
         statusDiv.textContent =
-          "⚠️ Not connected to Telegram - Please access through Telegram bot";
+          "⚠️ Not tracking scores - Please access via Telegram bot";
         statusDiv.style.color = "red";
       }
 
@@ -183,6 +217,9 @@
       // Canvas setup
       const canvas = document.getElementById("gameCanvas");
       const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high"; // options: "low", "medium", "high"
+
       let WIDTH = 800; // nominal design width
       let HEIGHT = 600; // nominal design height
 
