@@ -27,6 +27,9 @@
     <audio id="gameOverSound">
       <source src="sounds/gameover.mp3" type="audio/mpeg" />
     </audio>
+    <audio id="powerUpSound">
+      <source src="sounds/powerup.mp3" type="audio/mpeg" />
+    </audio>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
@@ -276,7 +279,11 @@
 
       // [NEW] Load crab image
       const crabImg = new Image();
-      crabImg.src = "img/crab.png"; // Add your own crab sprite
+      crabImg.src = "img/crab.png";
+
+      // [NEW] Load jellyfish image
+      const jellyfishImg = new Image();
+      jellyfishImg.src = "img/jellyfish.png"; // Provide your own jellyfish sprite here
 
       // Game variables
       let fishList = [];
@@ -289,6 +296,7 @@
       let backgroundMusic;
       let eatSound;
       let gameOverSound;
+      let powerUpSound;
       let isSoundEnabled = true;
       let explosion = null;
 
@@ -302,9 +310,11 @@
         backgroundMusic = document.getElementById("backgroundMusic");
         eatSound = document.getElementById("eatSound");
         gameOverSound = document.getElementById("gameOverSound");
-        backgroundMusic.volume = 0.3;
-        eatSound.volume = 0.5;
-        gameOverSound.volume = 0.5;
+        powerUpSound = document.getElementById("powerUpSound");
+        backgroundMusic.volume = 0.05;
+        eatSound.volume = 0.3;
+        gameOverSound.volume = 0.3;
+        powerUpSound.volume = 0.3;
       }
 
       function startAudio() {
@@ -353,6 +363,16 @@
           gameOverSound.play();
         } catch (error) {
           console.log("Game over sound playback failed:", error);
+        }
+      }
+
+      function playPowerUpSound() {
+        if (!isSoundEnabled) return;
+        powerUpSound.currentTime = 0;
+        try {
+          powerUpSound.play();
+        } catch (error) {
+          console.log("Power-up sound playback failed:", error);
         }
       }
 
@@ -437,7 +457,8 @@
           this.lastTrailTime = 0;
           this.isFast = false;
           this.isUltraFast = false;
-          this.isCrab = false; // (unused for normal Fish, used for Crab)
+          this.isCrab = false;
+          this.isJellyfish = false;
 
           if (!isPlayer) {
             this.oscillationSpeed = getRandom(0.005, 0.01);
@@ -592,12 +613,15 @@
                 performance.now() * this.oscillationSpeed +
                   this.oscillationOffset
               ) * this.oscillationAmount;
-            if (Math.abs(this.speedX) < this.maxSpeed) {
-              this.speedX +=
-                this.acceleration * Math.sign(this.speedX) * deltaFrames;
+            if (!this.isJellyfish && !this.isCrab) {
+              // Only fish use X for direction
+              if (Math.abs(this.speedX) < this.maxSpeed) {
+                this.speedX +=
+                  this.acceleration * Math.sign(this.speedX) * deltaFrames;
+              }
+              this.x += this.speedX * deltaFrames;
+              this.y += oscillation * deltaFrames;
             }
-            this.x += this.speedX * deltaFrames;
-            this.y += oscillation * deltaFrames;
           }
         }
 
@@ -638,55 +662,91 @@
         constructor(x, y, size) {
           super(x, y, 0, 0, crabImg, size, false);
           this.isCrab = true;
-          // We'll track how long the crab has existed
+          this.hasEnteredScreen = false;
           this.timeAlive = 0;
         }
 
         update(deltaTime, player) {
           const deltaFrames = deltaTime * 60;
+
+          // Entry phase: Move upwards until fully on screen
+          if (!this.hasEnteredScreen) {
+            this.y -= 2 * deltaFrames; // move upward
+            if (this.y + this.height <= HEIGHT) {
+              this.hasEnteredScreen = true;
+            }
+            return;
+          }
+
           this.timeAlive += deltaTime;
 
-          // If the crab has existed for more than 15 seconds, it explodes
-          // We'll mark the crab for removal and spawn an explosion
+          // Explode after time limit
           if (this.timeAlive > 15) {
             spawnExplosion(this);
-            // We'll set this size to 0 so we can remove it in the main loop
             this.maxSide = 0;
             return;
           }
 
-          // We need to chase or run away from the player.
-          // Compare bounding circle sizes
           const crabRadius = this.getBounds().radiusX;
           const playerRadius = player.getBounds().radiusX;
 
-          // Direction vector from crab to player
           const dx = player.x - this.x;
           const dy = player.y - this.y;
           const dist = Math.sqrt(dx * dx + dy * dy) || 1;
 
-          // We pick a speed factor
-          let speedFactor = 1.5; // base
+          let speedFactor = 1.5;
           if (crabRadius > playerRadius) {
-            // If crab is bigger, chase the player
+            // Move toward player
             this.x += (dx / dist) * (speedFactor * deltaFrames);
             this.y += (dy / dist) * (speedFactor * deltaFrames);
           } else {
-            // If crab is smaller, run away from the player
+            // Move away from player
             this.x -= (dx / dist) * (speedFactor * deltaFrames);
             this.y -= (dy / dist) * (speedFactor * deltaFrames);
           }
 
-          // Keep the crab within the screen bounds
+          // Stay in bounds
           if (this.width && this.height) {
             if (this.x < 0) this.x = 0;
             if (this.y < 0) this.y = 0;
-            if (this.x + this.width > WIDTH) {
-              this.x = WIDTH - this.width;
-            }
-            if (this.y + this.height > HEIGHT) {
-              this.y = HEIGHT - this.height;
-            }
+            if (this.x + this.width > WIDTH) this.x = WIDTH - this.width;
+            if (this.y + this.height > HEIGHT) this.y = HEIGHT - this.height;
+          }
+        }
+      }
+
+      // [NEW] Jellyfish class
+      class Jellyfish extends Fish {
+        constructor(x, y, size) {
+          // Start with speedY = -something so it moves upward
+          super(x, y, 0, -1.2, jellyfishImg, size, false);
+          this.isJellyfish = true;
+
+          // Horizontal oscillation specifics
+          this.oscSpeed = getRandom(0.0008, 0.0015); // speed of the wave
+          this.oscAmplitude = getRandom(10, 15); // amplitude in px
+          this.oscOffset = Math.random() * Math.PI * 2;
+          this.baseX = x;
+
+          // Adjust vertical speed a bit
+          this.verticalSpeed = getRandom(0.5, 1.2);
+        }
+
+        update(deltaTime) {
+          const deltaFrames = deltaTime * 60;
+
+          // Move upward
+          this.y -= this.verticalSpeed * deltaFrames;
+
+          // Horizontal oscillation
+          const oscValue =
+            Math.sin(performance.now() * this.oscSpeed + this.oscOffset) *
+            this.oscAmplitude;
+          this.x = this.baseX + oscValue;
+
+          // Remove if it goes above the screen
+          if (this.y + (this.height || 0) < -50) {
+            this.maxSide = 0;
           }
         }
       }
@@ -783,8 +843,6 @@
             fish.y + fish.height / 2,
             fish.maxSide
           );
-          // We allow only one main explosion at a time in this code
-          // If you want multiple parallel explosions, store them in an array
           explosion = e;
         }
       }
@@ -816,12 +874,20 @@
 
       // [NEW] spawnCrab
       function spawnCrab() {
-        // Crab size can be from 50 to 120, adjust to taste
         const size = getRandom(50, 120);
-        const x = Math.random() < 0.5 ? -size : WIDTH;
-        const y = getRandom(0, HEIGHT - size);
+        const x = getRandom(0, WIDTH - size); // random horizontal position
+        const y = HEIGHT + size; // spawn below the screen
         const crab = new Crab(x, y, size);
         fishList.push(crab);
+      }
+
+      // [NEW] spawnJellyfish
+      function spawnJellyfish() {
+        const size = getRandom(30, 120);
+        const x = getRandom(0, WIDTH - size);
+        const y = HEIGHT + size; // Start below screen
+        const jelly = new Jellyfish(x, y, size);
+        fishList.push(jelly);
       }
 
       function spawnBubbleGroup() {
@@ -842,7 +908,6 @@
           if (explosion.isComplete) {
             explosion = null;
             if (isGameOver) {
-              // If gameOver triggered an explosion, show game-over screen
               showGameOverScreen(score);
             }
           }
@@ -921,27 +986,35 @@
         for (let i = fishList.length - 1; i >= 0; i--) {
           const enemy = fishList[i];
 
-          // If it's a crab, pass the player to the update logic
+          // If it's a crab, it needs to track the player
           if (enemy.isCrab) {
             enemy.update(deltaTime, player);
-            // If the crab has exploded, enemy.maxSide is 0 => remove it
+            // If the crab has exploded or is done => remove
             if (enemy.maxSide <= 0) {
               fishList.splice(i, 1);
               continue;
             }
-          } else {
-            enemy.update(deltaTime);
           }
-
-          // Remove if off-screen (for fish that wander too far)
-          const bounds = enemy.getBounds();
-          if (
-            !enemy.isCrab && // crabs handle their own bounding
-            (bounds.centerX + bounds.radiusX < -200 ||
-              bounds.centerX - bounds.radiusX > WIDTH + 200)
-          ) {
-            fishList.splice(i, 1);
-            continue;
+          // If it's a Jellyfish
+          else if (enemy.isJellyfish) {
+            enemy.update(deltaTime);
+            if (enemy.maxSide <= 0) {
+              fishList.splice(i, 1);
+              continue;
+            }
+          }
+          // Otherwise it's a normal fish
+          else {
+            enemy.update(deltaTime);
+            // Remove if off-screen
+            const bounds = enemy.getBounds();
+            if (
+              bounds.centerX + bounds.radiusX < -200 ||
+              bounds.centerX - bounds.radiusX > WIDTH + 200
+            ) {
+              fishList.splice(i, 1);
+              continue;
+            }
           }
 
           // Collision check with player
@@ -958,15 +1031,15 @@
               if (enemy.isUltraFast) {
                 playerPowerUpTime = POWER_UP_DURATION;
                 playerIsPoweredUp = true;
+                playPowerUpSound();
               }
-
-              // If it's a crab, remove from fishList
               fishList.splice(i, 1);
             } else {
-              // Check bounding sizes to see who eats who
+              // Check bounding sizes to see who eats whom
               if (
                 player.getBounds().radiusX > enemy.getBounds().radiusX &&
-                !enemy.isCrab
+                !enemy.isCrab &&
+                !enemy.isJellyfish
               ) {
                 // Player eats smaller fish
                 score += calculateFishScore(enemy.maxSide);
@@ -977,18 +1050,18 @@
                 player.width = null;
                 player.height = null;
                 playEatSound();
-                // If it's ultra-fast fish
+
                 if (enemy.isUltraFast) {
                   playerPowerUpTime = POWER_UP_DURATION;
                   playerIsPoweredUp = true;
+                  playPowerUpSound();
                 }
                 fishList.splice(i, 1);
               } else if (
-                // If the crab is smaller, same logic
+                // Player can also eat smaller Crab/Jellyfish
                 player.getBounds().radiusX > enemy.getBounds().radiusX &&
-                enemy.isCrab
+                (enemy.isCrab || enemy.isJellyfish)
               ) {
-                // Player eats smaller crab
                 score += calculateFishScore(enemy.maxSide);
                 player.maxSide += Math.min(
                   Math.sqrt(enemy.maxSide) * 0.05,
@@ -1021,9 +1094,13 @@
         if (Math.random() < 0.03 * deltaTime * 60 && fishList.length < 30) {
           spawnFish();
         }
-        // [NEW] Occasionally spawn a crab (1% chance per frame)
-        if (Math.random() < 0.0001 * deltaTime * 60 && fishList.length < 30) {
+        // Occasionally spawn a crab
+        if (Math.random() < 0.00005 * deltaTime * 60 && fishList.length < 30) {
           spawnCrab();
+        }
+        // [NEW] Occasionally spawn a jellyfish
+        if (Math.random() < 0.0001 * deltaTime * 60 && fishList.length < 30) {
+          spawnJellyfish();
         }
       }
 
@@ -1059,7 +1136,7 @@
           player.draw(ctx);
         }
 
-        // Enemies (fish + crabs)
+        // Enemies (fish + crabs + jellyfish)
         for (const fish of fishList) {
           fish.draw(ctx);
         }
@@ -1190,6 +1267,7 @@
           ({ image }) => new Promise((resolve) => (image.onload = resolve))
         ),
         new Promise((resolve) => (crabImg.onload = resolve)),
+        new Promise((resolve) => (jellyfishImg.onload = resolve)),
       ]).then(() => {
         resizeCanvas();
         showStartScreen();
