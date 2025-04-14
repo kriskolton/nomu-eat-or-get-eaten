@@ -8,7 +8,6 @@
     />
     <title>Nomu: Eat or Get Eaten</title>
 
-    <!-- Load Londrina Solid from Google Fonts -->
     <link
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Londrina+Solid&display=swap"
@@ -18,7 +17,7 @@
       rel="stylesheet"
     />
 
-    <!-- Add audio elements -->
+    <!-- Audio -->
     <audio id="backgroundMusic" loop>
       <source src="sounds/background.mp3" type="audio/mpeg" />
     </audio>
@@ -31,50 +30,62 @@
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-      /* Apply Londrina Solid globally (you can also specify body, .overlay, etc.) */
+      /* 1) Zero out everything */
       html,
       body {
         margin: 0;
         padding: 0;
+        width: 100%;
         height: 100%;
-        font-family: "Londrina Solid", sans-serif; /* Use our new font */
+        font-family: "Londrina Solid", sans-serif;
       }
 
+      /* 2) Body becomes our background and a flex container
+            to center the #gameWrapper "phone area" */
       body {
-        background: #222 url("img/bg.jpg") center center no-repeat;
-        background-size: cover;
+        background: #222;
         overflow: hidden;
-        user-select: none;
-        width: 100vw;
-        height: 100vh;
         display: flex;
         justify-content: center;
         align-items: center;
-        position: relative; /* allows overlays to be "position: absolute" */
       }
 
-      /* Game canvas */
+      /* 3) The wrapper that enforces a phone-like shape */
+      #gameWrapper {
+        width: 100%;
+        height: 100%;
+        aspect-ratio: 9 / 16;
+        max-width: 550px;
+        max-height: 978px;
+
+        position: relative;
+        overflow: hidden;
+        background: #222 url("img/bg.jpg") center center no-repeat;
+        background-size: cover;
+      }
+
+      /* 4) The canvas now simply fills the wrapper */
       #gameCanvas {
         display: block;
+        width: 100%;
+        height: 100%;
         background: transparent;
         touch-action: none;
-        max-width: 100%;
-        max-height: 100%;
       }
 
-      /* Overlays (start screen & game over) */
+      /* 5) Overlays must be absolutely positioned inside #gameWrapper */
       .overlay {
         position: absolute;
         top: 0;
         left: 0;
-        width: 100%;
-        height: 100%;
+        right: 0;
+        bottom: 0;
         background: rgba(0, 0, 0, 0.5);
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        z-index: 9999; /* on top of the canvas */
+        z-index: 9999;
       }
       .hidden {
         display: none;
@@ -102,47 +113,48 @@
     </style>
   </head>
   <body>
-    <canvas id="gameCanvas"></canvas>
+    <div id="gameWrapper">
+      <canvas id="gameCanvas"></canvas>
 
-    <!-- Start Screen Overlay -->
-    <div id="startScreen" class="overlay" style="text-align: center">
-      <img
-        src="img/title.png"
-        alt="Eat or Get Eaten"
-        style="max-width: 90%; height: auto; padding: 12px"
-      />
-      <div
-        id="telegramStatus"
-        style="
-          color: white;
-          font-family: 'Poppins', sans-serif;
-          max-width: 90%;
-          margin-bottom: 24px;
-        "
-      ></div>
-      <p style="font-size: 24px; font-weight: bold; letter-spacing: 1px">
-        Rules
-      </p>
-      <p>
-        Use the touch screen or arrow keys (↑→↓←) to control Nomu. Eat the
-        smaller fish to grow. Don't let the bigger fish eat you!
-      </p>
-      <p>The larger the fish the more points you get.</p>
-      <p>You high score is <span id="highScore">0</span>.</p>
-      <button id="startBtn">Start Game</button>
-      <button id="soundBtn" style="margin-top: 12px">🔊 Sound On</button>
-    </div>
+      <!-- Start Screen Overlay -->
+      <div id="startScreen" class="overlay">
+        <img
+          src="img/title.png"
+          alt="Eat or Get Eaten"
+          style="max-width: 90%; height: auto; padding: 12px"
+        />
+        <div
+          id="telegramStatus"
+          style="
+            color: white;
+            font-family: 'Poppins', sans-serif;
+            max-width: 90%;
+            margin-bottom: 24px;
+          "
+        ></div>
+        <p style="font-size: 24px; font-weight: bold; letter-spacing: 1px">
+          Rules
+        </p>
+        <p>
+          Use the touch screen or arrow keys (↑→↓←) to control Nomu. Eat the
+          smaller fish to grow. Don't let the bigger fish eat you!
+        </p>
+        <p>The larger the fish the more points you get.</p>
+        <p>Your high score is <span id="highScore">0</span>.</p>
+        <button id="startBtn">Start Game</button>
+        <button id="soundBtn" style="margin-top: 12px">🔊 Sound On</button>
+      </div>
 
-    <!-- Game Over Overlay -->
-    <div id="gameOverScreen" class="overlay hidden">
-      <h1>GAME OVER!</h1>
-      <p id="finalScore"></p>
-      <button id="playAgainBtn">Play Again</button>
+      <!-- Game Over Overlay -->
+      <div id="gameOverScreen" class="overlay hidden">
+        <h1>GAME OVER!</h1>
+        <p id="finalScore"></p>
+        <button id="playAgainBtn">Play Again</button>
+      </div>
     </div>
+    <!-- end #gameWrapper -->
 
     <script>
-      console.log("Script started executing");
-
       // Initialize Telegram Web App
       let tg;
       let userData;
@@ -150,28 +162,13 @@
 
       try {
         tg = window.Telegram.WebApp;
-        console.log("Telegram WebApp object:", tg);
-
-        if (!tg) {
-          throw new Error("Telegram WebApp object not found");
-        }
-
         userData = tg.initDataUnsafe?.user;
-        console.log("Telegram user data:", userData);
-
-        if (!userData) {
-          throw new Error("No user data available");
-        }
-
-        userId = userData.id;
-        console.log("Telegram user ID:", userId);
-
-        tg.expand(); // Expand the web app to full screen
+        userId = userData?.id;
+        tg.expand();
       } catch (error) {
         console.error("Telegram initialization error:", error);
       }
 
-      // Update status display
       const statusDiv = document.getElementById("telegramStatus");
       if (userId) {
         statusDiv.textContent = `Telegram connected ✓ (User: ${
@@ -184,39 +181,21 @@
         statusDiv.style.color = "red";
       }
 
-      // For sending score to your API
       async function sendScoreToAPI(score) {
-        if (!userId) {
-          console.error("Cannot send score: No Telegram user ID available");
-          return;
-        }
-        console.log("Attempting to send score:", {
-          userId,
-          username: userData?.username || userData?.first_name || "Anonymous",
-          score,
-        });
+        if (!userId) return;
         try {
           const response = await fetch("/api/scores", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              userId: userId,
+              userId,
               username:
                 userData?.username || userData?.first_name || "Anonymous",
-              score: score,
+              score,
             }),
           });
-
           if (!response.ok) {
             const errorText = await response.text();
-            console.error(
-              "Failed to send score. Status:",
-              response.status,
-              "Error:",
-              errorText
-            );
             throw new Error(`Failed to send score: ${errorText}`);
           }
           const result = await response.json();
@@ -230,14 +209,15 @@
       const canvas = document.getElementById("gameCanvas");
       const ctx = canvas.getContext("2d");
       ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high"; // options: "low", "medium", "high"
+      ctx.imageSmoothingQuality = "high";
 
-      let WIDTH = 800; // nominal design width
-      let HEIGHT = 600; // nominal design height
+      let WIDTH = 800;
+      let HEIGHT = 600;
 
       function resizeCanvas() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        const wrapper = document.getElementById("gameWrapper");
+        canvas.width = wrapper.clientWidth;
+        canvas.height = wrapper.clientHeight;
         WIDTH = canvas.width;
         HEIGHT = canvas.height;
       }
@@ -259,14 +239,12 @@
       function showGameOverScreen(score) {
         finalScoreElem.textContent = `Your Score: ${score}`;
         gameOverScreen.classList.remove("hidden");
-        // Play game over sound when the screen appears
         playGameOverSound();
       }
       function hideGameOverScreen() {
         gameOverScreen.classList.add("hidden");
       }
 
-      // Game states
       let gameState = "start";
       let isGameOver = false;
 
@@ -296,6 +274,10 @@
       const playerImg = new Image();
       playerImg.src = "img/player_fish.png";
 
+      // [NEW] Load crab image
+      const crabImg = new Image();
+      crabImg.src = "img/crab.png"; // Add your own crab sprite
+
       // Game variables
       let fishList = [];
       let score = 0;
@@ -308,21 +290,23 @@
       let eatSound;
       let gameOverSound;
       let isSoundEnabled = true;
-      let explosion = null; // Explosion for player death effect
+      let explosion = null;
+
+      // Player power-up variables
+      let playerPowerUpTime = 0;
+      const POWER_UP_DURATION = 10;
+      let playerIsPoweredUp = false;
 
       // Initialize audio
       function initAudio() {
         backgroundMusic = document.getElementById("backgroundMusic");
         eatSound = document.getElementById("eatSound");
         gameOverSound = document.getElementById("gameOverSound");
-
-        // Set volume levels
         backgroundMusic.volume = 0.3;
         eatSound.volume = 0.5;
         gameOverSound.volume = 0.5;
       }
 
-      // Start audio playback
       function startAudio() {
         if (backgroundMusic && isSoundEnabled) {
           try {
@@ -333,7 +317,6 @@
         }
       }
 
-      // Toggle sound
       function toggleSound() {
         isSoundEnabled = !isSoundEnabled;
         if (backgroundMusic) {
@@ -349,16 +332,10 @@
             gameOverSound.volume = 0;
           }
         }
-        // Update button text
         const soundBtn = document.getElementById("soundBtn");
-        if (soundBtn) {
-          soundBtn.textContent = isSoundEnabled
-            ? "🔊 Sound On"
-            : "🔈 Sound Off";
-        }
+        soundBtn.textContent = isSoundEnabled ? "🔊 Sound On" : "🔈 Sound Off";
       }
 
-      // Play eat sound
       function playEatSound() {
         if (!isSoundEnabled) return;
         eatSound.currentTime = 0;
@@ -369,7 +346,6 @@
         }
       }
 
-      // Play game over sound
       function playGameOverSound() {
         if (!isSoundEnabled) return;
         gameOverSound.currentTime = 0;
@@ -380,7 +356,6 @@
         }
       }
 
-      // Utility
       function getRandom(min, max) {
         return Math.random() * (max - min) + min;
       }
@@ -391,17 +366,13 @@
         const totalWeight = fishTypes.reduce((sum, ft) => sum + ft.weight, 0);
         let randomVal = Math.random() * totalWeight;
         for (const ft of fishTypes) {
-          if (randomVal < ft.weight) {
-            return ft;
-          }
+          if (randomVal < ft.weight) return ft;
           randomVal -= ft.weight;
         }
         return fishTypes[fishTypes.length - 1];
       }
 
-      // ---------------------------------------------
-      // WaterTrail class for movement effects
-      // ---------------------------------------------
+      // WaterTrail
       class WaterTrail {
         constructor(x, y, direction, fishSize, isUltraFast = false) {
           this.x = x;
@@ -415,7 +386,6 @@
           this.offsetX = getRandom(-offsetScale, offsetScale);
           this.offsetY = getRandom(-offsetScale, offsetScale);
           this.isUltraFast = isUltraFast;
-          // Add neon color cycling for ultra-fast trails
           this.hue = Math.random() * 360;
           this.hueSpeed = getRandom(2, 4);
         }
@@ -441,7 +411,6 @@
           );
 
           if (this.isUltraFast) {
-            // Neon effect for ultra-fast trails
             ctx.fillStyle = `hsla(${this.hue}, 100%, 50%, ${this.life * 0.3})`;
             ctx.shadowBlur = 10;
             ctx.shadowColor = `hsla(${this.hue}, 100%, 50%, ${
@@ -455,9 +424,7 @@
         }
       }
 
-      // ---------------------------------------------
       // Fish class
-      // ---------------------------------------------
       class Fish {
         constructor(x, y, speedX, speedY, sprite, maxSide, isPlayer = false) {
           this.x = x;
@@ -469,24 +436,21 @@
           this.isPlayer = isPlayer;
           this.lastTrailTime = 0;
           this.isFast = false;
-          this.isUltraFast = false; // Add ultra-fast flag
+          this.isUltraFast = false;
+          this.isCrab = false; // (unused for normal Fish, used for Crab)
 
-          // Add oscillation properties for enemy fish
           if (!isPlayer) {
             this.oscillationSpeed = getRandom(0.005, 0.01);
             this.oscillationAmount = getRandom(0.05, 0.1);
             this.oscillationOffset = getRandom(0, Math.PI * 2);
-          }
-
-          if (isPlayer) {
+            this.acceleration = 0.05;
+            this.maxSpeed = Math.abs(speedX) * 1.2;
+          } else {
             this.velocityX = 0;
             this.velocityY = 0;
             this.acceleration = 0.055;
             this.friction = 0.99;
             this.maxSpeed = 10;
-          } else {
-            this.acceleration = 0.05;
-            this.maxSpeed = Math.abs(speedX) * 1.2;
           }
 
           this.width = null;
@@ -520,12 +484,16 @@
             ? this.velocityX < 0
             : this.speedX < 0;
 
+          // Apply color-shift if needed (fast / ultra-fast / powered up)
+          const applyUltraFastFilter =
+            this.isUltraFast || (this.isPlayer && playerIsPoweredUp);
+
+          // Flip if moving left
           if (isMovingLeft) {
             ctx.save();
             ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
             ctx.scale(-1, 1);
-            // Add special effects for ultra-fast fish
-            if (this.isUltraFast) {
+            if (applyUltraFastFilter) {
               ctx.filter = "hue-rotate(180deg) brightness(1.5) saturate(2)";
             } else if (this.isFast) {
               ctx.filter = "hue-rotate(45deg) brightness(1.2)";
@@ -539,7 +507,7 @@
             );
             ctx.restore();
           } else {
-            if (this.isUltraFast) {
+            if (applyUltraFastFilter) {
               ctx.save();
               ctx.filter = "hue-rotate(180deg) brightness(1.5) saturate(2)";
               ctx.drawImage(
@@ -577,39 +545,28 @@
           const collisionScale = 0.6;
           const radiusX = ((this.width || 0) * collisionScale) / 2;
           const radiusY = ((this.height || 0) * collisionScale) / 2;
-
           let centerX = this.x + (this.width || 0) / 2;
           let centerY = this.y + (this.height || 0) / 2;
-
-          // Shift center forward in direction of movement
+          const shiftAmount = (this.width || 0) * 0.07;
           const isMovingLeft = this.isPlayer
             ? this.velocityX < 0
             : this.speedX < 0;
-          const shiftAmount = (this.width || 0) * 0.07;
-
-          if (isMovingLeft) {
-            centerX -= shiftAmount;
-          } else {
-            centerX += shiftAmount;
-          }
-
+          if (isMovingLeft) centerX -= shiftAmount;
+          else centerX += shiftAmount;
           return { centerX, centerY, radiusX, radiusY };
         }
 
-        // Update with deltaTime in seconds
+        // Regular fish update
         update(deltaTime) {
-          const deltaFrames = deltaTime * 60; // scale to ~"per-frame" at 60fps
+          const deltaFrames = deltaTime * 60;
           if (this.isPlayer) {
-            // friction
+            // Player movement
             const frictionFactor = Math.pow(this.friction, deltaFrames);
             this.velocityX *= frictionFactor;
             this.velocityY *= frictionFactor;
-
-            // position update
             this.x += this.velocityX * deltaFrames;
             this.y += this.velocityY * deltaFrames;
 
-            // clamp to screen
             if (this.width && this.height) {
               if (this.x < 0) {
                 this.x = 0;
@@ -629,14 +586,12 @@
               }
             }
           } else {
-            // Add horizontal oscillation for enemy fish
+            // Normal enemy fish "wandering" with oscillation
             const oscillation =
               Math.sin(
                 performance.now() * this.oscillationSpeed +
                   this.oscillationOffset
               ) * this.oscillationAmount;
-
-            // accelerate horizontal speed until max
             if (Math.abs(this.speedX) < this.maxSpeed) {
               this.speedX +=
                 this.acceleration * Math.sign(this.speedX) * deltaFrames;
@@ -646,10 +601,8 @@
           }
         }
 
-        // Add method to create water trails
         createWaterTrail() {
           if (!this.width || !this.height) return;
-
           const now = performance.now();
           if (now - this.lastTrailTime < 50) return;
           this.lastTrailTime = now;
@@ -658,16 +611,13 @@
             ? this.velocityX < 0
             : this.speedX < 0;
           const speed = this.isPlayer
-            ? Math.sqrt(
-                this.velocityX * this.velocityX +
-                  this.velocityY * this.velocityY
-              )
+            ? Math.sqrt(this.velocityX ** 2 + this.velocityY ** 2)
             : Math.abs(this.speedX);
 
-          // Only create trails if moving fast enough
           if (speed > 0.5) {
-            // Create more trails for ultra-fast fish
-            const count = this.isUltraFast ? 3 : Math.random() < 0.3 ? 2 : 1;
+            const ultra =
+              this.isUltraFast || (this.isPlayer && playerIsPoweredUp);
+            const count = ultra ? 3 : Math.random() < 0.3 ? 2 : 1;
             for (let i = 0; i < count; i++) {
               waterTrails.push(
                 new WaterTrail(
@@ -675,7 +625,7 @@
                   this.y + this.height * 0.5,
                   isMovingLeft ? 1 : -1,
                   this.maxSide,
-                  this.isUltraFast
+                  ultra
                 )
               );
             }
@@ -683,17 +633,72 @@
         }
       }
 
-      // ---------------------------------------------
-      // Bubble class for decorative bubbles
-      // ---------------------------------------------
+      // [NEW] Crab class
+      class Crab extends Fish {
+        constructor(x, y, size) {
+          super(x, y, 0, 0, crabImg, size, false);
+          this.isCrab = true;
+          // We'll track how long the crab has existed
+          this.timeAlive = 0;
+        }
+
+        update(deltaTime, player) {
+          const deltaFrames = deltaTime * 60;
+          this.timeAlive += deltaTime;
+
+          // If the crab has existed for more than 15 seconds, it explodes
+          // We'll mark the crab for removal and spawn an explosion
+          if (this.timeAlive > 15) {
+            spawnExplosion(this);
+            // We'll set this size to 0 so we can remove it in the main loop
+            this.maxSide = 0;
+            return;
+          }
+
+          // We need to chase or run away from the player.
+          // Compare bounding circle sizes
+          const crabRadius = this.getBounds().radiusX;
+          const playerRadius = player.getBounds().radiusX;
+
+          // Direction vector from crab to player
+          const dx = player.x - this.x;
+          const dy = player.y - this.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+          // We pick a speed factor
+          let speedFactor = 1.5; // base
+          if (crabRadius > playerRadius) {
+            // If crab is bigger, chase the player
+            this.x += (dx / dist) * (speedFactor * deltaFrames);
+            this.y += (dy / dist) * (speedFactor * deltaFrames);
+          } else {
+            // If crab is smaller, run away from the player
+            this.x -= (dx / dist) * (speedFactor * deltaFrames);
+            this.y -= (dy / dist) * (speedFactor * deltaFrames);
+          }
+
+          // Keep the crab within the screen bounds
+          if (this.width && this.height) {
+            if (this.x < 0) this.x = 0;
+            if (this.y < 0) this.y = 0;
+            if (this.x + this.width > WIDTH) {
+              this.x = WIDTH - this.width;
+            }
+            if (this.y + this.height > HEIGHT) {
+              this.y = HEIGHT - this.height;
+            }
+          }
+        }
+      }
+
+      // Bubble
       class Bubble {
         constructor(baseX) {
           this.reset(baseX);
         }
-
         reset(baseX) {
           this.x = baseX + getRandom(-10, 10);
-          this.y = HEIGHT + 20; // Start below screen
+          this.y = HEIGHT + 20;
           this.size = getRandom(3, 8);
           this.speed = getRandom(2, 3.5);
           this.opacity = getRandom(0.2, 0.4);
@@ -701,7 +706,6 @@
           this.wobbleSpeed = getRandom(0.02, 0.05);
           this.wobbleOffset = getRandom(0, Math.PI * 2);
         }
-
         update(deltaTime) {
           this.y -= this.speed * deltaTime * 60;
           this.x +=
@@ -709,13 +713,10 @@
             this.wobbleAmount *
             deltaTime *
             60;
-
-          // Reset if above screen
           if (this.y < -20) {
             this.reset();
           }
         }
-
         draw(ctx) {
           ctx.beginPath();
           ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
@@ -724,9 +725,7 @@
         }
       }
 
-      // ---------------------------------------------
-      // Explosion class for player death effect
-      // ---------------------------------------------
+      // Explosion
       class Explosion {
         constructor(x, y, size) {
           this.x = x;
@@ -737,7 +736,6 @@
           this.fadeSpeed = 0.02;
           this.isComplete = false;
 
-          // Create explosion particles
           const particleCount = Math.floor(size * 0.5);
           for (let i = 0; i < particleCount; i++) {
             const angle = (i / particleCount) * Math.PI * 2;
@@ -753,47 +751,44 @@
             });
           }
         }
-
         update(deltaTime) {
           if (this.isComplete) return;
-
           this.life -= this.fadeSpeed * deltaTime * 60;
-
-          // Update particles
-          for (const particle of this.particles) {
-            particle.x += particle.speedX * deltaTime * 60;
-            particle.y += particle.speedY * deltaTime * 60;
-            particle.life -= particle.fadeSpeed * deltaTime * 60;
+          for (const p of this.particles) {
+            p.x += p.speedX * deltaTime * 60;
+            p.y += p.speedY * deltaTime * 60;
+            p.life -= p.fadeSpeed * deltaTime * 60;
           }
-
           if (this.life <= 0) {
             this.isComplete = true;
           }
         }
-
         draw(ctx) {
           if (this.life <= 0) return;
-
-          for (const particle of this.particles) {
-            if (particle.life <= 0) continue;
-
+          for (const p of this.particles) {
+            if (p.life <= 0) continue;
             ctx.beginPath();
-            ctx.arc(
-              this.x + particle.x,
-              this.y + particle.y,
-              particle.size,
-              0,
-              Math.PI * 2
-            );
-            ctx.fillStyle = `rgba(255, 255, 255, ${particle.life * 0.8})`;
+            ctx.arc(this.x + p.x, this.y + p.y, p.size, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 255, 255, ${p.life * 0.8})`;
             ctx.fill();
           }
         }
       }
 
-      // ---------------------------------------------
-      // Spawn enemy fish
-      // ---------------------------------------------
+      // Helper to create an explosion at a fish's position
+      function spawnExplosion(fish) {
+        if (fish.width && fish.height) {
+          const e = new Explosion(
+            fish.x + fish.width / 2,
+            fish.y + fish.height / 2,
+            fish.maxSide
+          );
+          // We allow only one main explosion at a time in this code
+          // If you want multiple parallel explosions, store them in an array
+          explosion = e;
+        }
+      }
+
       function spawnFish() {
         const chosenType = getRandomWeightedFishType(fishTypes);
         const fishSize = getRandom(chosenType.minSize, chosenType.maxSize);
@@ -806,57 +801,32 @@
         const maxSpeed = 1.5 + 0.3 * sizeFactor;
         let baseSpeed = getRandom(minSpeed, maxSpeed);
 
-        // Determine fish type
-        const isUltraFast = Math.random() < 0.01; // 1% chance for ultra-fast
-        const isFast = !isUltraFast && Math.random() < 0.03; // 3% chance for fast
+        const isUltraFast = Math.random() < 0.01; // 1% chance
+        const isFast = !isUltraFast && Math.random() < 0.03;
 
-        if (isUltraFast) {
-          baseSpeed *= 5;
-        } else if (isFast) {
-          baseSpeed *= 3;
-        }
+        if (isUltraFast) baseSpeed *= 5;
+        else if (isFast) baseSpeed *= 3;
 
         const speedX = fromLeft ? baseSpeed : -baseSpeed;
-
-        const enemy = new Fish(
-          x,
-          y,
-          speedX,
-          0,
-          chosenType.image,
-          fishSize,
-          false
-        );
+        const enemy = new Fish(x, y, speedX, 0, chosenType.image, fishSize);
         enemy.isFast = isFast;
         enemy.isUltraFast = isUltraFast;
         fishList.push(enemy);
       }
 
-      function checkCollisionOval(a, b) {
-        const A = a.getBounds();
-        const B = b.getBounds();
-
-        // Calculate the distance between centers
-        const dx = A.centerX - B.centerX;
-        const dy = A.centerY - B.centerY;
-
-        // Calculate the sum of the radii
-        const sumRadiiX = A.radiusX + B.radiusX;
-        const sumRadiiY = A.radiusY + B.radiusY;
-
-        // Check if the distance is less than the sum of the radii
-        return (
-          (dx * dx) / (sumRadiiX * sumRadiiX) +
-            (dy * dy) / (sumRadiiY * sumRadiiY) <=
-          1
-        );
+      // [NEW] spawnCrab
+      function spawnCrab() {
+        // Crab size can be from 50 to 120, adjust to taste
+        const size = getRandom(50, 120);
+        const x = Math.random() < 0.5 ? -size : WIDTH;
+        const y = getRandom(0, HEIGHT - size);
+        const crab = new Crab(x, y, size);
+        fishList.push(crab);
       }
 
-      // Function to spawn a group of bubbles
       function spawnBubbleGroup() {
-        const groupSize = Math.floor(getRandom(3, 5)); // 3-4 bubbles
+        const groupSize = Math.floor(getRandom(3, 5));
         const baseX = getRandom(50, WIDTH - 50);
-
         for (let i = 0; i < groupSize; i++) {
           if (bubbles.length < 8) {
             bubbles.push(new Bubble(baseX));
@@ -864,48 +834,47 @@
         }
       }
 
-      // ---------------------------------------------
-      // updateGame (with fix to let explosion animate)
-      // ---------------------------------------------
+      // updateGame
       function updateGame(deltaTime) {
-        // Always update the explosion if it exists, even if gameState = "over"
+        // Always update the main explosion
         if (explosion) {
           explosion.update(deltaTime);
           if (explosion.isComplete) {
             explosion = null;
-            showGameOverScreen(score);
-            return; // After explosion completes, show game-over
+            if (isGameOver) {
+              // If gameOver triggered an explosion, show game-over screen
+              showGameOverScreen(score);
+            }
           }
         }
 
-        // If not in "playing" mode, skip the normal gameplay updates
         if (gameState !== "playing") return;
+        if (isGameOver && !explosion) return;
 
-        // If game is over and there's no explosion, skip updates (fallback)
-        if (isGameOver && !explosion) {
-          return;
+        // Update power-up timer
+        if (playerPowerUpTime > 0) {
+          playerPowerUpTime -= deltaTime;
+          if (playerPowerUpTime <= 0) {
+            playerPowerUpTime = 0;
+            playerIsPoweredUp = false;
+          }
         }
 
         // Update bubbles
         for (const bubble of bubbles) {
           bubble.update(deltaTime);
         }
-
         // Update water trails
         for (let i = waterTrails.length - 1; i >= 0; i--) {
           const trail = waterTrails[i];
           trail.update(deltaTime);
-          if (trail.life <= 0) {
-            waterTrails.splice(i, 1);
-          }
+          if (trail.life <= 0) waterTrails.splice(i, 1);
         }
 
-        // Create water trails for player
-        if (player) {
-          player.createWaterTrail();
-        }
+        // Player water trail
+        if (player) player.createWaterTrail();
 
-        // Create water trails for enemies
+        // Enemy water trails
         for (const fish of fishList) {
           fish.createWaterTrail();
         }
@@ -915,7 +884,7 @@
           spawnBubbleGroup();
         }
 
-        // Movement controls
+        // Player movement
         const accel = player.acceleration * deltaTime * 60;
         if (keys.left) player.velocityX -= accel;
         if (keys.right) player.velocityX += accel;
@@ -937,7 +906,7 @@
           }
         }
 
-        // Limit top speed
+        // Limit player speed
         const spd = Math.sqrt(player.velocityX ** 2 + player.velocityY ** 2);
         if (spd > player.maxSpeed) {
           const ratio = player.maxSpeed / spd;
@@ -951,97 +920,160 @@
         // Update enemies
         for (let i = fishList.length - 1; i >= 0; i--) {
           const enemy = fishList[i];
-          enemy.update(deltaTime);
 
-          // Remove if off-screen
+          // If it's a crab, pass the player to the update logic
+          if (enemy.isCrab) {
+            enemy.update(deltaTime, player);
+            // If the crab has exploded, enemy.maxSide is 0 => remove it
+            if (enemy.maxSide <= 0) {
+              fishList.splice(i, 1);
+              continue;
+            }
+          } else {
+            enemy.update(deltaTime);
+          }
+
+          // Remove if off-screen (for fish that wander too far)
           const bounds = enemy.getBounds();
           if (
-            bounds.centerX + bounds.radiusX < -200 ||
-            bounds.centerX - bounds.radiusX > WIDTH + 200
+            !enemy.isCrab && // crabs handle their own bounding
+            (bounds.centerX + bounds.radiusX < -200 ||
+              bounds.centerX - bounds.radiusX > WIDTH + 200)
           ) {
             fishList.splice(i, 1);
             continue;
           }
 
-          // Collision check
+          // Collision check with player
           if (checkCollisionOval(player, enemy)) {
-            // Compare bounding ellipse sizes
-            if (player.getBounds().radiusX > enemy.getBounds().radiusX) {
-              // Player eats smaller fish
+            // If player is powered up, always eats
+            if (playerIsPoweredUp) {
               score += calculateFishScore(enemy.maxSide);
-              const baseGrowth = Math.sqrt(enemy.maxSide) * 0.05;
-              const growthAmount = Math.min(baseGrowth, 1.5);
-              player.maxSide += growthAmount;
+              player.maxSide += Math.min(Math.sqrt(enemy.maxSide) * 0.05, 1.5);
               player.width = null;
               player.height = null;
-
-              // Play eat sound
               playEatSound();
 
+              // If enemy was ultra-fast, refresh the power-up
+              if (enemy.isUltraFast) {
+                playerPowerUpTime = POWER_UP_DURATION;
+                playerIsPoweredUp = true;
+              }
+
+              // If it's a crab, remove from fishList
               fishList.splice(i, 1);
             } else {
-              // Game over
-              console.log("Game Over triggered! Score:", score);
-              isGameOver = true;
-              gameState = "over";
-              sendScoreToAPI(score);
-
-              // Create explosion at player position
-              if (player.width && player.height) {
-                explosion = new Explosion(
-                  player.x + player.width / 2,
-                  player.y + player.height / 2,
-                  player.maxSide
+              // Check bounding sizes to see who eats who
+              if (
+                player.getBounds().radiusX > enemy.getBounds().radiusX &&
+                !enemy.isCrab
+              ) {
+                // Player eats smaller fish
+                score += calculateFishScore(enemy.maxSide);
+                player.maxSide += Math.min(
+                  Math.sqrt(enemy.maxSide) * 0.05,
+                  1.5
                 );
+                player.width = null;
+                player.height = null;
+                playEatSound();
+                // If it's ultra-fast fish
+                if (enemy.isUltraFast) {
+                  playerPowerUpTime = POWER_UP_DURATION;
+                  playerIsPoweredUp = true;
+                }
+                fishList.splice(i, 1);
+              } else if (
+                // If the crab is smaller, same logic
+                player.getBounds().radiusX > enemy.getBounds().radiusX &&
+                enemy.isCrab
+              ) {
+                // Player eats smaller crab
+                score += calculateFishScore(enemy.maxSide);
+                player.maxSide += Math.min(
+                  Math.sqrt(enemy.maxSide) * 0.05,
+                  1.5
+                );
+                player.width = null;
+                player.height = null;
+                playEatSound();
+                fishList.splice(i, 1);
+              } else {
+                // Player is eaten => game over
+                isGameOver = true;
+                gameState = "over";
+                sendScoreToAPI(score);
+                // Spawn explosion at player's position
+                if (player.width && player.height) {
+                  explosion = new Explosion(
+                    player.x + player.width / 2,
+                    player.y + player.height / 2,
+                    player.maxSide
+                  );
+                }
+                return;
               }
-              return;
             }
           }
         }
 
-        // Spawn fish occasionally
+        // Spawn fish
         if (Math.random() < 0.03 * deltaTime * 60 && fishList.length < 30) {
           spawnFish();
         }
+        // [NEW] Occasionally spawn a crab (1% chance per frame)
+        if (Math.random() < 0.0001 * deltaTime * 60 && fishList.length < 30) {
+          spawnCrab();
+        }
       }
 
-      // ---------------------------------------------
+      function checkCollisionOval(a, b) {
+        const A = a.getBounds();
+        const B = b.getBounds();
+        const dx = A.centerX - B.centerX;
+        const dy = A.centerY - B.centerY;
+        const sumRadiiX = A.radiusX + B.radiusX;
+        const sumRadiiY = A.radiusY + B.radiusY;
+        return (
+          (dx * dx) / (sumRadiiX * sumRadiiX) +
+            (dy * dy) / (sumRadiiY * sumRadiiY) <=
+          1
+        );
+      }
+
       // renderGame
-      // ---------------------------------------------
       function renderGame() {
         ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
-        // Draw bubbles first
+        // Bubbles
         for (const bubble of bubbles) {
           bubble.draw(ctx);
         }
-
-        // Draw water trails
+        // Water trails
         for (const trail of waterTrails) {
           trail.draw(ctx);
         }
 
-        // Draw the player if not in explosion
-        if (player && !explosion) {
+        // Draw player (only hide if game over AND explosion is active)
+        if (player && !(isGameOver && explosion)) {
           player.draw(ctx);
         }
 
-        // Draw enemies
+        // Enemies (fish + crabs)
         for (const fish of fishList) {
           fish.draw(ctx);
         }
 
-        // Draw explosion if it exists
+        // Explosion
         if (explosion) {
           explosion.draw(ctx);
         }
 
-        // Score text
         ctx.fillStyle = "#fff";
         ctx.font = "20px Londrina Solid, sans-serif";
         ctx.fillText("Score: " + score, 20, 30);
 
-        // Draw touch indicator
+        // Touch indicator
         if (touchTarget) {
           ctx.beginPath();
           ctx.arc(touchTarget.x, touchTarget.y, 15, 0, Math.PI * 2);
@@ -1051,23 +1083,15 @@
         }
       }
 
-      // ---------------------------------------------
-      // gameLoop with deltaTime
-      // ---------------------------------------------
       let lastTime = 0;
       function gameLoop(timestamp) {
         const deltaTime = (timestamp - lastTime) / 1000;
         lastTime = timestamp;
-
         updateGame(deltaTime);
         renderGame();
-
         requestAnimationFrame(gameLoop);
       }
 
-      // ---------------------------------------------
-      // initGame: reset all main variables
-      // ---------------------------------------------
       function initGame() {
         resizeCanvas();
         score = 0;
@@ -1077,21 +1101,17 @@
         waterTrails = [];
         player = new Fish(WIDTH / 2, HEIGHT / 2, 0, 0, playerImg, 25, true);
 
-        // Initialize audio immediately
-        initAudio();
+        // Reset power-up
+        playerPowerUpTime = 0;
+        playerIsPoweredUp = false;
 
-        // Spawn a few fish initially
+        initAudio();
         for (let i = 0; i < 3; i++) {
           spawnFish();
         }
-
-        // Spawn an initial bubble group
         spawnBubbleGroup();
       }
 
-      // ---------------------------------------------
-      // Start & Replay handling
-      // ---------------------------------------------
       startBtn.onclick = () => {
         hideStartScreen();
         gameState = "playing";
@@ -1103,9 +1123,7 @@
         initGame();
       };
 
-      // ---------------------------------------------------------
-      // Touch & Mouse event handlers
-      // ---------------------------------------------------------
+      // Touch events
       canvas.addEventListener("touchstart", (e) => {
         const touch = e.touches[0];
         if (touch) {
@@ -1130,6 +1148,7 @@
         touchTarget = null;
       });
 
+      // Mouse events
       canvas.addEventListener("mousedown", (e) => {
         const rect = canvas.getBoundingClientRect();
         touchTarget = {
@@ -1150,7 +1169,7 @@
         touchTarget = null;
       });
 
-      // Keyboard events
+      // Keyboard
       window.addEventListener("keydown", (e) => {
         if (e.key === "ArrowLeft" || e.key === "a") keys.left = true;
         if (e.key === "ArrowRight" || e.key === "d") keys.right = true;
@@ -1164,33 +1183,25 @@
         if (e.key === "ArrowDown" || e.key === "s") keys.down = false;
       });
 
-      // ---------------------------------------------------------
-      // Wait for images to load, then start the animation loop.
-      // ---------------------------------------------------------
+      // Preload images & then start the game
       Promise.all([
         new Promise((resolve) => (playerImg.onload = resolve)),
         ...fishTypes.map(
           ({ image }) => new Promise((resolve) => (image.onload = resolve))
         ),
+        new Promise((resolve) => (crabImg.onload = resolve)),
       ]).then(() => {
         resizeCanvas();
         showStartScreen();
-
-        // Initialize audio (but don't start playing yet)
         initAudio();
 
-        // Add sound button event listener
         document.getElementById("soundBtn").onclick = toggleSound;
-
-        // Let the user click anywhere on start screen to unlock audio on mobile
         document
           .getElementById("startScreen")
           .addEventListener("click", function firstInteraction() {
             startAudio();
             this.removeEventListener("click", firstInteraction);
           });
-
-        // Also try to start on any mouse movement
         document.addEventListener("mousemove", function firstInteraction() {
           startAudio();
           document.removeEventListener("mousemove", firstInteraction);
