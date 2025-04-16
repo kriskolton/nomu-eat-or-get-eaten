@@ -54,8 +54,60 @@ function initializeBot() {
   }
 }
 
-// Connect to MongoDB
-initDB().catch((err) => console.error("MongoDB connection error:", err));
+// Connect to MongoDB with retry logic
+async function initializeDatabase() {
+  try {
+    await initDB();
+    console.log("Connected to MongoDB");
+  } catch (err) {
+    console.error("MongoDB connection error:", err);
+    // Don't exit the process, just log the error
+  }
+}
+
+// Initialize the application
+async function initializeApp() {
+  try {
+    // Initialize database
+    await initializeDatabase();
+
+    // Initialize bot if conditions are met
+    if (
+      process.env.TELEGRAM_BOT_TOKEN &&
+      process.env.GAME_URL &&
+      !process.env.GAME_URL.includes("localhost")
+    ) {
+      botInitialized = initializeBot();
+      if (botInitialized) {
+        setupBotCommands();
+      }
+    }
+
+    // Start the server
+    const server = app.listen(port, () => {
+      console.log(`Server running on port ${port}`);
+      console.log(`Health check available at http://localhost:${port}/health`);
+    });
+
+    // Handle server errors
+    server.on("error", (error) => {
+      console.error("Server error:", error);
+      process.exit(1);
+    });
+
+    // Handle process termination
+    process.on("SIGTERM", () => {
+      console.log("SIGTERM received. Shutting down gracefully...");
+      server.close(() => {
+        console.log("Server closed");
+        process.exit(0);
+      });
+    });
+  } catch (error) {
+    console.error("Failed to initialize application:", error);
+    process.exit(1);
+  }
+}
 
 // Serve static files
 app.use(express.static("public"));
@@ -99,39 +151,68 @@ const checkPassword = (req, res, next) => {
 const verifyTelegramData = (req, res, next) => {
   const initData = req.headers["x-telegram-init-data"];
   console.log("Verifying Telegram data...");
+  console.log("Received initData:", initData);
+
   if (!initData) {
     console.error("Missing Telegram init data");
     return res.status(401).json({ error: "Missing Telegram data" });
   }
 
-  // Create a hash of the data using the bot token as the secret key
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  if (!botToken) {
-    console.error("TELEGRAM_BOT_TOKEN not set in environment variables");
-    return res.status(500).json({ error: "Server configuration error" });
-  }
+  try {
+    // Parse the init data
+    const params = new URLSearchParams(initData);
+    const providedHash = params.get("hash");
+    console.log("Provided hash:", providedHash);
 
-  const secretKey = crypto
-    .createHmac("sha256", "WebAppData")
-    .update(botToken)
-    .digest();
-  const hash = crypto
-    .createHmac("sha256", secretKey)
-    .update(initData)
-    .digest("hex");
+    if (!providedHash) {
+      console.error("No hash found in init data");
+      return res.status(401).json({ error: "Invalid Telegram data format" });
+    }
 
-  // The hash should match the hash provided by Telegram
-  const providedHash = new URLSearchParams(initData).get("hash");
-  console.log("Comparing hashes...");
-  if (hash !== providedHash) {
-    console.error("Invalid Telegram hash", {
-      calculated: hash,
-      provided: providedHash,
-    });
-    return res.status(401).json({ error: "Invalid Telegram data" });
+    // Create a hash of the data using the bot token as the secret key
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) {
+      console.error("TELEGRAM_BOT_TOKEN not set in environment variables");
+      return res.status(500).json({ error: "Server configuration error" });
+    }
+
+    // Remove the hash parameter before calculating the hash
+    params.delete("hash");
+
+    // Sort the remaining parameters alphabetically
+    const sortedParams = Array.from(params.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${value}`)
+      .join("\n");
+
+    console.log("Sorted params for hash:", sortedParams);
+
+    const secretKey = crypto
+      .createHmac("sha256", "WebAppData")
+      .update(botToken)
+      .digest();
+
+    const hash = crypto
+      .createHmac("sha256", secretKey)
+      .update(sortedParams)
+      .digest("hex");
+
+    console.log("Calculated hash:", hash);
+
+    if (hash !== providedHash) {
+      console.error("Invalid Telegram hash", {
+        calculated: hash,
+        provided: providedHash,
+      });
+      return res.status(401).json({ error: "Invalid Telegram data" });
+    }
+
+    console.log("Telegram data verified successfully");
+    next();
+  } catch (error) {
+    console.error("Error verifying Telegram data:", error);
+    return res.status(500).json({ error: "Error verifying Telegram data" });
   }
-  console.log("Telegram data verified");
-  next();
 };
 
 // API endpoint to submit scores
@@ -175,33 +256,6 @@ app.get("/health", (req, res) => {
     message:
       "Server is running. Set up ngrok and update GAME_URL in .env to enable Telegram integration",
   });
-});
-
-// Start the server first
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-  console.log(`Health check available at http://localhost:${port}/health`);
-
-  // Only attempt to initialize bot if we have both required variables and a proper HTTPS URL
-  if (
-    process.env.TELEGRAM_BOT_TOKEN &&
-    process.env.GAME_URL &&
-    !process.env.GAME_URL.includes("localhost")
-  ) {
-    botInitialized = initializeBot();
-    if (botInitialized) {
-      setupBotCommands();
-    }
-  } else {
-    console.log("\nTo enable Telegram integration:");
-    console.log("1. Install ngrok: brew install ngrok");
-    console.log("2. Start ngrok: ngrok http 3000");
-    console.log(
-      "3. Copy the HTTPS URL from ngrok (it should start with https://)"
-    );
-    console.log("4. Update GAME_URL in .env file with the ngrok URL");
-    console.log("5. Restart the server");
-  }
 });
 
 // Only set up bot commands if the bot was initialized successfully
@@ -291,3 +345,9 @@ function setupBotCommands() {
     }
   });
 }
+
+// Start the application
+initializeApp().catch((error) => {
+  console.error("Fatal error during initialization:", error);
+  process.exit(1);
+});
