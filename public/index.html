@@ -307,8 +307,12 @@
 
       /* SCORE SUBMISSION */
       async function sendScoreToAPI(score) {
-        if (!userId) return;
+        if (!userId) {
+          console.log("No userId available, skipping score submission");
+          return;
+        }
         try {
+          console.log("Attempting to submit score:", { userId, score });
           const response = await fetch("/api/scores", {
             method: "POST",
             headers: {
@@ -325,6 +329,11 @@
           });
           if (!response.ok) {
             const errorText = await response.text();
+            console.error("Score submission failed:", {
+              status: response.status,
+              statusText: response.statusText,
+              error: errorText,
+            });
             throw new Error(`Failed to send score: ${errorText}`);
           }
           const result = await response.json();

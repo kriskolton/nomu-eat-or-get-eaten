@@ -86,16 +86,21 @@ const checkPassword = (req, res, next) => {
   }
 
   const providedPassword = req.headers["x-api-password"];
+  console.log("Checking API password...");
   if (!providedPassword || providedPassword !== apiPassword) {
+    console.error("Invalid API password provided");
     return res.status(401).json({ error: "Unauthorized" });
   }
+  console.log("API password verified");
   next();
 };
 
 // Verify Telegram WebApp data
 const verifyTelegramData = (req, res, next) => {
   const initData = req.headers["x-telegram-init-data"];
+  console.log("Verifying Telegram data...");
   if (!initData) {
+    console.error("Missing Telegram init data");
     return res.status(401).json({ error: "Missing Telegram data" });
   }
 
@@ -117,10 +122,15 @@ const verifyTelegramData = (req, res, next) => {
 
   // The hash should match the hash provided by Telegram
   const providedHash = new URLSearchParams(initData).get("hash");
+  console.log("Comparing hashes...");
   if (hash !== providedHash) {
+    console.error("Invalid Telegram hash", {
+      calculated: hash,
+      provided: providedHash,
+    });
     return res.status(401).json({ error: "Invalid Telegram data" });
   }
-
+  console.log("Telegram data verified");
   next();
 };
 
