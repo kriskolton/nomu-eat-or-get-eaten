@@ -352,7 +352,7 @@ function setupBotCommands() {
 
     await bot.sendMessage(
       chatId,
-      `Welcome to Eat or Get Eaten, ${username}! 🐟\n\n` +
+      `Welcome to Nome: Eat or Get Eaten 🐟\n\n` +
         `Eat smaller fish to grow bigger, but watch out for the bigger ones!\n\n` +
         `Use the buttons below to:`,
       { reply_markup: keyboard }
