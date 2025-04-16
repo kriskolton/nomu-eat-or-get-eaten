@@ -32,42 +32,34 @@
     </audio>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
     <style>
-      /* 1) Zero out everything */
+      /* RESET & LAYOUT */
       html,
       body {
         margin: 0;
         padding: 0;
         width: 100%;
         height: 100%;
-        font-family: "Londrina Solid", sans-serif;
-      }
-
-      /* 2) Body becomes our background and a flex container
-            to center the #gameWrapper "phone area" */
-      body {
         background: #222;
-        overflow: hidden;
-        display: flex;
-        justify-content: center;
+        display: flex; /* so that #gameWrapper can flex to fill */
+        flex-direction: column;
         align-items: center;
+        justify-content: flex-start; /* or center if you prefer */
+        overflow: hidden;
       }
 
-      /* 3) The wrapper that enforces a phone-like shape */
+      /* MAIN GAME AREA */
+      /* Make it fill the screen vertically. 
+         Removed aspect-ratio & max-width/max-height; replaced with flex:1. */
       #gameWrapper {
+        flex: 1;
         width: 100%;
-        height: 100%;
-        aspect-ratio: 9 / 16;
-        max-width: 550px;
-        max-height: 978px;
-
         position: relative;
         overflow: hidden;
         background: #222 url("img/bg.jpg") center center no-repeat;
         background-size: cover;
       }
-
-      /* 4) The canvas now simply fills the wrapper */
       #gameCanvas {
         display: block;
         width: 100%;
@@ -76,7 +68,7 @@
         touch-action: none;
       }
 
-      /* 5) Overlays must be absolutely positioned inside #gameWrapper */
+      /* OVERLAYS: START / GAME OVER */
       .overlay {
         position: absolute;
         top: 0;
@@ -95,7 +87,8 @@
       }
       .overlay h1,
       .overlay button,
-      .overlay p {
+      .overlay p,
+      .overlay label {
         color: #fff;
         margin: 8px;
       }
@@ -109,60 +102,154 @@
         background-color: #f78719;
         font-family: "Londrina Solid", sans-serif;
       }
-      p {
+      .overlay p {
         font-family: "Poppins", sans-serif;
         font-size: 14px;
+      }
+
+      /* ON-SCREEN ARROW KEYS
+         - Hidden by default, so no space is used in the layout
+         - Shown only when the user chooses so AND the game is actually playing. */
+      #controlsContainer {
+        width: 100%;
+        display: none; /* start hidden */
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        /* padding: 8px 0 16px 0; */
+        padding: 0px 0 0px 0;
+        box-sizing: border-box;
+      }
+      .controlsRow {
+        display: flex;
+        width: 100%;
+        margin: 0 auto;
+      }
+      .arrowBtn {
+        flex: 1;
+        background-color: #f78719;
+        border: none;
+        color: #fff;
+        font-family: "Londrina Solid", sans-serif;
+        font-size: 20px;
+        margin: 1px;
+        cursor: pointer;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 60px;
+      }
+      .arrowBtn:active {
+        transform: scale(0.95);
       }
     </style>
   </head>
   <body>
+    <!-- MAIN GAME AREA -->
     <div id="gameWrapper">
       <canvas id="gameCanvas"></canvas>
 
-      <!-- Start Screen Overlay -->
+      <!-- START SCREEN OVERLAY -->
       <div id="startScreen" class="overlay">
-        <img
-          src="img/title.png"
-          alt="Eat or Get Eaten"
-          style="max-width: 90%; height: auto; padding: 12px"
-        />
-        <div
-          id="telegramStatus"
-          style="
-            color: white;
-            font-family: 'Poppins', sans-serif;
-            max-width: 90%;
-            margin-bottom: 24px;
-          "
-        ></div>
-        <p style="font-size: 24px; font-weight: bold; letter-spacing: 1px">
-          Rules
-        </p>
-        <p>
-          Use the touch screen or arrow keys (↑→↓←) to control Nomu. Eat the
-          smaller fish to grow. Don't let the bigger fish eat you!
-        </p>
-        <p>The larger the fish the more points you get.</p>
-        <p>Your high score is <span id="highScore">0</span>.</p>
-        <button id="startBtn">Start Game</button>
-        <button id="soundBtn" style="margin-top: 12px">🔊 Sound On</button>
+        <div style="max-width: 90%; margin: 0 auto; text-align: center">
+          <img
+            src="img/title.png"
+            alt="Eat or Get Eaten"
+            style="max-width: 50%; height: auto; padding: 12px"
+          />
+          <div
+            id="telegramStatus"
+            style="
+              color: white;
+              font-family: 'Poppins', sans-serif;
+              margin-bottom: 24px;
+            "
+          ></div>
+
+          <p style="font-size: 24px; font-weight: bold; letter-spacing: 1px">
+            Rules
+          </p>
+          <p>
+            Use the touch screen or arrow keys (↑→↓←) to control Nomu. Eat the
+            smaller fish to grow. Don't let the bigger fish eat you!
+          </p>
+          <p>The larger the fish, the more points you get.</p>
+          <p>Your high score is <span id="highScore">0</span>.</p>
+
+          <!-- Controls row -->
+          <div
+            style="
+              display: flex;
+              gap: 0px;
+              margin-bottom: 12px;
+              justify-content: center;
+            "
+          >
+            <button id="soundBtn">🔊 Sound On</button>
+            <button id="arrowKeysBtn">🎮 Arrow Keys Off</button>
+          </div>
+
+          <!-- START -->
+          <button
+            id="startBtn"
+            style="font-size: 24px; padding: 12px 24px; margin-top: 12px"
+          >
+            Start Game
+          </button>
+        </div>
       </div>
 
-      <!-- Game Over Overlay -->
+      <!-- GAME OVER OVERLAY -->
       <div id="gameOverScreen" class="overlay hidden">
-        <h1>GAME OVER!</h1>
-        <p id="finalScore"></p>
-        <button id="playAgainBtn">Play Again</button>
+        <div style="max-width: 90%; margin: 0 auto; text-align: center">
+          <h1
+            style="font-family: 'Londrina Solid', sans-serif; font-size: 44px"
+          >
+            GAME OVER!
+          </h1>
+          <p id="finalScore"></p>
+
+          <!-- Controls row -->
+          <div
+            style="
+              display: flex;
+              gap: 0px;
+              margin-bottom: 12px;
+              justify-content: center;
+            "
+          >
+            <button id="soundBtnGameOver">🔊 Sound On</button>
+            <button id="arrowKeysBtnGameOver">🎮 Arrow Keys Off</button>
+          </div>
+
+          <button
+            id="playAgainBtn"
+            style="font-size: 24px; padding: 12px 24px; margin-top: 12px"
+          >
+            Play Again
+          </button>
+        </div>
       </div>
     </div>
-    <!-- end #gameWrapper -->
+
+    <!-- ON-SCREEN ARROW KEYS -->
+    <div id="controlsContainer">
+      <div class="controlsRow">
+        <button class="arrowBtn" id="arrowUp">↑</button>
+      </div>
+      <div class="controlsRow">
+        <button class="arrowBtn" id="arrowLeft">←</button>
+        <button class="arrowBtn" id="arrowDown">↓</button>
+        <button class="arrowBtn" id="arrowRight">→</button>
+      </div>
+    </div>
 
     <script>
-      // Initialize Telegram Web App
+      /* TELEGRAM INIT */
       let tg;
       let userData;
       let userId;
-
       try {
         tg = window.Telegram.WebApp;
         userData = tg.initDataUnsafe?.user;
@@ -184,6 +271,7 @@
         statusDiv.style.color = "red";
       }
 
+      /* SCORE SUBMISSION */
       async function sendScoreToAPI(score) {
         if (!userId) return;
         try {
@@ -208,7 +296,7 @@
         }
       }
 
-      // Canvas setup
+      /* CANVAS SETUP */
       const canvas = document.getElementById("gameCanvas");
       const ctx = canvas.getContext("2d");
       ctx.imageSmoothingEnabled = true;
@@ -216,7 +304,6 @@
 
       let WIDTH = 800;
       let HEIGHT = 600;
-
       function resizeCanvas() {
         const wrapper = document.getElementById("gameWrapper");
         canvas.width = wrapper.clientWidth;
@@ -226,7 +313,7 @@
       }
       window.addEventListener("resize", resizeCanvas);
 
-      // Overlays
+      /* OVERLAYS */
       const startScreen = document.getElementById("startScreen");
       const gameOverScreen = document.getElementById("gameOverScreen");
       const startBtn = document.getElementById("startBtn");
@@ -243,6 +330,7 @@
         finalScoreElem.textContent = `Your Score: ${score}`;
         gameOverScreen.classList.remove("hidden");
         playGameOverSound();
+        syncGameOverUI();
       }
       function hideGameOverScreen() {
         gameOverScreen.classList.add("hidden");
@@ -251,7 +339,7 @@
       let gameState = "start";
       let isGameOver = false;
 
-      // Weighted fish definitions
+      /* FISH DEFINITIONS */
       const fishTypeDefinitions = [
         { src: "img/fish1.png", minSize: 10, maxSize: 40, weight: 0.43 },
         { src: "img/fish2.png", minSize: 20, maxSize: 60, weight: 0.25 },
@@ -261,7 +349,7 @@
         { src: "img/fish5.png", minSize: 400, maxSize: 500, weight: 0.005 },
       ];
 
-      // Preload fish images
+      /* PRELOAD IMAGES */
       const fishTypes = fishTypeDefinitions.map((def) => {
         const image = new Image();
         image.src = def.src;
@@ -272,20 +360,14 @@
           weight: def.weight,
         };
       });
-
-      // Load player image
       const playerImg = new Image();
       playerImg.src = "img/player_fish.png";
-
-      // [NEW] Load crab image
       const crabImg = new Image();
       crabImg.src = "img/crab.png";
-
-      // [NEW] Load jellyfish image
       const jellyfishImg = new Image();
-      jellyfishImg.src = "img/jellyfish.png"; // Provide your own jellyfish sprite here
+      jellyfishImg.src = "img/jellyfish.png";
 
-      // Game variables
+      /* GAME VARIABLES */
       let fishList = [];
       let score = 0;
       let player;
@@ -300,12 +382,32 @@
       let isSoundEnabled = true;
       let explosion = null;
 
-      // Player power-up variables
+      /* POWER-UP */
       let playerPowerUpTime = 0;
       const POWER_UP_DURATION = 10;
       let playerIsPoweredUp = false;
 
-      // Initialize audio
+      /* DOM CONTROLS */
+      const useOnScreenArrowsCheckbox =
+        document.getElementById("useOnScreenArrows");
+      const soundBtn = document.getElementById("soundBtn");
+      const arrowKeysBtn = document.getElementById("arrowKeysBtn");
+      const controlsContainer = document.getElementById("controlsContainer");
+      const arrowUp = document.getElementById("arrowUp");
+      const arrowDown = document.getElementById("arrowDown");
+      const arrowLeft = document.getElementById("arrowLeft");
+      const arrowRight = document.getElementById("arrowRight");
+
+      /* GAME OVER CONTROLS */
+      const useOnScreenArrowsGameOver = document.getElementById(
+        "useOnScreenArrowsGameOver"
+      );
+      const soundBtnGameOver = document.getElementById("soundBtnGameOver");
+      const arrowKeysBtnGameOver = document.getElementById(
+        "arrowKeysBtnGameOver"
+      );
+
+      /* AUDIO SETUP */
       function initAudio() {
         backgroundMusic = document.getElementById("backgroundMusic");
         eatSound = document.getElementById("eatSound");
@@ -316,7 +418,6 @@
         gameOverSound.volume = 0.3;
         powerUpSound.volume = 0.3;
       }
-
       function startAudio() {
         if (backgroundMusic && isSoundEnabled) {
           try {
@@ -326,7 +427,6 @@
           }
         }
       }
-
       function toggleSound() {
         isSoundEnabled = !isSoundEnabled;
         if (backgroundMusic) {
@@ -342,40 +442,31 @@
             gameOverSound.volume = 0;
           }
         }
-        const soundBtn = document.getElementById("soundBtn");
         soundBtn.textContent = isSoundEnabled ? "🔊 Sound On" : "🔈 Sound Off";
       }
-
+      function toggleSoundGameOver() {
+        toggleSound();
+        soundBtnGameOver.textContent = isSoundEnabled
+          ? "🔊 Sound On"
+          : "🔈 Sound Off";
+      }
       function playEatSound() {
         if (!isSoundEnabled) return;
         eatSound.currentTime = 0;
-        try {
-          eatSound.play();
-        } catch (error) {
-          console.log("Eat sound playback failed:", error);
-        }
+        eatSound.play().catch(() => {});
       }
-
       function playGameOverSound() {
         if (!isSoundEnabled) return;
         gameOverSound.currentTime = 0;
-        try {
-          gameOverSound.play();
-        } catch (error) {
-          console.log("Game over sound playback failed:", error);
-        }
+        gameOverSound.play().catch(() => {});
       }
-
       function playPowerUpSound() {
         if (!isSoundEnabled) return;
         powerUpSound.currentTime = 0;
-        try {
-          powerUpSound.play();
-        } catch (error) {
-          console.log("Power-up sound playback failed:", error);
-        }
+        powerUpSound.play().catch(() => {});
       }
 
+      /* UTILITY & HELPER FUNCTIONS */
       function getRandom(min, max) {
         return Math.random() * (max - min) + min;
       }
@@ -392,7 +483,7 @@
         return fishTypes[fishTypes.length - 1];
       }
 
-      // WaterTrail
+      /* CLASSES: Fish, Crab, Jellyfish, Bubble, Explosion */
       class WaterTrail {
         constructor(x, y, direction, fishSize, isUltraFast = false) {
           this.x = x;
@@ -409,7 +500,6 @@
           this.hue = Math.random() * 360;
           this.hueSpeed = getRandom(2, 4);
         }
-
         update(deltaTime) {
           this.life -= this.fadeSpeed * deltaTime * 60;
           this.x += this.direction * 0.5 * deltaTime * 60;
@@ -417,10 +507,8 @@
             this.hue = (this.hue + this.hueSpeed) % 360;
           }
         }
-
         draw(ctx) {
           if (this.life <= 0) return;
-
           ctx.beginPath();
           ctx.arc(
             this.x + this.offsetX,
@@ -429,7 +517,6 @@
             0,
             Math.PI * 2
           );
-
           if (this.isUltraFast) {
             ctx.fillStyle = `hsla(${this.hue}, 100%, 50%, ${this.life * 0.3})`;
             ctx.shadowBlur = 10;
@@ -444,7 +531,6 @@
         }
       }
 
-      // Fish class
       class Fish {
         constructor(x, y, speedX, speedY, sprite, maxSide, isPlayer = false) {
           this.x = x;
@@ -467,17 +553,16 @@
             this.acceleration = 0.05;
             this.maxSpeed = Math.abs(speedX) * 1.2;
           } else {
+            // player
             this.velocityX = 0;
             this.velocityY = 0;
             this.acceleration = 0.055;
             this.friction = 0.99;
             this.maxSpeed = 10;
           }
-
           this.width = null;
           this.height = null;
         }
-
         calculateDimensions() {
           const w = this.sprite.naturalWidth;
           const h = this.sprite.naturalHeight;
@@ -495,7 +580,6 @@
             this.width = this.maxSide * aspect;
           }
         }
-
         draw(ctx) {
           if (!this.sprite.complete) return;
           if (this.width === null || this.height === null) {
@@ -505,63 +589,25 @@
             ? this.velocityX < 0
             : this.speedX < 0;
 
-          // Apply color-shift if needed (fast / ultra-fast / powered up)
           const applyUltraFastFilter =
             this.isUltraFast || (this.isPlayer && playerIsPoweredUp);
 
-          // Flip if moving left
+          ctx.save();
           if (isMovingLeft) {
-            ctx.save();
             ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
             ctx.scale(-1, 1);
-            if (applyUltraFastFilter) {
-              ctx.filter = "hue-rotate(180deg) brightness(1.5) saturate(2)";
-            } else if (this.isFast) {
-              ctx.filter = "hue-rotate(45deg) brightness(1.2)";
-            }
-            ctx.drawImage(
-              this.sprite,
-              -this.width / 2,
-              -this.height / 2,
-              this.width,
-              this.height
-            );
-            ctx.restore();
+            ctx.translate(-this.width / 2, -this.height / 2);
           } else {
-            if (applyUltraFastFilter) {
-              ctx.save();
-              ctx.filter = "hue-rotate(180deg) brightness(1.5) saturate(2)";
-              ctx.drawImage(
-                this.sprite,
-                this.x,
-                this.y,
-                this.width,
-                this.height
-              );
-              ctx.restore();
-            } else if (this.isFast) {
-              ctx.save();
-              ctx.filter = "hue-rotate(45deg) brightness(1.2)";
-              ctx.drawImage(
-                this.sprite,
-                this.x,
-                this.y,
-                this.width,
-                this.height
-              );
-              ctx.restore();
-            } else {
-              ctx.drawImage(
-                this.sprite,
-                this.x,
-                this.y,
-                this.width,
-                this.height
-              );
-            }
+            ctx.translate(this.x, this.y);
           }
+          if (applyUltraFastFilter) {
+            ctx.filter = "hue-rotate(180deg) brightness(1.5) saturate(2)";
+          } else if (this.isFast) {
+            ctx.filter = "hue-rotate(45deg) brightness(1.2)";
+          }
+          ctx.drawImage(this.sprite, 0, 0, this.width, this.height);
+          ctx.restore();
         }
-
         getBounds() {
           const collisionScale = 0.6;
           const radiusX = ((this.width || 0) * collisionScale) / 2;
@@ -576,12 +622,10 @@
           else centerX += shiftAmount;
           return { centerX, centerY, radiusX, radiusY };
         }
-
-        // Regular fish update
         update(deltaTime) {
           const deltaFrames = deltaTime * 60;
           if (this.isPlayer) {
-            // Player movement
+            // player movement
             const frictionFactor = Math.pow(this.friction, deltaFrames);
             this.velocityX *= frictionFactor;
             this.velocityY *= frictionFactor;
@@ -607,14 +651,13 @@
               }
             }
           } else {
-            // Normal enemy fish "wandering" with oscillation
+            // NPC
             const oscillation =
               Math.sin(
                 performance.now() * this.oscillationSpeed +
                   this.oscillationOffset
               ) * this.oscillationAmount;
             if (!this.isJellyfish && !this.isCrab) {
-              // Only fish use X for direction
               if (Math.abs(this.speedX) < this.maxSpeed) {
                 this.speedX +=
                   this.acceleration * Math.sign(this.speedX) * deltaFrames;
@@ -624,7 +667,6 @@
             }
           }
         }
-
         createWaterTrail() {
           if (!this.width || !this.height) return;
           const now = performance.now();
@@ -637,7 +679,6 @@
           const speed = this.isPlayer
             ? Math.sqrt(this.velocityX ** 2 + this.velocityY ** 2)
             : Math.abs(this.speedX);
-
           if (speed > 0.5) {
             const ultra =
               this.isUltraFast || (this.isPlayer && playerIsPoweredUp);
@@ -657,7 +698,6 @@
         }
       }
 
-      // [NEW] Crab class
       class Crab extends Fish {
         constructor(x, y, size) {
           super(x, y, 0, 0, crabImg, size, false);
@@ -665,47 +705,35 @@
           this.hasEnteredScreen = false;
           this.timeAlive = 0;
         }
-
         update(deltaTime, player) {
           const deltaFrames = deltaTime * 60;
-
-          // Entry phase: Move upwards until fully on screen
           if (!this.hasEnteredScreen) {
-            this.y -= 2 * deltaFrames; // move upward
+            // Move up from below
+            this.y -= 2 * deltaFrames;
             if (this.y + this.height <= HEIGHT) {
               this.hasEnteredScreen = true;
             }
             return;
           }
-
           this.timeAlive += deltaTime;
-
-          // Explode after time limit
           if (this.timeAlive > 15) {
             spawnExplosion(this);
             this.maxSide = 0;
             return;
           }
-
           const crabRadius = this.getBounds().radiusX;
           const playerRadius = player.getBounds().radiusX;
-
           const dx = player.x - this.x;
           const dy = player.y - this.y;
           const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-
-          let speedFactor = 1.5;
+          const speedFactor = 1.5;
           if (crabRadius > playerRadius) {
-            // Move toward player
             this.x += (dx / dist) * (speedFactor * deltaFrames);
             this.y += (dy / dist) * (speedFactor * deltaFrames);
           } else {
-            // Move away from player
             this.x -= (dx / dist) * (speedFactor * deltaFrames);
             this.y -= (dy / dist) * (speedFactor * deltaFrames);
           }
-
-          // Stay in bounds
           if (this.width && this.height) {
             if (this.x < 0) this.x = 0;
             if (this.y < 0) this.y = 0;
@@ -715,43 +743,29 @@
         }
       }
 
-      // [NEW] Jellyfish class
       class Jellyfish extends Fish {
         constructor(x, y, size) {
-          // Start with speedY = -something so it moves upward
           super(x, y, 0, -1.2, jellyfishImg, size, false);
           this.isJellyfish = true;
-
-          // Horizontal oscillation specifics
-          this.oscSpeed = getRandom(0.0008, 0.0015); // speed of the wave
-          this.oscAmplitude = getRandom(10, 15); // amplitude in px
+          this.oscSpeed = getRandom(0.0008, 0.0015);
+          this.oscAmplitude = getRandom(10, 15);
           this.oscOffset = Math.random() * Math.PI * 2;
           this.baseX = x;
-
-          // Adjust vertical speed a bit
           this.verticalSpeed = getRandom(0.5, 1.2);
         }
-
         update(deltaTime) {
           const deltaFrames = deltaTime * 60;
-
-          // Move upward
           this.y -= this.verticalSpeed * deltaFrames;
-
-          // Horizontal oscillation
           const oscValue =
             Math.sin(performance.now() * this.oscSpeed + this.oscOffset) *
             this.oscAmplitude;
           this.x = this.baseX + oscValue;
-
-          // Remove if it goes above the screen
           if (this.y + (this.height || 0) < -50) {
             this.maxSide = 0;
           }
         }
       }
 
-      // Bubble
       class Bubble {
         constructor(baseX) {
           this.reset(baseX);
@@ -785,7 +799,6 @@
         }
       }
 
-      // Explosion
       class Explosion {
         constructor(x, y, size) {
           this.x = x;
@@ -835,18 +848,16 @@
         }
       }
 
-      // Helper to create an explosion at a fish's position
+      /* SPAWN FUNCTIONS */
       function spawnExplosion(fish) {
         if (fish.width && fish.height) {
-          const e = new Explosion(
+          explosion = new Explosion(
             fish.x + fish.width / 2,
             fish.y + fish.height / 2,
             fish.maxSide
           );
-          explosion = e;
         }
       }
-
       function spawnFish() {
         const chosenType = getRandomWeightedFishType(fishTypes);
         const fishSize = getRandom(chosenType.minSize, chosenType.maxSize);
@@ -859,7 +870,7 @@
         const maxSpeed = 1.5 + 0.3 * sizeFactor;
         let baseSpeed = getRandom(minSpeed, maxSpeed);
 
-        const isUltraFast = Math.random() < 0.01; // 1% chance
+        const isUltraFast = Math.random() < 0.01;
         const isFast = !isUltraFast && Math.random() < 0.03;
 
         if (isUltraFast) baseSpeed *= 5;
@@ -871,25 +882,20 @@
         enemy.isUltraFast = isUltraFast;
         fishList.push(enemy);
       }
-
-      // [NEW] spawnCrab
       function spawnCrab() {
         const size = getRandom(50, 120);
-        const x = getRandom(0, WIDTH - size); // random horizontal position
-        const y = HEIGHT + size; // spawn below the screen
+        const x = getRandom(0, WIDTH - size);
+        const y = HEIGHT + size;
         const crab = new Crab(x, y, size);
         fishList.push(crab);
       }
-
-      // [NEW] spawnJellyfish
       function spawnJellyfish() {
         const size = getRandom(30, 120);
         const x = getRandom(0, WIDTH - size);
-        const y = HEIGHT + size; // Start below screen
+        const y = HEIGHT + size;
         const jelly = new Jellyfish(x, y, size);
         fishList.push(jelly);
       }
-
       function spawnBubbleGroup() {
         const groupSize = Math.floor(getRandom(3, 5));
         const baseX = getRandom(50, WIDTH - 50);
@@ -900,9 +906,8 @@
         }
       }
 
-      // updateGame
+      /* GAME LOOP */
       function updateGame(deltaTime) {
-        // Always update the main explosion
         if (explosion) {
           explosion.update(deltaTime);
           if (explosion.isComplete) {
@@ -912,11 +917,10 @@
             }
           }
         }
-
         if (gameState !== "playing") return;
         if (isGameOver && !explosion) return;
 
-        // Update power-up timer
+        // power-up
         if (playerPowerUpTime > 0) {
           playerPowerUpTime -= deltaTime;
           if (playerPowerUpTime <= 0) {
@@ -925,38 +929,30 @@
           }
         }
 
-        // Update bubbles
+        // bubbles
         for (const bubble of bubbles) {
           bubble.update(deltaTime);
         }
-        // Update water trails
+        // water trails
         for (let i = waterTrails.length - 1; i >= 0; i--) {
           const trail = waterTrails[i];
           trail.update(deltaTime);
           if (trail.life <= 0) waterTrails.splice(i, 1);
         }
 
-        // Player water trail
-        if (player) player.createWaterTrail();
-
-        // Enemy water trails
-        for (const fish of fishList) {
-          fish.createWaterTrail();
-        }
-
-        // Spawn new bubble groups occasionally
+        // occasionally spawn new bubbles
         if (Math.random() < 0.002 * deltaTime * 60 && bubbles.length < 5) {
           spawnBubbleGroup();
         }
 
-        // Player movement
+        // player movement from keys
         const accel = player.acceleration * deltaTime * 60;
         if (keys.left) player.velocityX -= accel;
         if (keys.right) player.velocityX += accel;
         if (keys.up) player.velocityY -= accel;
         if (keys.down) player.velocityY += accel;
 
-        // Touch/mouse movement
+        // touch/mouse
         if (touchTarget && player.width && player.height) {
           const px = player.x + player.width / 2;
           const py = player.y + player.height / 2;
@@ -971,7 +967,7 @@
           }
         }
 
-        // Limit player speed
+        // limit speed
         const spd = Math.sqrt(player.velocityX ** 2 + player.velocityY ** 2);
         if (spd > player.maxSpeed) {
           const ratio = player.maxSpeed / spd;
@@ -979,35 +975,28 @@
           player.velocityY *= ratio;
         }
 
-        // Update player
+        // update player
         player.update(deltaTime);
 
-        // Update enemies
+        // update enemies
         for (let i = fishList.length - 1; i >= 0; i--) {
           const enemy = fishList[i];
-
-          // If it's a crab, it needs to track the player
           if (enemy.isCrab) {
             enemy.update(deltaTime, player);
-            // If the crab has exploded or is done => remove
             if (enemy.maxSide <= 0) {
               fishList.splice(i, 1);
               continue;
             }
-          }
-          // If it's a Jellyfish
-          else if (enemy.isJellyfish) {
+          } else if (enemy.isJellyfish) {
             enemy.update(deltaTime);
             if (enemy.maxSide <= 0) {
               fishList.splice(i, 1);
               continue;
             }
-          }
-          // Otherwise it's a normal fish
-          else {
+          } else {
             enemy.update(deltaTime);
-            // Remove if off-screen
             const bounds = enemy.getBounds();
+            // remove off-screen
             if (
               bounds.centerX + bounds.radiusX < -200 ||
               bounds.centerX - bounds.radiusX > WIDTH + 200
@@ -1017,17 +1006,15 @@
             }
           }
 
-          // Collision check with player
+          // collision with player
           if (checkCollisionOval(player, enemy)) {
-            // If player is powered up, always eats
             if (playerIsPoweredUp) {
+              // eats everything
               score += calculateFishScore(enemy.maxSide);
               player.maxSide += Math.min(Math.sqrt(enemy.maxSide) * 0.05, 1.5);
               player.width = null;
               player.height = null;
               playEatSound();
-
-              // If enemy was ultra-fast, refresh the power-up
               if (enemy.isUltraFast) {
                 playerPowerUpTime = POWER_UP_DURATION;
                 playerIsPoweredUp = true;
@@ -1035,13 +1022,11 @@
               }
               fishList.splice(i, 1);
             } else {
-              // Check bounding sizes to see who eats whom
-              if (
-                player.getBounds().radiusX > enemy.getBounds().radiusX &&
-                !enemy.isCrab &&
-                !enemy.isJellyfish
-              ) {
-                // Player eats smaller fish
+              // normal collision
+              const pR = player.getBounds().radiusX;
+              const eR = enemy.getBounds().radiusX;
+              if (pR > eR) {
+                // player eats smaller
                 score += calculateFishScore(enemy.maxSide);
                 player.maxSide += Math.min(
                   Math.sqrt(enemy.maxSide) * 0.05,
@@ -1050,33 +1035,17 @@
                 player.width = null;
                 player.height = null;
                 playEatSound();
-
                 if (enemy.isUltraFast) {
                   playerPowerUpTime = POWER_UP_DURATION;
                   playerIsPoweredUp = true;
                   playPowerUpSound();
                 }
                 fishList.splice(i, 1);
-              } else if (
-                // Player can also eat smaller Crab/Jellyfish
-                player.getBounds().radiusX > enemy.getBounds().radiusX &&
-                (enemy.isCrab || enemy.isJellyfish)
-              ) {
-                score += calculateFishScore(enemy.maxSide);
-                player.maxSide += Math.min(
-                  Math.sqrt(enemy.maxSide) * 0.05,
-                  1.5
-                );
-                player.width = null;
-                player.height = null;
-                playEatSound();
-                fishList.splice(i, 1);
               } else {
-                // Player is eaten => game over
+                // player is eaten => game over
                 isGameOver = true;
                 gameState = "over";
                 sendScoreToAPI(score);
-                // Spawn explosion at player's position
                 if (player.width && player.height) {
                   explosion = new Explosion(
                     player.x + player.width / 2,
@@ -1090,15 +1059,15 @@
           }
         }
 
-        // Spawn fish
+        // spawn fish
         if (Math.random() < 0.03 * deltaTime * 60 && fishList.length < 30) {
           spawnFish();
         }
-        // Occasionally spawn a crab
+        // occasionally spawn crab
         if (Math.random() < 0.00005 * deltaTime * 60 && fishList.length < 30) {
           spawnCrab();
         }
-        // [NEW] Occasionally spawn a jellyfish
+        // occasionally spawn jellyfish
         if (Math.random() < 0.0001 * deltaTime * 60 && fishList.length < 30) {
           spawnJellyfish();
         }
@@ -1111,6 +1080,7 @@
         const dy = A.centerY - B.centerY;
         const sumRadiiX = A.radiusX + B.radiusX;
         const sumRadiiY = A.radiusY + B.radiusY;
+        // elliptical collision
         return (
           (dx * dx) / (sumRadiiX * sumRadiiX) +
             (dy * dy) / (sumRadiiY * sumRadiiY) <=
@@ -1118,39 +1088,37 @@
         );
       }
 
-      // renderGame
       function renderGame() {
         ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
-        // Bubbles
+        // bubbles
         for (const bubble of bubbles) {
           bubble.draw(ctx);
         }
-        // Water trails
+        // trails
         for (const trail of waterTrails) {
           trail.draw(ctx);
         }
 
-        // Draw player (only hide if game over AND explosion is active)
+        // player
         if (player && !(isGameOver && explosion)) {
           player.draw(ctx);
         }
-
-        // Enemies (fish + crabs + jellyfish)
+        // enemies
         for (const fish of fishList) {
           fish.draw(ctx);
         }
-
-        // Explosion
+        // explosion
         if (explosion) {
           explosion.draw(ctx);
         }
 
+        // score
         ctx.fillStyle = "#fff";
         ctx.font = "20px Londrina Solid, sans-serif";
         ctx.fillText("Score: " + score, 20, 30);
 
-        // Touch indicator
+        // touch indicator
         if (touchTarget) {
           ctx.beginPath();
           ctx.arc(touchTarget.x, touchTarget.y, 15, 0, Math.PI * 2);
@@ -1160,6 +1128,7 @@
         }
       }
 
+      /* GAME LOOP */
       let lastTime = 0;
       function gameLoop(timestamp) {
         const deltaTime = (timestamp - lastTime) / 1000;
@@ -1169,6 +1138,7 @@
         requestAnimationFrame(gameLoop);
       }
 
+      /* INIT LOGIC */
       function initGame() {
         resizeCanvas();
         score = 0;
@@ -1178,7 +1148,7 @@
         waterTrails = [];
         player = new Fish(WIDTH / 2, HEIGHT / 2, 0, 0, playerImg, 25, true);
 
-        // Reset power-up
+        // reset power-up
         playerPowerUpTime = 0;
         playerIsPoweredUp = false;
 
@@ -1189,18 +1159,108 @@
         spawnBubbleGroup();
       }
 
+      // Show/hide the on-screen arrow keys
+      function showOrHideArrowKeys(shouldShow) {
+        controlsContainer.style.display = shouldShow ? "flex" : "none";
+        arrowKeysBtn.textContent = shouldShow
+          ? "🎮 Arrow Keys On"
+          : "🎮 Arrow Keys Off";
+        if (arrowKeysBtnGameOver) {
+          arrowKeysBtnGameOver.textContent = shouldShow
+            ? "🎮 Arrow Keys On"
+            : "🎮 Arrow Keys Off";
+        }
+      }
+
+      function syncGameOverUI() {
+        // Reflect whether the arrow keys are currently shown
+        const isCurrentlyVisible = controlsContainer.style.display !== "none";
+        showOrHideArrowKeys(isCurrentlyVisible);
+        // Sound
+        soundBtnGameOver.textContent = isSoundEnabled
+          ? "🔊 Sound On"
+          : "🔈 Sound Off";
+      }
+
+      /* EVENT HANDLERS */
       startBtn.onclick = () => {
         hideStartScreen();
-        gameState = "playing";
-        initGame();
-      };
-      playAgainBtn.onclick = () => {
-        hideGameOverScreen();
+        showOrHideArrowKeys(arrowKeysBtn.textContent.includes("On"));
         gameState = "playing";
         initGame();
       };
 
-      // Touch events
+      playAgainBtn.onclick = () => {
+        hideGameOverScreen();
+        showOrHideArrowKeys(arrowKeysBtnGameOver.textContent.includes("On"));
+        gameState = "playing";
+        initGame();
+      };
+
+      // Start screen: Toggle sound
+      soundBtn.onclick = () => {
+        toggleSound();
+      };
+
+      // Start screen: Toggle arrow keys
+      arrowKeysBtn.onclick = () => {
+        const isCurrentlyVisible = controlsContainer.style.display !== "none";
+        showOrHideArrowKeys(!isCurrentlyVisible);
+      };
+
+      // Game over: Toggle sound
+      soundBtnGameOver.onclick = () => {
+        toggleSoundGameOver();
+      };
+
+      // Game over: Toggle arrow keys
+      arrowKeysBtnGameOver.onclick = () => {
+        const isCurrentlyVisible = controlsContainer.style.display !== "none";
+        showOrHideArrowKeys(!isCurrentlyVisible);
+      };
+
+      // On-screen arrow buttons
+      function pressKey(key, isDown) {
+        if (key === "left") keys.left = isDown;
+        if (key === "right") keys.right = isDown;
+        if (key === "up") keys.up = isDown;
+        if (key === "down") keys.down = isDown;
+      }
+      arrowUp.addEventListener("mousedown", () => pressKey("up", true));
+      arrowUp.addEventListener("mouseup", () => pressKey("up", false));
+      arrowUp.addEventListener("touchstart", () => pressKey("up", true));
+      arrowUp.addEventListener("touchend", () => pressKey("up", false));
+
+      arrowDown.addEventListener("mousedown", () => pressKey("down", true));
+      arrowDown.addEventListener("mouseup", () => pressKey("down", false));
+      arrowDown.addEventListener("touchstart", () => pressKey("down", true));
+      arrowDown.addEventListener("touchend", () => pressKey("down", false));
+
+      arrowLeft.addEventListener("mousedown", () => pressKey("left", true));
+      arrowLeft.addEventListener("mouseup", () => pressKey("left", false));
+      arrowLeft.addEventListener("touchstart", () => pressKey("left", true));
+      arrowLeft.addEventListener("touchend", () => pressKey("left", false));
+
+      arrowRight.addEventListener("mousedown", () => pressKey("right", true));
+      arrowRight.addEventListener("mouseup", () => pressKey("right", false));
+      arrowRight.addEventListener("touchstart", () => pressKey("right", true));
+      arrowRight.addEventListener("touchend", () => pressKey("right", false));
+
+      // Keyboard events
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowLeft" || e.key === "a") keys.left = true;
+        if (e.key === "ArrowRight" || e.key === "d") keys.right = true;
+        if (e.key === "ArrowUp" || e.key === "w") keys.up = true;
+        if (e.key === "ArrowDown" || e.key === "s") keys.down = true;
+      });
+      window.addEventListener("keyup", (e) => {
+        if (e.key === "ArrowLeft" || e.key === "a") keys.left = false;
+        if (e.key === "ArrowRight" || e.key === "d") keys.right = false;
+        if (e.key === "ArrowUp" || e.key === "w") keys.up = false;
+        if (e.key === "ArrowDown" || e.key === "s") keys.down = false;
+      });
+
+      // Touch / mouse for the canvas
       canvas.addEventListener("touchstart", (e) => {
         const touch = e.touches[0];
         if (touch) {
@@ -1224,8 +1284,6 @@
       canvas.addEventListener("touchend", () => {
         touchTarget = null;
       });
-
-      // Mouse events
       canvas.addEventListener("mousedown", (e) => {
         const rect = canvas.getBoundingClientRect();
         touchTarget = {
@@ -1246,21 +1304,7 @@
         touchTarget = null;
       });
 
-      // Keyboard
-      window.addEventListener("keydown", (e) => {
-        if (e.key === "ArrowLeft" || e.key === "a") keys.left = true;
-        if (e.key === "ArrowRight" || e.key === "d") keys.right = true;
-        if (e.key === "ArrowUp" || e.key === "w") keys.up = true;
-        if (e.key === "ArrowDown" || e.key === "s") keys.down = true;
-      });
-      window.addEventListener("keyup", (e) => {
-        if (e.key === "ArrowLeft" || e.key === "a") keys.left = false;
-        if (e.key === "ArrowRight" || e.key === "d") keys.right = false;
-        if (e.key === "ArrowUp" || e.key === "w") keys.up = false;
-        if (e.key === "ArrowDown" || e.key === "s") keys.down = false;
-      });
-
-      // Preload images & then start the game
+      /* PRELOAD IMAGES THEN START */
       Promise.all([
         new Promise((resolve) => (playerImg.onload = resolve)),
         ...fishTypes.map(
@@ -1273,13 +1317,11 @@
         showStartScreen();
         initAudio();
 
-        document.getElementById("soundBtn").onclick = toggleSound;
-        document
-          .getElementById("startScreen")
-          .addEventListener("click", function firstInteraction() {
-            startAudio();
-            this.removeEventListener("click", firstInteraction);
-          });
+        // Start music on first interaction
+        startScreen.addEventListener("click", function firstInteraction() {
+          startAudio();
+          startScreen.removeEventListener("click", firstInteraction);
+        });
         document.addEventListener("mousemove", function firstInteraction() {
           startAudio();
           document.removeEventListener("mousemove", firstInteraction);

@@ -146,27 +146,27 @@ function setupBotCommands() {
 
     await bot.sendMessage(
       chatId,
-      `Welcome to Fish Eater Surf, ${username}! 🐟\n\n` +
+      `Welcome to Eat or Get Eaten, ${username}! 🐟\n\n` +
         `Eat smaller fish to grow bigger, but watch out for the bigger ones!\n\n` +
         `Use the buttons below to:`,
       { reply_markup: keyboard }
     );
   });
 
-  // bot.onText(/\/play/, async (msg) => {
-  //   const chatId = msg.chat.id;
+  bot.onText(/\/play/, async (msg) => {
+    const chatId = msg.chat.id;
 
-  //   const keyboard = {
-  //     inline_keyboard: [[{ text: "🎮 Play Now", url: process.env.GAME_URL }]],
-  //   };
+    const keyboard = {
+      inline_keyboard: [[{ text: "🎮 Play Now", url: process.env.GAME_URL }]],
+    };
 
-  //   await bot.sendMessage(
-  //     chatId,
-  //     "Ready to play Fish Eater Surf? 🐟\n\n" +
-  //       "Click the button below to start the game!",
-  //     { reply_markup: keyboard }
-  //   );
-  // });
+    await bot.sendMessage(
+      chatId,
+      "Ready to play Eat or Get Eaten? 🐟\n\n" +
+        "Click the button below to start the game!",
+      { reply_markup: keyboard }
+    );
+  });
 
   // Handle callback queries from inline keyboard
   bot.on("callback_query", async (callbackQuery) => {
@@ -192,7 +192,7 @@ function setupBotCommands() {
         if (userScore) {
           await bot.sendMessage(
             chatId,
-            `Your Fish Eater Surf Stats:\n\n` +
+            `Your Eat or Get Eaten Stats:\n\n` +
               `High Score: ${userScore.highScore}\n` +
               `Last Score: ${userScore.lastScore}\n` +
               `Last Played: ${new Date(
