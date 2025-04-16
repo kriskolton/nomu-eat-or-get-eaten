@@ -19,24 +19,36 @@ async function updateScore(userId, username, score, gameTime) {
       score,
       gameTime,
     });
+
     const collection = db.collection("scores");
 
+    // Use a pipeline update to leverage $cond and other aggregation expressions
     const result = await collection.findOneAndUpdate(
       { userId },
-      {
-        $set: {
-          username,
-          lastScore: score,
-          lastPlayed: new Date(),
-          lastGameTime: gameTime,
+      [
+        {
+          $set: {
+            username,
+            lastScore: score,
+            lastPlayed: new Date(),
+            lastGameTime: gameTime,
+            // Update highScore with the maximum of the current highScore or the new score
+            highScore: {
+              $max: ["$highScore", score],
+            },
+            // Conditionally set highScoreGameTime
+            // If the old highScore is greater than the new score, keep the old highScoreGameTime;
+            // otherwise, set it to the current gameTime.
+            highScoreGameTime: {
+              $cond: {
+                if: { $gt: ["$highScore", score] },
+                then: "$highScoreGameTime",
+                else: gameTime,
+              },
+            },
+          },
         },
-        $max: { highScore: score },
-        $cond: {
-          if: { $gt: ["$highScore", score] },
-          then: { $set: { highScoreGameTime: "$highScoreGameTime" } },
-          else: { $set: { highScoreGameTime: gameTime } },
-        },
-      },
+      ],
       {
         upsert: true,
         returnDocument: "after",
