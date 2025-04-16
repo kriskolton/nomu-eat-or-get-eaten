@@ -8,6 +8,7 @@
     />
     <title>Nomu: Eat or Get Eaten</title>
 
+    <!-- Fonts -->
     <link
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Londrina+Solid&display=swap"
@@ -34,95 +35,75 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
     <style>
-      /* RESET & LAYOUT */
+      /* 
+     * 1) Make page a column flex so #gameWrapper can flex to fill 
+     *    all available space if the arrow keys (#controlsContainer) are hidden.
+     */
       html,
       body {
         margin: 0;
         padding: 0;
         width: 100%;
         height: 100%;
+        display: flex; /* column flex container */
+        flex-direction: column; /* top: game, bottom: arrow keys */
         background: #222;
-        display: flex; /* so that #gameWrapper can flex to fill */
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-start; /* or center if you prefer */
-        overflow: hidden;
+        font-family: "Poppins", sans-serif;
       }
 
-      /* MAIN GAME AREA */
-      /* Make it fill the screen vertically. 
-         Removed aspect-ratio & max-width/max-height; replaced with flex:1. */
+      /* 2) The main game wrapper flexes to fill leftover space. */
       #gameWrapper {
-        flex: 1;
+        flex: 1; /* fill vertical space */
         width: 100%;
         position: relative;
         overflow: hidden;
         background: #222 url("img/bg.jpg") center center no-repeat;
         background-size: cover;
+        display: flex; /* so its child (#gameCanvas) can size to 100% */
       }
+
+      /* 
+     * 3) On bigger/wider screens, impose a phone-like aspect ratio and max width. 
+     *    This snippet means: if the screen is at least 700px wide, 
+     *    #gameWrapper itself is pinned to ~450px width with 9:16 ratio. 
+     *    That ensures it looks phone-shaped on large desktops. 
+     *    Adjust numbers as desired.
+     */
+      @media (min-width: 700px) {
+        #gameWrapper {
+          margin: 0 auto; /* center horizontally */
+          max-width: 450px;
+          aspect-ratio: 9 / 16; /* forces height to match phone ratio */
+        }
+      }
+
+      /* 4) Canvas always fills its parent (#gameWrapper). */
       #gameCanvas {
-        display: block;
         width: 100%;
         height: 100%;
-        background: transparent;
+        display: block;
         touch-action: none;
       }
 
-      /* OVERLAYS: START / GAME OVER */
-      .overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        z-index: 9999;
-      }
-      .hidden {
-        display: none;
-      }
-      .overlay h1,
-      .overlay button,
-      .overlay p,
-      .overlay label {
-        color: #fff;
-        margin: 8px;
-      }
-      .overlay button {
-        font-size: 18px;
-        font-weight: bold;
-        color: #fff;
-        padding: 8px 16px;
-        cursor: pointer;
-        border-radius: 40px;
-        background-color: #f78719;
-        font-family: "Londrina Solid", sans-serif;
-      }
-      .overlay p {
-        font-family: "Poppins", sans-serif;
-        font-size: 14px;
-      }
-
-      /* ON-SCREEN ARROW KEYS
-         - Hidden by default, so no space is used in the layout
-         - Shown only when the user chooses so AND the game is actually playing. */
+      /* 
+     * 5) The arrow keys container is the second flex child in <body>, 
+     *    so if it's visible, it occupies some bottom space. 
+     *    If hidden (display: none), #gameWrapper gets all the space. 
+     */
       #controlsContainer {
         width: 100%;
-        display: none; /* start hidden */
+        display: none; /* toggled ON if user wants arrow keys */
         flex-direction: column;
         align-items: center;
         justify-content: flex-start;
-        /* padding: 8px 0 16px 0; */
-        padding: 0px 0 0px 0;
+        background: #222; /* or any color you want for arrow keys region */
         box-sizing: border-box;
+        padding: 0;
       }
       .controlsRow {
         display: flex;
         width: 100%;
+        max-width: 450px; /* match the game’s max width if desired */
         margin: 0 auto;
       }
       .arrowBtn {
@@ -143,10 +124,51 @@
       .arrowBtn:active {
         transform: scale(0.95);
       }
+
+      /* Overlays (start / game over) */
+      .overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+      }
+      .hidden {
+        display: none;
+      }
+      .overlay h1,
+      .overlay button,
+      .overlay p {
+        color: #fff;
+        margin: 8px;
+      }
+      .overlay button {
+        font-size: 18px;
+        font-weight: bold;
+        color: #fff;
+        padding: 8px 16px;
+        cursor: pointer;
+        border-radius: 40px;
+        background-color: #f78719;
+        font-family: "Londrina Solid", sans-serif;
+      }
+      .overlay p {
+        font-size: 14px;
+      }
     </style>
   </head>
   <body>
-    <!-- MAIN GAME AREA -->
+    <!-- 
+     Top region: the main game 
+     (flex:1) so it can grow/shrink 
+     depending on whether arrow keys are hidden or displayed
+  -->
     <div id="gameWrapper">
       <canvas id="gameCanvas"></canvas>
 
@@ -181,7 +203,7 @@
           <div
             style="
               display: flex;
-              gap: 0px;
+              gap: 0;
               margin-bottom: 12px;
               justify-content: center;
             "
@@ -214,7 +236,7 @@
           <div
             style="
               display: flex;
-              gap: 0px;
+              gap: 0;
               margin-bottom: 12px;
               justify-content: center;
             "
@@ -233,7 +255,11 @@
       </div>
     </div>
 
-    <!-- ON-SCREEN ARROW KEYS -->
+    <!-- 
+     Bottom region: arrow keys. 
+     By default, display is none. If the user toggles them on, 
+     we set #controlsContainer.style.display = "flex".
+  -->
     <div id="controlsContainer">
       <div class="controlsRow">
         <button class="arrowBtn" id="arrowUp">↑</button>
@@ -305,9 +331,10 @@
       let WIDTH = 800;
       let HEIGHT = 600;
       function resizeCanvas() {
-        const wrapper = document.getElementById("gameWrapper");
-        canvas.width = wrapper.clientWidth;
-        canvas.height = wrapper.clientHeight;
+        // The canvas fills #gameWrapper (which has an optional aspect ratio).
+        // Just match clientWidth/clientHeight each time.
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
         WIDTH = canvas.width;
         HEIGHT = canvas.height;
       }
@@ -388,8 +415,6 @@
       let playerIsPoweredUp = false;
 
       /* DOM CONTROLS */
-      const useOnScreenArrowsCheckbox =
-        document.getElementById("useOnScreenArrows");
       const soundBtn = document.getElementById("soundBtn");
       const arrowKeysBtn = document.getElementById("arrowKeysBtn");
       const controlsContainer = document.getElementById("controlsContainer");
@@ -398,10 +423,6 @@
       const arrowLeft = document.getElementById("arrowLeft");
       const arrowRight = document.getElementById("arrowRight");
 
-      /* GAME OVER CONTROLS */
-      const useOnScreenArrowsGameOver = document.getElementById(
-        "useOnScreenArrowsGameOver"
-      );
       const soundBtnGameOver = document.getElementById("soundBtnGameOver");
       const arrowKeysBtnGameOver = document.getElementById(
         "arrowKeysBtnGameOver"
@@ -466,7 +487,7 @@
         powerUpSound.play().catch(() => {});
       }
 
-      /* UTILITY & HELPER FUNCTIONS */
+      /* UTILITY */
       function getRandom(min, max) {
         return Math.random() * (max - min) + min;
       }
@@ -483,7 +504,7 @@
         return fishTypes[fishTypes.length - 1];
       }
 
-      /* CLASSES: Fish, Crab, Jellyfish, Bubble, Explosion */
+      /* CLASSES (Fish, Crab, Jellyfish, Bubble, Explosion) */
       class WaterTrail {
         constructor(x, y, direction, fishSize, isUltraFast = false) {
           this.x = x;
@@ -553,7 +574,6 @@
             this.acceleration = 0.05;
             this.maxSpeed = Math.abs(speedX) * 1.2;
           } else {
-            // player
             this.velocityX = 0;
             this.velocityY = 0;
             this.acceleration = 0.055;
@@ -588,7 +608,6 @@
           const isMovingLeft = this.isPlayer
             ? this.velocityX < 0
             : this.speedX < 0;
-
           const applyUltraFastFilter =
             this.isUltraFast || (this.isPlayer && playerIsPoweredUp);
 
@@ -625,7 +644,6 @@
         update(deltaTime) {
           const deltaFrames = deltaTime * 60;
           if (this.isPlayer) {
-            // player movement
             const frictionFactor = Math.pow(this.friction, deltaFrames);
             this.velocityX *= frictionFactor;
             this.velocityY *= frictionFactor;
@@ -651,7 +669,6 @@
               }
             }
           } else {
-            // NPC
             const oscillation =
               Math.sin(
                 performance.now() * this.oscillationSpeed +
@@ -708,7 +725,6 @@
         update(deltaTime, player) {
           const deltaFrames = deltaTime * 60;
           if (!this.hasEnteredScreen) {
-            // Move up from below
             this.y -= 2 * deltaFrames;
             if (this.y + this.height <= HEIGHT) {
               this.hasEnteredScreen = true;
@@ -945,7 +961,7 @@
           spawnBubbleGroup();
         }
 
-        // player movement from keys
+        // player movement (keys)
         const accel = player.acceleration * deltaTime * 60;
         if (keys.left) player.velocityX -= accel;
         if (keys.right) player.velocityX += accel;
@@ -996,7 +1012,6 @@
           } else {
             enemy.update(deltaTime);
             const bounds = enemy.getBounds();
-            // remove off-screen
             if (
               bounds.centerX + bounds.radiusX < -200 ||
               bounds.centerX - bounds.radiusX > WIDTH + 200
@@ -1009,7 +1024,6 @@
           // collision with player
           if (checkCollisionOval(player, enemy)) {
             if (playerIsPoweredUp) {
-              // eats everything
               score += calculateFishScore(enemy.maxSide);
               player.maxSide += Math.min(Math.sqrt(enemy.maxSide) * 0.05, 1.5);
               player.width = null;
@@ -1022,11 +1036,9 @@
               }
               fishList.splice(i, 1);
             } else {
-              // normal collision
               const pR = player.getBounds().radiusX;
               const eR = enemy.getBounds().radiusX;
               if (pR > eR) {
-                // player eats smaller
                 score += calculateFishScore(enemy.maxSide);
                 player.maxSide += Math.min(
                   Math.sqrt(enemy.maxSide) * 0.05,
@@ -1042,7 +1054,6 @@
                 }
                 fishList.splice(i, 1);
               } else {
-                // player is eaten => game over
                 isGameOver = true;
                 gameState = "over";
                 sendScoreToAPI(score);
@@ -1080,7 +1091,6 @@
         const dy = A.centerY - B.centerY;
         const sumRadiiX = A.radiusX + B.radiusX;
         const sumRadiiY = A.radiusY + B.radiusY;
-        // elliptical collision
         return (
           (dx * dx) / (sumRadiiX * sumRadiiX) +
             (dy * dy) / (sumRadiiY * sumRadiiY) <=
@@ -1148,7 +1158,6 @@
         waterTrails = [];
         player = new Fish(WIDTH / 2, HEIGHT / 2, 0, 0, playerImg, 25, true);
 
-        // reset power-up
         playerPowerUpTime = 0;
         playerIsPoweredUp = false;
 
@@ -1159,7 +1168,7 @@
         spawnBubbleGroup();
       }
 
-      // Show/hide the on-screen arrow keys
+      // Show/hide the on-screen arrow keys at the bottom
       function showOrHideArrowKeys(shouldShow) {
         controlsContainer.style.display = shouldShow ? "flex" : "none";
         arrowKeysBtn.textContent = shouldShow
@@ -1173,7 +1182,7 @@
       }
 
       function syncGameOverUI() {
-        // Reflect whether the arrow keys are currently shown
+        // Reflect whether the arrow keys are currently visible
         const isCurrentlyVisible = controlsContainer.style.display !== "none";
         showOrHideArrowKeys(isCurrentlyVisible);
         // Sound
@@ -1204,19 +1213,19 @@
 
       // Start screen: Toggle arrow keys
       arrowKeysBtn.onclick = () => {
-        const isCurrentlyVisible = controlsContainer.style.display !== "none";
-        showOrHideArrowKeys(!isCurrentlyVisible);
+        const currentlyVisible = controlsContainer.style.display !== "none";
+        showOrHideArrowKeys(!currentlyVisible);
       };
 
-      // Game over: Toggle sound
+      // Game Over: Toggle sound
       soundBtnGameOver.onclick = () => {
         toggleSoundGameOver();
       };
 
-      // Game over: Toggle arrow keys
+      // Game Over: Toggle arrow keys
       arrowKeysBtnGameOver.onclick = () => {
-        const isCurrentlyVisible = controlsContainer.style.display !== "none";
-        showOrHideArrowKeys(!isCurrentlyVisible);
+        const currentlyVisible = controlsContainer.style.display !== "none";
+        showOrHideArrowKeys(!currentlyVisible);
       };
 
       // On-screen arrow buttons
