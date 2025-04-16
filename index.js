@@ -260,9 +260,15 @@ app.post("/api/scores", checkPassword, verifyTelegramData, async (req, res) => {
     console.log("Received score submission request:", req.body);
     const { userId, username, score, gameTime } = req.body;
 
-    if (!userId || !score || !gameTime) {
-      console.error("Missing required fields:", { userId, score, gameTime });
-      return res.status(400).json({ error: "Missing required fields" });
+    if (!userId || typeof score !== "number" || typeof gameTime !== "number") {
+      console.error("Invalid or missing required fields:", {
+        userId,
+        score,
+        gameTime,
+      });
+      return res
+        .status(400)
+        .json({ error: "Invalid or missing required fields" });
     }
 
     console.log("Attempting to update score in database...", {
