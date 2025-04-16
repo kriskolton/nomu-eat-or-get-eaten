@@ -42,8 +42,23 @@ function initializeBot() {
       },
     });
 
-    bot.on("polling_error", (error) => {
+    // Handle polling errors
+    bot.on("polling_error", async (error) => {
       console.error("Polling error:", error);
+      if (error.code === 409) {
+        console.log("Conflict detected, stopping bot...");
+        try {
+          await bot.stopPolling();
+          console.log("Bot polling stopped");
+          // Wait a bit before restarting
+          setTimeout(() => {
+            console.log("Restarting bot polling...");
+            bot.startPolling();
+          }, 5000);
+        } catch (stopError) {
+          console.error("Error stopping bot:", stopError);
+        }
+      }
     });
 
     console.log("Bot initialized successfully");
@@ -96,12 +111,17 @@ async function initializeApp() {
     });
 
     // Handle process termination
-    process.on("SIGTERM", () => {
+    process.on("SIGTERM", async () => {
       console.log("SIGTERM received. Shutting down gracefully...");
-      server.close(() => {
-        console.log("Server closed");
-        process.exit(0);
-      });
+      await cleanup();
+      process.exit(0);
+    });
+
+    // Handle process interruption
+    process.on("SIGINT", async () => {
+      console.log("SIGINT received. Shutting down gracefully...");
+      await cleanup();
+      process.exit(0);
     });
   } catch (error) {
     console.error("Failed to initialize application:", error);
@@ -344,6 +364,19 @@ function setupBotCommands() {
       );
     }
   });
+}
+
+// Cleanup function
+async function cleanup() {
+  if (bot) {
+    try {
+      console.log("Stopping bot polling...");
+      await bot.stopPolling();
+      console.log("Bot polling stopped successfully");
+    } catch (error) {
+      console.error("Error stopping bot:", error);
+    }
+  }
 }
 
 // Start the application
