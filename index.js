@@ -397,7 +397,7 @@ function setupBotCommands() {
 
     await sendMessageWithErrorHandling(
       chatId,
-      `Welcome to Nome: Eat or Get Eaten 🐟\n\n` +
+      `Welcome to Nomu: Eat or Get Eaten 🐟\n\n` +
         `Eat smaller fish to grow bigger, but watch out for bigger ones!\n\n` +
         `Use the buttons below to:`,
       // Only pass message_thread_id if it's a supergroup with a forum topic
@@ -435,7 +435,7 @@ function setupBotCommands() {
       if (data === "highscores") {
         // Show top N high scores (10, or 5 in your text)
         const highScores = await getHighScores(10);
-        let message = "🏆 Top 5 High Scores 🏆\n\n";
+        let message = "🏆 Top 10 High Scores 🏆\n\n";
 
         highScores.forEach((score, index) => {
           message += `${index + 1}. ${score.username || "Anonymous"}: ${

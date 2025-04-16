@@ -172,7 +172,7 @@
      Top region: the main game 
      (flex:1) so it can grow/shrink 
      depending on whether arrow keys are hidden or displayed
-  -->
+    -->
     <div id="gameWrapper">
       <canvas id="gameCanvas"></canvas>
 
@@ -263,7 +263,7 @@
      Bottom region: arrow keys. 
      By default, display is none. If the user toggles them on, 
      we set #controlsContainer.style.display = "flex".
-  -->
+    -->
     <div id="controlsContainer">
       <div class="controlsRow">
         <button class="arrowBtn" id="arrowUp">↑</button>
@@ -781,24 +781,29 @@
             this.maxSide = 0;
             return;
           }
-          const crabRadius = this.getBounds().radiusX;
-          const playerRadius = player.getBounds().radiusX;
-          const dx = player.x - this.x;
-          const dy = player.y - this.y;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const crabBounds = this.getBounds();
+          const playerBounds = player.getBounds();
+
+          // vector from crab center → player center
+          const dx = playerBounds.centerX - crabBounds.centerX;
+          const dy = playerBounds.centerY - crabBounds.centerY;
+          const dist = Math.hypot(dx, dy) || 1;
+
           const speedFactor = 1.5;
-          if (crabRadius > playerRadius) {
-            this.x += (dx / dist) * (speedFactor * deltaFrames);
-            this.y += (dy / dist) * (speedFactor * deltaFrames);
+          if (crabBounds.radiusX > playerBounds.radiusX) {
+            // chase
+            this.x += (dx / dist) * speedFactor * deltaFrames;
+            this.y += (dy / dist) * speedFactor * deltaFrames;
           } else {
-            this.x -= (dx / dist) * (speedFactor * deltaFrames);
-            this.y -= (dy / dist) * (speedFactor * deltaFrames);
+            // flee
+            this.x -= (dx / dist) * speedFactor * deltaFrames;
+            this.y -= (dy / dist) * speedFactor * deltaFrames;
           }
+
+          // clamp to screen, etc.
           if (this.width && this.height) {
-            if (this.x < 0) this.x = 0;
-            if (this.y < 0) this.y = 0;
-            if (this.x + this.width > WIDTH) this.x = WIDTH - this.width;
-            if (this.y + this.height > HEIGHT) this.y = HEIGHT - this.height;
+            this.x = Math.min(Math.max(0, this.x), WIDTH - this.width);
+            this.y = Math.min(Math.max(0, this.y), HEIGHT - this.height);
           }
         }
       }
@@ -826,12 +831,11 @@
         }
       }
 
+      // Bubble class with group behavior:
       class Bubble {
         constructor(baseX) {
-          this.reset(baseX);
-        }
-        reset(baseX) {
-          this.x = baseX + getRandom(-10, 10);
+          this.baseX = baseX;
+          this.x = this.baseX + getRandom(-10, 10);
           this.y = HEIGHT + 20;
           this.size = getRandom(3, 8);
           this.speed = getRandom(2, 3.5);
@@ -840,6 +844,7 @@
           this.wobbleSpeed = getRandom(0.02, 0.05);
           this.wobbleOffset = getRandom(0, Math.PI * 2);
         }
+
         update(deltaTime) {
           this.y -= this.speed * deltaTime * 60;
           this.x +=
@@ -847,10 +852,9 @@
             this.wobbleAmount *
             deltaTime *
             60;
-          if (this.y < -20) {
-            this.reset();
-          }
+          // **no more reset() here**
         }
+
         draw(ctx) {
           ctx.beginPath();
           ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
@@ -956,15 +960,18 @@
         const jelly = new Jellyfish(x, y, size);
         fishList.push(jelly);
       }
+      // This function spawns a single bubble group with 3-5 bubbles.
       function spawnBubbleGroup() {
-        const groupSize = Math.floor(getRandom(3, 5));
-        const baseX = getRandom(50, WIDTH - 50);
+        const groupSize = Math.floor(getRandom(3, 6)); // random integer between 3 and 5
+        const baseX = getRandom(50, WIDTH - 50); // group base position
         for (let i = 0; i < groupSize; i++) {
-          if (bubbles.length < 8) {
-            bubbles.push(new Bubble(baseX));
-          }
+          bubbles.push(new Bubble(baseX));
         }
       }
+
+      // Timer variables for controlling bubble group spawns.
+      let bubbleGroupTimer = 0;
+      const BUBBLE_GROUP_INTERVAL = 20; // Spawn a new bubble group every 10 seconds
 
       /* GAME LOOP */
       function updateGame(deltaTime) {
@@ -992,10 +999,15 @@
           }
         }
 
-        // bubbles
-        for (const bubble of bubbles) {
-          bubble.update(deltaTime);
+        // bubbles: update and remove once off‑screen
+        for (let i = bubbles.length - 1; i >= 0; i--) {
+          bubbles[i].update(deltaTime);
+          if (bubbles[i].y < -20) {
+            // bubble has floated off the top—remove it permanently
+            bubbles.splice(i, 1);
+          }
         }
+
         // water trails
         for (let i = waterTrails.length - 1; i >= 0; i--) {
           const trail = waterTrails[i];
@@ -1003,9 +1015,11 @@
           if (trail.life <= 0) waterTrails.splice(i, 1);
         }
 
-        // occasionally spawn new bubbles
-        if (Math.random() < 0.002 * deltaTime * 60 && bubbles.length < 5) {
+        // Update bubble group timer.
+        bubbleGroupTimer += deltaTime;
+        if (bubbleGroupTimer >= BUBBLE_GROUP_INTERVAL) {
           spawnBubbleGroup();
+          bubbleGroupTimer = 0;
         }
 
         // player movement (keys)
@@ -1214,7 +1228,10 @@
         for (let i = 0; i < 3; i++) {
           spawnFish();
         }
+        // Spawn an initial bubble group.
         spawnBubbleGroup();
+        // Reset bubble group timer so that the next group spawns in 10 seconds.
+        bubbleGroupTimer = 0;
       }
 
       // Show/hide the on-screen arrow keys at the bottom
