@@ -361,7 +361,7 @@ function setupBotCommands() {
 
     try {
       if (data === "highscores") {
-        const highScores = await getHighScores(5);
+        const highScores = await getHighScores(10);
         let message = "🏆 Top 5 High Scores 🏆\n\n";
 
         highScores.forEach((score, index) => {
