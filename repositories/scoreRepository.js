@@ -11,12 +11,13 @@ async function initDB() {
 }
 
 // Update or create a score
-async function updateScore(userId, username, score) {
+async function updateScore(userId, username, score, gameTime) {
   try {
     console.log("Database operation - Updating score:", {
       userId,
       username,
       score,
+      gameTime,
     });
     const collection = db.collection("scores");
 
@@ -27,8 +28,14 @@ async function updateScore(userId, username, score) {
           username,
           lastScore: score,
           lastPlayed: new Date(),
+          lastGameTime: gameTime,
         },
         $max: { highScore: score },
+        $cond: {
+          if: { $gt: ["$highScore", score] },
+          then: { $set: { highScoreGameTime: "$highScoreGameTime" } },
+          else: { $set: { highScoreGameTime: gameTime } },
+        },
       },
       {
         upsert: true,

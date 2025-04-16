@@ -318,6 +318,7 @@
           console.log("Attempting to submit score:", {
             userId,
             score,
+            gameTime,
             username: userData?.username || userData?.first_name || "Anonymous",
           });
 
@@ -340,6 +341,7 @@
               username:
                 userData?.username || userData?.first_name || "Anonymous",
               score,
+              gameTime,
             }),
           });
 
@@ -448,6 +450,8 @@
       let powerUpSound;
       let isSoundEnabled = true;
       let explosion = null;
+      let gameStartTime = 0;
+      let gameTime = 0;
 
       /* POWER-UP */
       let playerPowerUpTime = 0;
@@ -976,6 +980,9 @@
         if (gameState !== "playing") return;
         if (isGameOver && !explosion) return;
 
+        // Update game time
+        gameTime += deltaTime;
+
         // power-up
         if (playerPowerUpTime > 0) {
           playerPowerUpTime -= deltaTime;
@@ -1192,6 +1199,8 @@
       function initGame() {
         resizeCanvas();
         score = 0;
+        gameTime = 0;
+        gameStartTime = performance.now();
         isGameOver = false;
         fishList = [];
         bubbles = [];
