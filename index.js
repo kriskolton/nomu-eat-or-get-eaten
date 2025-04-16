@@ -1,5 +1,7 @@
 require("dotenv").config();
 const express = require("express");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const TelegramBot = require("node-telegram-bot-api");
 const {
   initDB,
@@ -13,6 +15,14 @@ const crypto = require("crypto");
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Set up rate limiting: max of 100 requests per 15 minutes per IP
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  standardHeaders: true, // Return rate limit info in the RateLimit-* headers
+  legacyHeaders: false, // Disable the X-RateLimit-* headers
+});
 
 // Initialize bot only if we have both required environment variables
 let bot = null;
@@ -83,6 +93,10 @@ async function initializeDatabase() {
 // Initialize the application
 async function initializeApp() {
   try {
+    // Use Helmet for basic security headers
+    app.use(helmet());
+    // Apply the rate limiter to all requests
+    app.use(limiter);
     // Initialize database
     await initializeDatabase();
 
