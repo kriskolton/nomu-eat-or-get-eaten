@@ -7,6 +7,9 @@ const {
   getHighScores,
   getUserScore,
 } = require("./repositories/scoreRepository");
+const path = require("path");
+const fs = require("fs");
+const crypto = require("crypto");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -58,8 +61,71 @@ initDB().catch((err) => console.error("MongoDB connection error:", err));
 app.use(express.static("public"));
 app.use(express.json());
 
+// Serve index.html with API password injected
+app.get("/", (req, res) => {
+  const indexPath = path.join(__dirname, "public", "index.html");
+  fs.readFile(indexPath, "utf8", (err, data) => {
+    if (err) {
+      console.error("Error reading index.html:", err);
+      return res.status(500).send("Error loading game");
+    }
+    const htmlWithPassword = data.replace(
+      "{{API_PASSWORD}}",
+      process.env.API_PASSWORD || ""
+    );
+    res.send(htmlWithPassword);
+  });
+});
+
+// Password check middleware
+const checkPassword = (req, res, next) => {
+  const apiPassword = process.env.API_PASSWORD;
+  if (!apiPassword) {
+    console.error("API_PASSWORD not set in environment variables");
+    return res.status(500).json({ error: "Server configuration error" });
+  }
+
+  const providedPassword = req.headers["x-api-password"];
+  if (!providedPassword || providedPassword !== apiPassword) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  next();
+};
+
+// Verify Telegram WebApp data
+const verifyTelegramData = (req, res, next) => {
+  const initData = req.headers["x-telegram-init-data"];
+  if (!initData) {
+    return res.status(401).json({ error: "Missing Telegram data" });
+  }
+
+  // Create a hash of the data using the bot token as the secret key
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) {
+    console.error("TELEGRAM_BOT_TOKEN not set in environment variables");
+    return res.status(500).json({ error: "Server configuration error" });
+  }
+
+  const secretKey = crypto
+    .createHmac("sha256", "WebAppData")
+    .update(botToken)
+    .digest();
+  const hash = crypto
+    .createHmac("sha256", secretKey)
+    .update(initData)
+    .digest("hex");
+
+  // The hash should match the hash provided by Telegram
+  const providedHash = new URLSearchParams(initData).get("hash");
+  if (hash !== providedHash) {
+    return res.status(401).json({ error: "Invalid Telegram data" });
+  }
+
+  next();
+};
+
 // API endpoint to submit scores
-app.post("/api/scores", async (req, res) => {
+app.post("/api/scores", checkPassword, verifyTelegramData, async (req, res) => {
   try {
     console.log("Received score submission request:", req.body);
     const { userId, username, score } = req.body;
@@ -80,7 +146,7 @@ app.post("/api/scores", async (req, res) => {
 });
 
 // API endpoint to get high scores
-app.get("/api/scores", async (req, res) => {
+app.get("/api/scores", checkPassword, async (req, res) => {
   try {
     const highScores = await getHighScores();
     res.json(highScores);

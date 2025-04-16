@@ -103,7 +103,7 @@
       .controlsRow {
         display: flex;
         width: 100%;
-        max-width: 450px; /* match the game’s max width if desired */
+        max-width: 450px; /* match the game's max width if desired */
         margin: 0 auto;
       }
       .arrowBtn {
@@ -120,6 +120,10 @@
         align-items: center;
         justify-content: center;
         height: 60px;
+        user-select: none; /* standard CSS */
+        -webkit-user-select: none; /* Safari/Chrome */
+        -moz-user-select: none; /* Firefox older versions */
+        -ms-user-select: none; /* IE/Edge */
       }
       .arrowBtn:active {
         transform: scale(0.95);
@@ -307,7 +311,11 @@
         try {
           const response = await fetch("/api/scores", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-password": "{{API_PASSWORD}}",
+              "x-telegram-init-data": window.Telegram.WebApp.initData,
+            },
             body: JSON.stringify({
               userId,
               username:
