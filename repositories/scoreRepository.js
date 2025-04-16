@@ -6,7 +6,7 @@ let db;
 async function initDB() {
   const client = new MongoClient(process.env.MONGODB_URI);
   await client.connect();
-  db = client.db("nomu-eat-or-get-eaten");
+  db = client.db("eat-or-get-eaten");
   console.log("Connected to MongoDB");
 }
 
