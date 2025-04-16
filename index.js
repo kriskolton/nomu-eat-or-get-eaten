@@ -141,9 +141,24 @@ app.get("/", (req, res) => {
       console.error("Error reading index.html:", err);
       return res.status(500).send("Error loading game");
     }
+
+    const apiPassword = process.env.API_PASSWORD;
+    if (!apiPassword) {
+      console.error("API_PASSWORD not set in environment variables");
+      return res.status(500).send("Server configuration error");
+    }
+
+    // Inject the API password as a JavaScript variable
+    const scriptInjection = `
+      <script>
+        window.API_PASSWORD = '${apiPassword}';
+      </script>
+    `;
+
+    // Insert the script right after the opening body tag
     const htmlWithPassword = data.replace(
-      "{{API_PASSWORD}}",
-      process.env.API_PASSWORD || ""
+      "</head>",
+      `</head>${scriptInjection}`
     );
     res.send(htmlWithPassword);
   });
@@ -158,7 +173,11 @@ const checkPassword = (req, res, next) => {
   }
 
   const providedPassword = req.headers["x-api-password"];
-  console.log("Checking API password...");
+  console.log("Checking API password...", {
+    provided: providedPassword ? "***" : "not provided",
+    expected: apiPassword ? "***" : "not set",
+  });
+
   if (!providedPassword || providedPassword !== apiPassword) {
     console.error("Invalid API password provided");
     return res.status(401).json({ error: "Unauthorized" });
@@ -246,12 +265,28 @@ app.post("/api/scores", checkPassword, verifyTelegramData, async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    console.log("Attempting to update score in database...");
-    const updatedScore = await updateScore(userId, username, score);
-    console.log("Score updated successfully:", updatedScore);
-    res.json(updatedScore);
+    console.log("Attempting to update score in database...", {
+      userId,
+      username,
+      score,
+    });
+
+    try {
+      const updatedScore = await updateScore(userId, username, score);
+      console.log("Score updated successfully in database:", updatedScore);
+      res.json(updatedScore);
+    } catch (dbError) {
+      console.error("Database error:", {
+        error: dbError.message,
+        stack: dbError.stack,
+      });
+      throw dbError;
+    }
   } catch (error) {
-    console.error("Error submitting score:", error);
+    console.error("Error submitting score:", {
+      error: error.message,
+      stack: error.stack,
+    });
     res.status(500).json({ error: "Internal server error" });
   }
 });

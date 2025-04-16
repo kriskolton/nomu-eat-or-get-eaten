@@ -312,14 +312,26 @@
           return;
         }
         try {
-          console.log("Attempting to submit score:", { userId, score });
+          console.log("Attempting to submit score:", {
+            userId,
+            score,
+            username: userData?.username || userData?.first_name || "Anonymous",
+          });
+
+          const headers = {
+            "Content-Type": "application/json",
+            "x-api-password": window.API_PASSWORD,
+            "x-telegram-init-data": window.Telegram.WebApp.initData,
+          };
+
+          console.log("Sending request with headers:", {
+            ...headers,
+            "x-api-password": headers["x-api-password"] ? "***" : "not set",
+          });
+
           const response = await fetch("/api/scores", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-api-password": "{{API_PASSWORD}}",
-              "x-telegram-init-data": window.Telegram.WebApp.initData,
-            },
+            headers: headers,
             body: JSON.stringify({
               userId,
               username:
@@ -327,6 +339,9 @@
               score,
             }),
           });
+
+          console.log("Response status:", response.status);
+
           if (!response.ok) {
             const errorText = await response.text();
             console.error("Score submission failed:", {
@@ -336,6 +351,7 @@
             });
             throw new Error(`Failed to send score: ${errorText}`);
           }
+
           const result = await response.json();
           console.log("Score sent successfully:", result);
         } catch (error) {
