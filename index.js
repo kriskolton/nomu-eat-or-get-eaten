@@ -18,10 +18,10 @@ const port = process.env.PORT || 3000;
 
 // Set up rate limiting: max of 100 requests per 15 minutes per IP
 const limiter = rateLimit({
-  windowMs: 5 * 60 * 1000, // 15 minutes
+  windowMs: 5 * 60 * 1000, // 5 minutes (adjust as needed)
   max: 100, // limit each IP to 100 requests per windowMs
-  standardHeaders: true, // Return rate limit info in the RateLimit-* headers
-  legacyHeaders: false, // Disable the X-RateLimit-* headers
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 // Initialize bot only if we have both required environment variables
@@ -169,7 +169,7 @@ app.get("/", (req, res) => {
       </script>
     `;
 
-    // Insert the script right after the opening body tag
+    // Insert the script right after the opening head tag
     const htmlWithPassword = data.replace(
       "</head>",
       `</head>${scriptInjection}`
@@ -338,10 +338,55 @@ app.get("/health", (req, res) => {
 function setupBotCommands() {
   if (!bot) return;
 
+  /**
+   * Helper function that tries to send a message to the same topic (if applicable).
+   * - `chatId`: number or string (the chat or supergroup ID)
+   * - `text`: message text
+   * - `messageThreadId`: pass the `message_thread_id` if you're replying in a forum topic
+   * - `options`: normal Telegram sendMessage options (reply_markup, parse_mode, etc.)
+   */
+  async function sendMessageWithErrorHandling(
+    chatId,
+    text,
+    messageThreadId,
+    options = {}
+  ) {
+    // If the chat is private or there's no message_thread_id, we omit it
+    // If it's a supergroup with a valid topic, we include it
+    if (messageThreadId) {
+      options.message_thread_id = messageThreadId;
+    }
+
+    try {
+      await bot.sendMessage(chatId, text, options);
+    } catch (error) {
+      // Handle the 'TOPIC_CLOSED' error or any other
+      if (
+        error.response &&
+        error.response.statusCode === 400 &&
+        error.response.body &&
+        error.response.body.description === "TOPIC_CLOSED"
+      ) {
+        console.error("Failed to send message: Topic is closed");
+        // If topic is closed, try sending without the topic
+        if (options.message_thread_id) {
+          const { message_thread_id, ...optionsWithoutTopic } = options;
+          await bot.sendMessage(chatId, text, optionsWithoutTopic);
+        }
+      } else {
+        console.error("Error sending message:", error);
+        throw error;
+      }
+    }
+  }
+
+  // /start command
   bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
-    const username = msg.from.username || msg.from.first_name;
+    const chatType = msg.chat.type; // 'private', 'group', 'supergroup'
+    const messageThreadId = msg.message_thread_id; // defined if forum topic
 
+    const username = msg.from.username || msg.from.first_name;
     const keyboard = {
       inline_keyboard: [
         [{ text: "🎮 Play Game", url: process.env.GAME_URL }],
@@ -350,26 +395,31 @@ function setupBotCommands() {
       ],
     };
 
-    await bot.sendMessage(
+    await sendMessageWithErrorHandling(
       chatId,
       `Welcome to Nome: Eat or Get Eaten 🐟\n\n` +
-        `Eat smaller fish to grow bigger, but watch out for the bigger ones!\n\n` +
+        `Eat smaller fish to grow bigger, but watch out for bigger ones!\n\n` +
         `Use the buttons below to:`,
+      // Only pass message_thread_id if it's a supergroup with a forum topic
+      chatType === "supergroup" ? messageThreadId : null,
       { reply_markup: keyboard }
     );
   });
 
+  // /play command
   bot.onText(/\/play/, async (msg) => {
     const chatId = msg.chat.id;
+    const chatType = msg.chat.type;
+    const messageThreadId = msg.message_thread_id;
 
     const keyboard = {
       inline_keyboard: [[{ text: "🎮 Play Now", url: process.env.GAME_URL }]],
     };
 
-    await bot.sendMessage(
+    await sendMessageWithErrorHandling(
       chatId,
-      "Ready to play Eat or Get Eaten? 🐟\n\n" +
-        "Click the button below to start the game!",
+      "Ready to play Eat or Get Eaten? 🐟\n\nClick the button below to start!",
+      chatType === "supergroup" ? messageThreadId : null,
       { reply_markup: keyboard }
     );
   });
@@ -377,10 +427,13 @@ function setupBotCommands() {
   // Handle callback queries from inline keyboard
   bot.on("callback_query", async (callbackQuery) => {
     const chatId = callbackQuery.message.chat.id;
+    const chatType = callbackQuery.message.chat.type;
+    const messageThreadId = callbackQuery.message.message_thread_id; // if forum
     const data = callbackQuery.data;
 
     try {
       if (data === "highscores") {
+        // Show top N high scores (10, or 5 in your text)
         const highScores = await getHighScores(10);
         let message = "🏆 Top 5 High Scores 🏆\n\n";
 
@@ -390,34 +443,45 @@ function setupBotCommands() {
           }\n`;
         });
 
-        await bot.sendMessage(chatId, message);
+        await sendMessageWithErrorHandling(
+          chatId,
+          message,
+          chatType === "supergroup" ? messageThreadId : null
+        );
       } else if (data === "mystats") {
         const userId = callbackQuery.from.id;
         const userScore = await getUserScore(userId);
 
         if (userScore) {
-          await bot.sendMessage(
+          await sendMessageWithErrorHandling(
             chatId,
             `Your Eat or Get Eaten Stats:\n\n` +
               `High Score: ${userScore.highScore}\n` +
               `Last Score: ${userScore.lastScore}\n` +
               `Last Played: ${new Date(
                 userScore.lastPlayed
-              ).toLocaleDateString()}`
+              ).toLocaleDateString()}`,
+            chatType === "supergroup" ? messageThreadId : null
           );
         } else {
-          await bot.sendMessage(
+          await sendMessageWithErrorHandling(
             chatId,
-            "You haven't played the game yet! Click 'Play Game' to get started!"
+            "You haven't played the game yet! Click 'Play Game' to get started!",
+            chatType === "supergroup" ? messageThreadId : null
           );
         }
       }
     } catch (error) {
       console.error("Error handling callback query:", error);
-      await bot.sendMessage(
-        chatId,
-        "Sorry, there was an error processing your request."
-      );
+      try {
+        await sendMessageWithErrorHandling(
+          chatId,
+          "Sorry, there was an error processing your request.",
+          chatType === "supergroup" ? messageThreadId : null
+        );
+      } catch (sendError) {
+        console.error("Failed to send error message:", sendError);
+      }
     }
   });
 }
