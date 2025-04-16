@@ -324,7 +324,7 @@ function setupBotCommands() {
 
     const keyboard = {
       inline_keyboard: [
-        // [{ text: "🎮 Play Game", url: process.env.GAME_URL }],
+        [{ text: "🎮 Play Game", url: process.env.GAME_URL }],
         [{ text: "🏆 View High Scores", callback_data: "highscores" }],
         [{ text: "📊 My Stats", callback_data: "mystats" }],
       ],
