@@ -281,11 +281,10 @@
         userData = tg.initDataUnsafe?.user;
         userId = userData?.id;
         tg.expand();
-        tg.setupBackButton(false);
-        tg.setupMainButton(false);
-        tg.setupSettingsButton(false);
-        tg.setupClosingBehavior(false);
-        tg.setupSwipeBehavior(false);
+        // IMPORTANT: Tell Telegram we've loaded,
+        // then disable the swipe-to-dismiss gesture:
+        tg.ready();
+        tg.setSwipeEnabled(false);
       } catch (error) {
         console.error("Telegram initialization error:", error);
       }
