@@ -10,6 +10,16 @@ async function initDB() {
   console.log("Connected to MongoDB");
 }
 
+// Helper function to get the start of the current week (Sunday)
+function getStartOfWeek() {
+  const date = new Date();
+  const day = date.getDay();
+  const diff = date.getDate() - day;
+  const startOfWeek = new Date(date.setDate(diff));
+  startOfWeek.setHours(0, 0, 0, 0);
+  return startOfWeek;
+}
+
 // Update or create a score
 async function updateScore(userId, username, score, gameTime) {
   try {
@@ -19,6 +29,51 @@ async function updateScore(userId, username, score, gameTime) {
       score,
       gameTime,
     });
+
+    // First, create a game document
+    try {
+      const gamesCollection = db.collection("games");
+      await gamesCollection.insertOne({
+        userId,
+        username,
+        score,
+        gameTime,
+        date: new Date(),
+      });
+      console.log("Successfully created game document");
+    } catch (gameError) {
+      console.error("Error creating game document:", gameError);
+      // Continue with score update even if game document creation fails
+    }
+
+    // Update weekly stats
+    try {
+      const statsCollection = db.collection("stats");
+      const startOfWeek = getStartOfWeek();
+
+      await statsCollection.updateOne(
+        { weekStart: startOfWeek },
+        {
+          $inc: {
+            totalGamesPlayed: 1,
+            totalGameTime: gameTime,
+          },
+          $set: {
+            lastUpdatedAt: new Date(),
+          },
+          $setOnInsert: {
+            weekStart: startOfWeek,
+            totalGamesPlayed: 0,
+            totalGameTime: 0,
+          },
+        },
+        { upsert: true }
+      );
+      console.log("Successfully updated weekly stats");
+    } catch (statsError) {
+      console.error("Error updating weekly stats:", statsError);
+      // Continue with score update even if stats update fails
+    }
 
     const collection = db.collection("scores");
 
