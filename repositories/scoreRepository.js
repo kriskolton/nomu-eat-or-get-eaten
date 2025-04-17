@@ -4,9 +4,9 @@ let db;
 
 // Initialize database connection
 async function initDB() {
-  const client = new MongoClient(process.env.MONGODB_URI);
+  const client = new MongoClient(process.env.MONGODB_URI_DEV);
   await client.connect();
-  db = client.db("eat-or-get-eaten");
+  db = client.db(process.env.DATABASE_NAME);
   console.log("Connected to MongoDB");
 }
 
