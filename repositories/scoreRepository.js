@@ -30,7 +30,7 @@ async function updateScore(userId, username, score, gameTime) {
       gameTime,
     });
 
-    // First, create a game document
+    // Create a game document (non-critical)
     try {
       const gamesCollection = db.collection("games");
       await gamesCollection.insertOne({
@@ -43,16 +43,15 @@ async function updateScore(userId, username, score, gameTime) {
       console.log("Successfully created game document");
     } catch (gameError) {
       console.error("Error creating game document:", gameError);
-      // Continue with score update even if game document creation fails
+      // Continue even if game document creation fails
     }
 
-    // Update weekly stats
+    // Update weekly stats (non-critical)
     try {
       const statsCollection = db.collection("stats");
-      const startOfWeek = getStartOfWeek();
-
+      const weekStart = getStartOfWeek();
       await statsCollection.updateOne(
-        { weekStart: startOfWeek },
+        { weekStart },
         {
           $inc: {
             totalGamesPlayed: 1,
@@ -62,9 +61,7 @@ async function updateScore(userId, username, score, gameTime) {
             lastUpdatedAt: new Date(),
           },
           $setOnInsert: {
-            weekStart: startOfWeek,
-            totalGamesPlayed: 1,
-            totalGameTime: gameTime,
+            weekStart,
           },
         },
         { upsert: true }
@@ -72,12 +69,11 @@ async function updateScore(userId, username, score, gameTime) {
       console.log("Successfully updated weekly stats");
     } catch (statsError) {
       console.error("Error updating weekly stats:", statsError);
-      // Continue with score update even if stats update fails
+      // Continue even if stats update fails
     }
 
+    // Update or insert user score and high score
     const collection = db.collection("scores");
-
-    // Use a pipeline update to leverage $cond and other aggregation expressions
     const result = await collection.findOneAndUpdate(
       { userId },
       [
@@ -87,13 +83,7 @@ async function updateScore(userId, username, score, gameTime) {
             lastScore: score,
             lastPlayed: new Date(),
             lastGameTime: gameTime,
-            // Update highScore with the maximum of the current highScore or the new score
-            highScore: {
-              $max: ["$highScore", score],
-            },
-            // Conditionally set highScoreGameTime
-            // If the old highScore is greater than the new score, keep the old highScoreGameTime;
-            // otherwise, set it to the current gameTime.
+            highScore: { $max: ["$highScore", score] },
             highScoreGameTime: {
               $cond: {
                 if: { $gt: ["$highScore", score] },
