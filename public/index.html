@@ -690,6 +690,8 @@
           ctx.restore();
         }
         getBounds() {
+          if (this.width == null || this.height == null)
+            this.calculateDimensions();
           const collisionScale = 0.6;
           const radiusX = ((this.width || 0) * collisionScale) / 2;
           const radiusY = ((this.height || 0) * collisionScale) / 2;
@@ -1102,50 +1104,18 @@
 
           // collision with player
           if (checkCollisionOval(player, enemy)) {
-            if (playerIsPoweredUp) {
-              score += calculateFishScore(enemy.maxSide);
-              player.maxSide += Math.min(Math.sqrt(enemy.maxSide) * 0.05, 1.5);
-              player.width = null;
-              player.height = null;
-              playEatSound();
-              if (enemy.isUltraFast) {
-                playerPowerUpTime = POWER_UP_DURATION;
-                playerIsPoweredUp = true;
-                playPowerUpSound();
-              }
-              fishList.splice(i, 1);
-            } else {
-              const pR = player.getBounds().radiusX;
-              const eR = enemy.getBounds().radiusX;
-              if (pR > eR) {
-                score += calculateFishScore(enemy.maxSide);
-                player.maxSide += Math.min(
-                  Math.sqrt(enemy.maxSide) * 0.05,
-                  1.5
-                );
-                player.width = null;
-                player.height = null;
-                playEatSound();
-                if (enemy.isUltraFast) {
-                  playerPowerUpTime = POWER_UP_DURATION;
-                  playerIsPoweredUp = true;
-                  playPowerUpSound();
-                }
-                fishList.splice(i, 1);
-              } else {
-                isGameOver = true;
-                gameState = "over";
-                sendScoreToAPI(score);
-                if (player.width && player.height) {
-                  explosion = new Explosion(
-                    player.x + player.width / 2,
-                    player.y + player.height / 2,
-                    player.maxSide
-                  );
-                }
-                return;
-              }
+            // Always eat the fish and gain points, regardless of size
+            score += calculateFishScore(enemy.maxSide);
+            player.maxSide += Math.min(Math.sqrt(enemy.maxSide) * 0.05, 1.5);
+            player.width = null;
+            player.height = null;
+            playEatSound();
+            if (enemy.isUltraFast) {
+              playerPowerUpTime = POWER_UP_DURATION;
+              playerIsPoweredUp = true;
+              playPowerUpSound();
             }
+            fishList.splice(i, 1);
           }
         }
 
