@@ -201,7 +201,6 @@
             smaller fish to grow. Don't let the bigger fish eat you!
           </p>
           <p>The larger the fish, the more points you get.</p>
-          <p>Your high score is <span id="highScore">0</span>.</p>
 
           <!-- Controls row -->
           <div
@@ -307,6 +306,25 @@
           "⚠️ Not tracking scores - Please access via Telegram bot";
         statusDiv.style.color = "red";
       }
+
+      /* -----------  FIX FOR STUCK ARROW BUTTONS -------------- */
+      /**
+       * Some edge‑cases (finger slides off a button, container hidden mid‑press,
+       * pointercancel, etc.) could leave one of the direction flags set to true,
+       * making the player swim forever in that direction.
+       *
+       * 1.  A helper ‑ clearKeys() – sets all flags to false.
+       * 2.  Global mouseup/touchend/touchcancel listeners always clear the keys.
+       * 3.  Whenever we hide the on‑screen controller, we clear the flags too.
+       */
+      const keys = { left: false, right: false, up: false, down: false };
+      function clearKeys() {
+        keys.left = keys.right = keys.up = keys.down = false;
+      }
+      window.addEventListener("mouseup", clearKeys);
+      window.addEventListener("touchend", clearKeys, { passive: true });
+      window.addEventListener("touchcancel", clearKeys, { passive: true });
+      /* -------------------------------------------------------- */
 
       /* SCORE SUBMISSION */
       async function sendScoreToAPI(score) {
@@ -441,7 +459,7 @@
       let score = 0;
       let player;
       let touchTarget = null;
-      const keys = { left: false, right: false, up: false, down: false };
+      /* keys object moved above (so clearKeys has access) */
       let bubbles = [];
       let waterTrails = [];
       let backgroundMusic;
@@ -971,7 +989,7 @@
 
       // Timer variables for controlling bubble group spawns.
       let bubbleGroupTimer = 0;
-      const BUBBLE_GROUP_INTERVAL = 20; // Spawn a new bubble group every 10 seconds
+      const BUBBLE_GROUP_INTERVAL = 20; // Spawn a new bubble group every 20 seconds
 
       /* GAME LOOP */
       function updateGame(deltaTime) {
@@ -1224,13 +1242,14 @@
         playerPowerUpTime = 0;
         playerIsPoweredUp = false;
 
+        clearKeys(); // ensure no stray pressed state carries over
         initAudio();
         for (let i = 0; i < 3; i++) {
           spawnFish();
         }
         // Spawn an initial bubble group.
         spawnBubbleGroup();
-        // Reset bubble group timer so that the next group spawns in 10 seconds.
+        // Reset bubble group timer so that the next group spawns in 20 seconds.
         bubbleGroupTimer = 0;
       }
 
@@ -1244,6 +1263,9 @@
           arrowKeysBtnGameOver.textContent = shouldShow
             ? "🎮 Arrow Keys On"
             : "🎮 Arrow Keys Off";
+        }
+        if (!shouldShow) {
+          clearKeys(); //  <-- FIX: reset pressed state when we hide controls
         }
       }
 
@@ -1303,21 +1325,25 @@
       }
       arrowUp.addEventListener("mousedown", () => pressKey("up", true));
       arrowUp.addEventListener("mouseup", () => pressKey("up", false));
+      arrowUp.addEventListener("mouseleave", () => pressKey("up", false));
       arrowUp.addEventListener("touchstart", () => pressKey("up", true));
       arrowUp.addEventListener("touchend", () => pressKey("up", false));
 
       arrowDown.addEventListener("mousedown", () => pressKey("down", true));
       arrowDown.addEventListener("mouseup", () => pressKey("down", false));
+      arrowDown.addEventListener("mouseleave", () => pressKey("down", false));
       arrowDown.addEventListener("touchstart", () => pressKey("down", true));
       arrowDown.addEventListener("touchend", () => pressKey("down", false));
 
       arrowLeft.addEventListener("mousedown", () => pressKey("left", true));
       arrowLeft.addEventListener("mouseup", () => pressKey("left", false));
+      arrowLeft.addEventListener("mouseleave", () => pressKey("left", false));
       arrowLeft.addEventListener("touchstart", () => pressKey("left", true));
       arrowLeft.addEventListener("touchend", () => pressKey("left", false));
 
       arrowRight.addEventListener("mousedown", () => pressKey("right", true));
       arrowRight.addEventListener("mouseup", () => pressKey("right", false));
+      arrowRight.addEventListener("mouseleave", () => pressKey("right", false));
       arrowRight.addEventListener("touchstart", () => pressKey("right", true));
       arrowRight.addEventListener("touchend", () => pressKey("right", false));
 

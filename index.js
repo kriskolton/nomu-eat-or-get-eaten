@@ -455,7 +455,7 @@ function setupBotCommands() {
         if (userScore) {
           await sendMessageWithErrorHandling(
             chatId,
-            `Your Eat or Get Eaten Stats:\n\n` +
+            `Stats for ${userScore.username}:\n\n` +
               `High Score: ${userScore.highScore}\n` +
               `Last Score: ${userScore.lastScore}\n` +
               `Last Played: ${new Date(
