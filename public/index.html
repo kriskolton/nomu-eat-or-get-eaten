@@ -31,11 +31,17 @@
     <audio id="powerUpSound">
       <source src="sounds/powerup.mp3" type="audio/mpeg" />
     </audio>
+    <audio id="achievementSound">
+      <source src="sounds/achievement.mp3" type="audio/mpeg" />
+    </audio>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
     <style>
-      /* 1) Make page a column flex so #gameWrapper can flex to fill all available space if the arrow keys (#controlsContainer) are hidden. */
+      /* 
+       * 1) Make page a column flex so #gameWrapper can flex to fill 
+       *    all available space if the arrow keys (#controlsContainer) are hidden.
+       */
       html,
       body {
         margin: 0;
@@ -59,7 +65,9 @@
         display: flex; /* so its child (#gameCanvas) can size to 100% */
       }
 
-      /* 3) On bigger/wider screens, impose a phone-like aspect ratio and max width. */
+      /* 
+       * 3) On bigger/wider screens, impose a phone-like aspect ratio and max width. 
+       */
       @media (min-width: 700px) {
         #gameWrapper {
           margin: 0 auto; /* center horizontally */
@@ -76,21 +84,21 @@
         touch-action: none;
       }
 
-      /* 5) The arrow keys container is the second flex child in <body>. */
+      /* arrow‑key container */
       #controlsContainer {
         width: 100%;
         display: none; /* toggled ON if user wants arrow keys */
         flex-direction: column;
         align-items: center;
         justify-content: flex-start;
-        background: #222; /* or any color you want for arrow keys region */
+        background: #222;
         box-sizing: border-box;
         padding: 0;
       }
       .controlsRow {
         display: flex;
         width: 100%;
-        max-width: 450px; /* match the game's max width if desired */
+        max-width: 450px;
         margin: 0 auto;
       }
       .arrowBtn {
@@ -107,10 +115,7 @@
         align-items: center;
         justify-content: center;
         height: 60px;
-        user-select: none; /* standard CSS */
-        -webkit-user-select: none; /* Safari/Chrome */
-        -moz-user-select: none; /* Firefox older versions */
-        -ms-user-select: none; /* IE/Edge */
+        user-select: none;
       }
       .arrowBtn:active {
         transform: scale(0.95);
@@ -155,9 +160,12 @@
     </style>
   </head>
   <body>
-    <!-- Top region: the main game -->
+    <!-- 
+     Top region: the main game 
+    -->
     <div id="gameWrapper">
       <canvas id="gameCanvas"></canvas>
+
       <!-- START SCREEN OVERLAY -->
       <div id="startScreen" class="overlay">
         <div style="max-width: 90%; margin: 0 auto; text-align: center">
@@ -174,6 +182,7 @@
               margin-bottom: 24px;
             "
           ></div>
+
           <p style="font-size: 24px; font-weight: bold; letter-spacing: 1px">
             Rules
           </p>
@@ -182,6 +191,7 @@
             smaller fish to grow. Don't let the bigger fish eat you!
           </p>
           <p>The larger the fish, the more points you get.</p>
+
           <!-- Controls row -->
           <div
             style="
@@ -191,9 +201,10 @@
               justify-content: center;
             "
           >
-            <button id="soundBtn" data-sound-btn>🔊 Sound On</button>
+            <button id="soundBtn">🔊 Sound On</button>
             <button id="arrowKeysBtn">🎮 Arrow Keys Off</button>
           </div>
+
           <!-- START -->
           <button
             id="startBtn"
@@ -203,6 +214,7 @@
           </button>
         </div>
       </div>
+
       <!-- GAME OVER OVERLAY -->
       <div id="gameOverScreen" class="overlay hidden">
         <div style="max-width: 90%; margin: 0 auto; text-align: center">
@@ -212,6 +224,7 @@
             GAME OVER!
           </h1>
           <p id="finalScore"></p>
+
           <!-- Controls row -->
           <div
             style="
@@ -221,9 +234,10 @@
               justify-content: center;
             "
           >
-            <button id="soundBtnGameOver" data-sound-btn>🔊 Sound On</button>
+            <button id="soundBtnGameOver">🔊 Sound On</button>
             <button id="arrowKeysBtnGameOver">🎮 Arrow Keys Off</button>
           </div>
+
           <button
             id="playAgainBtn"
             style="font-size: 24px; padding: 12px 24px; margin-top: 12px"
@@ -234,7 +248,9 @@
       </div>
     </div>
 
-    <!-- Bottom region: arrow keys. -->
+    <!-- 
+     Bottom region: arrow keys. 
+    -->
     <div id="controlsContainer">
       <div class="controlsRow">
         <button class="arrowBtn" id="arrowUp">↑</button>
@@ -247,15 +263,6 @@
     </div>
 
     <script>
-      /* -------------------------------------------------------------
-       * Helper to keep all sound‑toggle buttons in sync
-       * -----------------------------------------------------------*/
-      function updateSoundButtonLabels() {
-        const label = isSoundEnabled ? "🔊 Sound On" : "🔈 Sound Off";
-        if (soundBtn) soundBtn.textContent = label;
-        if (soundBtnGameOver) soundBtnGameOver.textContent = label;
-      }
-
       /* API PASSWORD */
       window.API_PASSWORD = "10a619ef-ce0d-4da6-ada4-49ae4a11fb0d";
 
@@ -298,32 +305,16 @@
 
       /* SCORE SUBMISSION */
       async function sendScoreToAPI(score) {
-        if (!userId) {
-          console.log("No userId available, skipping score submission");
-          return;
-        }
+        if (!userId) return;
         try {
-          console.log("Attempting to submit score:", {
-            userId,
-            score,
-            gameTime,
-            username: userData?.username || userData?.first_name || "Anonymous",
-          });
-
           const headers = {
             "Content-Type": "application/json",
             "x-api-password": window.API_PASSWORD,
             "x-telegram-init-data": window.Telegram.WebApp.initData,
           };
-
-          console.log("Sending request with headers:", {
-            ...headers,
-            "x-api-password": headers["x-api-password"] ? "***" : "not set",
-          });
-
-          const response = await fetch("/api/scores", {
+          await fetch("/api/scores", {
             method: "POST",
-            headers: headers,
+            headers,
             body: JSON.stringify({
               userId,
               username:
@@ -332,21 +323,6 @@
               gameTime,
             }),
           });
-
-          console.log("Response status:", response.status);
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error("Score submission failed:", {
-              status: response.status,
-              statusText: response.statusText,
-              error: errorText,
-            });
-            throw new Error(`Failed to send score: ${errorText}`);
-          }
-
-          const result = await response.json();
-          console.log("Score sent successfully:", result);
         } catch (error) {
           console.error("Error sending score:", error);
         }
@@ -365,19 +341,18 @@
         canvas.height = canvas.clientHeight;
         WIDTH = canvas.width;
         HEIGHT = canvas.height;
-        // Keep existing entities inside the new bounds
+
+        // Clamp all entities inside new bounds
         if (player && player.width && player.height) {
           player.x = Math.min(Math.max(0, player.x), WIDTH - player.width);
           player.y = Math.min(Math.max(0, player.y), HEIGHT - player.height);
         }
-        if (Array.isArray(fishList)) {
-          for (const f of fishList) {
-            if (f.width && f.height) {
-              f.x = Math.min(Math.max(0, f.x), WIDTH - f.width);
-              f.y = Math.min(Math.max(0, f.y), HEIGHT - f.height);
-            }
+        [...fishList, ...bubbles].forEach((ent) => {
+          if (ent.width && ent.height) {
+            ent.x = Math.min(Math.max(0, ent.x), WIDTH - ent.width);
+            ent.y = Math.min(Math.max(0, ent.y), HEIGHT - ent.height);
           }
-        }
+        });
       }
       window.addEventListener("resize", resizeCanvas);
 
@@ -387,6 +362,18 @@
       const startBtn = document.getElementById("startBtn");
       const playAgainBtn = document.getElementById("playAgainBtn");
       const finalScoreElem = document.getElementById("finalScore");
+
+      const soundBtn = document.getElementById("soundBtn");
+      const arrowKeysBtn = document.getElementById("arrowKeysBtn");
+      const soundBtnGameOver = document.getElementById("soundBtnGameOver");
+      const arrowKeysBtnGameOver = document.getElementById(
+        "arrowKeysBtnGameOver"
+      );
+      const controlsContainer = document.getElementById("controlsContainer");
+      const arrowUp = document.getElementById("arrowUp");
+      const arrowDown = document.getElementById("arrowDown");
+      const arrowLeft = document.getElementById("arrowLeft");
+      const arrowRight = document.getElementById("arrowRight");
 
       function showStartScreen() {
         startScreen.classList.remove("hidden");
@@ -438,6 +425,7 @@
       /* GAME VARIABLES */
       let fishList = [];
       let score = 0;
+      let nextMilestone = 100000;
       let player;
       let touchTarget = null;
       let bubbles = [];
@@ -446,6 +434,7 @@
       let eatSound;
       let gameOverSound;
       let powerUpSound;
+      let achievementSound;
       let isSoundEnabled = true;
       let explosion = null;
       let gameStartTime = 0;
@@ -456,38 +445,28 @@
       const POWER_UP_DURATION = 10;
       let playerIsPoweredUp = false;
 
-      /* DOM CONTROLS */
-      const soundBtn = document.getElementById("soundBtn");
-      const arrowKeysBtn = document.getElementById("arrowKeysBtn");
-      const controlsContainer = document.getElementById("controlsContainer");
-      const arrowUp = document.getElementById("arrowUp");
-      const arrowDown = document.getElementById("arrowDown");
-      const arrowLeft = document.getElementById("arrowLeft");
-      const arrowRight = document.getElementById("arrowRight");
-      const soundBtnGameOver = document.getElementById("soundBtnGameOver");
-      const arrowKeysBtnGameOver = document.getElementById(
-        "arrowKeysBtnGameOver"
-      );
-
       /* AUDIO SETUP */
       function initAudio() {
         backgroundMusic = document.getElementById("backgroundMusic");
         eatSound = document.getElementById("eatSound");
         gameOverSound = document.getElementById("gameOverSound");
         powerUpSound = document.getElementById("powerUpSound");
+        achievementSound = document.getElementById("achievementSound");
         backgroundMusic.volume = 0.05;
         eatSound.volume = 0.3;
         gameOverSound.volume = 0.3;
         powerUpSound.volume = 0.3;
+        achievementSound.volume = 0.3;
       }
       function startAudio() {
         if (backgroundMusic && isSoundEnabled) {
-          try {
-            backgroundMusic.play();
-          } catch (error) {
-            console.log("Audio playback failed:", error);
-          }
+          backgroundMusic.play().catch(() => {});
         }
+      }
+      function updateSoundButtons() {
+        const text = isSoundEnabled ? "🔊 Sound On" : "🔈 Sound Off";
+        if (soundBtn) soundBtn.textContent = text;
+        if (soundBtnGameOver) soundBtnGameOver.textContent = text;
       }
       function toggleSound() {
         isSoundEnabled = !isSoundEnabled;
@@ -497,17 +476,18 @@
             backgroundMusic.volume = 0.3;
             eatSound.volume = 0.5;
             gameOverSound.volume = 0.5;
+            powerUpSound.volume = 0.5;
+            achievementSound.volume = 0.5;
           } else {
             backgroundMusic.pause();
             backgroundMusic.volume = 0;
             eatSound.volume = 0;
             gameOverSound.volume = 0;
+            powerUpSound.volume = 0;
+            achievementSound.volume = 0;
           }
         }
-        updateSoundButtonLabels();
-      }
-      function toggleSoundGameOver() {
-        toggleSound();
+        updateSoundButtons();
       }
       function playEatSound() {
         if (!isSoundEnabled) return;
@@ -524,6 +504,11 @@
         powerUpSound.currentTime = 0;
         powerUpSound.play().catch(() => {});
       }
+      function playAchievementSound() {
+        if (!isSoundEnabled) return;
+        achievementSound.currentTime = 0;
+        achievementSound.play().catch(() => {});
+      }
 
       /* UTILITY */
       function getRandom(min, max) {
@@ -532,13 +517,9 @@
       function calculateFishScore(fishSize) {
         return Math.floor(fishSize);
       }
-      // Pre-calculate weight for performance
-      const TOTAL_FISH_WEIGHT = fishTypes.reduce(
-        (sum, ft) => sum + ft.weight,
-        0
-      );
+      const totalFishWeight = fishTypes.reduce((s, f) => s + f.weight, 0);
       function getRandomWeightedFishType(fishTypes) {
-        let randomVal = Math.random() * TOTAL_FISH_WEIGHT;
+        let randomVal = Math.random() * totalFishWeight;
         for (const ft of fishTypes) {
           if (randomVal < ft.weight) return ft;
           randomVal -= ft.weight;
@@ -546,7 +527,7 @@
         return fishTypes[fishTypes.length - 1];
       }
 
-      /* CLASSES (Fish, Crab, Jellyfish, Bubble, Explosion) */
+      /* CLASSES (Fish, Crab, Jellyfish, Bubble, Explosion, WaterTrail) */
       class WaterTrail {
         constructor(x, y, direction, fishSize, isUltraFast = false) {
           this.x = x;
@@ -719,14 +700,15 @@
                   this.oscillationOffset
               ) * this.oscillationAmount;
             if (!this.isJellyfish && !this.isCrab) {
-              if (Math.abs(this.speedX) < this.maxSpeed) {
-                this.speedX +=
-                  this.acceleration * Math.sign(this.speedX) * deltaFrames;
-              }
-              // Clamp speed so it can never exceed maxSpeed
-              if (Math.abs(this.speedX) > this.maxSpeed) {
+              // accelerate until |speedX| >= maxSpeed, then clamp
+              this.speedX +=
+                this.acceleration *
+                Math.sign(this.speedX) *
+                deltaFrames *
+                (Math.abs(this.speedX) < this.maxSpeed ? 1 : 0);
+              if (Math.abs(this.speedX) > this.maxSpeed)
                 this.speedX = Math.sign(this.speedX) * this.maxSpeed;
-              }
+
               this.x += this.speedX * deltaFrames;
               this.y += oscillation * deltaFrames;
             }
@@ -791,6 +773,7 @@
           const dx = playerBounds.centerX - crabBounds.centerX;
           const dy = playerBounds.centerY - crabBounds.centerY;
           const dist = Math.hypot(dx, dy) || 1;
+
           const speedFactor = 1.5;
           if (crabBounds.radiusX > playerBounds.radiusX) {
             this.x += (dx / dist) * speedFactor * deltaFrames;
@@ -799,6 +782,7 @@
             this.x -= (dx / dist) * speedFactor * deltaFrames;
             this.y -= (dy / dist) * speedFactor * deltaFrames;
           }
+
           if (this.width && this.height) {
             this.x = Math.min(Math.max(0, this.x), WIDTH - this.width);
             this.y = Math.min(Math.max(0, this.y), HEIGHT - this.height);
@@ -841,6 +825,7 @@
           this.wobbleSpeed = getRandom(0.02, 0.05);
           this.wobbleOffset = getRandom(0, Math.PI * 2);
         }
+
         update(deltaTime) {
           this.y -= this.speed * deltaTime * 60;
           this.x +=
@@ -849,6 +834,7 @@
             deltaTime *
             60;
         }
+
         draw(ctx) {
           ctx.beginPath();
           ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
@@ -866,6 +852,7 @@
           this.life = 1.0;
           this.fadeSpeed = 0.02;
           this.isComplete = false;
+
           const particleCount = Math.floor(size * 0.5);
           for (let i = 0; i < particleCount; i++) {
             const angle = (i / particleCount) * Math.PI * 2;
@@ -964,6 +951,29 @@
       let bubbleGroupTimer = 0;
       const BUBBLE_GROUP_INTERVAL = 20;
 
+      /* ROUND RESET (milestone) */
+      function resetRound() {
+        fishList = [];
+        bubbles = [];
+        waterTrails = [];
+        explosion = null;
+
+        player.maxSide = 25;
+        player.width = null;
+        player.height = null;
+        player.x = WIDTH / 2;
+        player.y = HEIGHT / 2;
+        player.velocityX = 0;
+        player.velocityY = 0;
+
+        playerPowerUpTime = 0;
+        playerIsPoweredUp = false;
+
+        for (let i = 0; i < 3; i++) spawnFish();
+        spawnBubbleGroup();
+        bubbleGroupTimer = 0;
+      }
+
       /* GAME LOOP */
       function updateGame(deltaTime) {
         if (explosion) {
@@ -978,7 +988,10 @@
         if (gameState !== "playing") return;
         if (isGameOver && !explosion) return;
 
+        // Update game time
         gameTime += deltaTime;
+
+        // power-up
         if (playerPowerUpTime > 0) {
           playerPowerUpTime -= deltaTime;
           if (playerPowerUpTime <= 0) {
@@ -987,31 +1000,34 @@
           }
         }
 
+        // bubbles
         for (let i = bubbles.length - 1; i >= 0; i--) {
           bubbles[i].update(deltaTime);
-          if (bubbles[i].y < -20) {
-            bubbles.splice(i, 1);
-          }
+          if (bubbles[i].y < -20) bubbles.splice(i, 1);
         }
 
+        // water trails
         for (let i = waterTrails.length - 1; i >= 0; i--) {
           const trail = waterTrails[i];
           trail.update(deltaTime);
           if (trail.life <= 0) waterTrails.splice(i, 1);
         }
 
+        // bubble group timer
         bubbleGroupTimer += deltaTime;
         if (bubbleGroupTimer >= BUBBLE_GROUP_INTERVAL) {
           spawnBubbleGroup();
           bubbleGroupTimer = 0;
         }
 
+        // player movement (keys)
         const accel = player.acceleration * deltaTime * 60;
         if (keys.left) player.velocityX -= accel;
         if (keys.right) player.velocityX += accel;
         if (keys.up) player.velocityY -= accel;
         if (keys.down) player.velocityY += accel;
 
+        // touch/mouse
         if (touchTarget && player.width && player.height) {
           const px = player.x + player.width / 2;
           const py = player.y + player.height / 2;
@@ -1026,6 +1042,7 @@
           }
         }
 
+        // limit speed
         const spd = Math.sqrt(player.velocityX ** 2 + player.velocityY ** 2);
         if (spd > player.maxSpeed) {
           const ratio = player.maxSpeed / spd;
@@ -1033,38 +1050,33 @@
           player.velocityY *= ratio;
         }
 
+        // update player
         player.update(deltaTime);
         player.createWaterTrail();
 
+        // update enemies
         for (let i = fishList.length - 1; i >= 0; i--) {
           const enemy = fishList[i];
           if (enemy.isCrab) {
             enemy.update(deltaTime, player);
-            enemy.createWaterTrail();
-            if (enemy.maxSide <= 0) {
-              fishList.splice(i, 1);
-              continue;
-            }
-          } else if (enemy.isJellyfish) {
-            enemy.update(deltaTime);
-            enemy.createWaterTrail();
-            if (enemy.maxSide <= 0) {
-              fishList.splice(i, 1);
-              continue;
-            }
           } else {
             enemy.update(deltaTime);
-            enemy.createWaterTrail();
-            const bounds = enemy.getBounds();
-            if (
-              bounds.centerX + bounds.radiusX < -200 ||
-              bounds.centerX - bounds.radiusX > WIDTH + 200
-            ) {
-              fishList.splice(i, 1);
-              continue;
-            }
+          }
+          enemy.createWaterTrail();
+
+          // remove off‑screen / dead
+          const bounds = enemy.getBounds();
+          if (
+            enemy.maxSide <= 0 ||
+            bounds.centerX + bounds.radiusX < -200 ||
+            bounds.centerX - bounds.radiusX > WIDTH + 200 ||
+            enemy.y > HEIGHT + 200
+          ) {
+            fishList.splice(i, 1);
+            continue;
           }
 
+          // collision with player
           if (checkCollisionOval(player, enemy)) {
             if (playerIsPoweredUp) {
               score += calculateFishScore(enemy.maxSide);
@@ -1098,19 +1110,20 @@
               } else {
                 isGameOver = true;
                 gameState = "over";
-                touchTarget = null; // clear lingering touch target
                 sendScoreToAPI(score);
                 explosion = new Explosion(
                   player.x + (player.width ?? player.maxSide) / 2,
                   player.y + (player.height ?? player.maxSide) / 2,
                   player.maxSide
                 );
+                touchTarget = null;
                 return;
               }
             }
           }
         }
 
+        // spawn fish
         if (Math.random() < 0.03 * deltaTime * 60 && fishList.length < 30) {
           spawnFish();
         }
@@ -1119,6 +1132,13 @@
         }
         if (Math.random() < 0.0001 * deltaTime * 60 && fishList.length < 30) {
           spawnJellyfish();
+        }
+
+        /* ----- ACHIEVEMENT / ROUND RESET ----- */
+        if (score >= nextMilestone) {
+          playAchievementSound();
+          resetRound();
+          while (score >= nextMilestone) nextMilestone += 100000;
         }
       }
 
@@ -1138,8 +1158,10 @@
 
       function renderGame() {
         ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
         for (const bubble of bubbles) bubble.draw(ctx);
         for (const trail of waterTrails) trail.draw(ctx);
+
         if (player && !(isGameOver && explosion)) player.draw(ctx);
         for (const fish of fishList) fish.draw(ctx);
         if (explosion) explosion.draw(ctx);
@@ -1170,6 +1192,7 @@
       function initGame() {
         resizeCanvas();
         score = 0;
+        nextMilestone = 100000;
         gameTime = 0;
         gameStartTime = performance.now();
         isGameOver = false;
@@ -1177,8 +1200,10 @@
         bubbles = [];
         waterTrails = [];
         player = new Fish(WIDTH / 2, HEIGHT / 2, 0, 0, playerImg, 25, true);
+
         playerPowerUpTime = 0;
         playerIsPoweredUp = false;
+
         clearKeys();
         initAudio();
         for (let i = 0; i < 3; i++) spawnFish();
@@ -1188,20 +1213,15 @@
 
       function showOrHideArrowKeys(shouldShow) {
         controlsContainer.style.display = shouldShow ? "flex" : "none";
-        arrowKeysBtn.textContent = shouldShow
-          ? "🎮 Arrow Keys On"
-          : "🎮 Arrow Keys Off";
-        if (arrowKeysBtnGameOver)
-          arrowKeysBtnGameOver.textContent = shouldShow
-            ? "🎮 Arrow Keys On"
-            : "🎮 Arrow Keys Off";
+        const text = shouldShow ? "🎮 Arrow Keys On" : "🎮 Arrow Keys Off";
+        if (arrowKeysBtn) arrowKeysBtn.textContent = text;
+        if (arrowKeysBtnGameOver) arrowKeysBtnGameOver.textContent = text;
         if (!shouldShow) clearKeys();
       }
 
       function syncGameOverUI() {
-        const isCurrentlyVisible = controlsContainer.style.display !== "none";
-        showOrHideArrowKeys(isCurrentlyVisible);
-        updateSoundButtonLabels();
+        showOrHideArrowKeys(controlsContainer.style.display !== "none");
+        updateSoundButtons();
       }
 
       /* EVENT HANDLERS */
@@ -1220,11 +1240,12 @@
       };
 
       soundBtn.onclick = toggleSound;
+      soundBtnGameOver.onclick = toggleSound;
+
       arrowKeysBtn.onclick = () => {
         const currentlyVisible = controlsContainer.style.display !== "none";
         showOrHideArrowKeys(!currentlyVisible);
       };
-      soundBtnGameOver.onclick = toggleSoundGameOver;
       arrowKeysBtnGameOver.onclick = () => {
         const currentlyVisible = controlsContainer.style.display !== "none";
         showOrHideArrowKeys(!currentlyVisible);
@@ -1322,7 +1343,6 @@
         resizeCanvas();
         showStartScreen();
         initAudio();
-
         startScreen.addEventListener("click", function firstInteraction() {
           startAudio();
           startScreen.removeEventListener("click", firstInteraction);
