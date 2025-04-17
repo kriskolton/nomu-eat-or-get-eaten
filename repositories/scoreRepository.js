@@ -63,8 +63,8 @@ async function updateScore(userId, username, score, gameTime) {
           },
           $setOnInsert: {
             weekStart: startOfWeek,
-            totalGamesPlayed: 0,
-            totalGameTime: 0,
+            totalGamesPlayed: 1,
+            totalGameTime: gameTime,
           },
         },
         { upsert: true }
