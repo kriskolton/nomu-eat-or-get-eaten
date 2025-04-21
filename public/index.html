@@ -20,7 +20,7 @@
 
     <!-- Audio -->
     <audio id="backgroundMusic" loop>
-      <source src="sounds/background.mp3" type="audio/mpeg" />
+      <source src="sounds/background2.mp3" type="audio/mpeg" />
     </audio>
     <audio id="eatSound">
       <source src="sounds/eat.mp3" type="audio/mpeg" />
@@ -60,23 +60,16 @@
         width: 100%;
         position: relative;
         overflow: hidden;
-        background: #222 url("img/bg.jpg") center center no-repeat;
+        background: #222 url("img/bg2.png") center center no-repeat;
         background-size: cover;
         display: flex; /* so its child (#gameCanvas) can size to 100% */
+        margin: 0 auto; /* center horizontally */
+        max-width: 430px;
+        max-height: 935px;
+        /* aspect-ratio: 9 / 16; */
       }
 
-      /* 
-       * 3) On bigger/wider screens, impose a phone-like aspect ratio and max width. 
-       */
-      @media (min-width: 700px) {
-        #gameWrapper {
-          margin: 0 auto; /* center horizontally */
-          max-width: 450px;
-          aspect-ratio: 9 / 16; /* forces height to match phone ratio */
-        }
-      }
-
-      /* 4) Canvas always fills its parent (#gameWrapper). */
+      /* 3) Canvas always fills its parent (#gameWrapper). */
       #gameCanvas {
         width: 100%;
         height: 100%;
@@ -167,13 +160,37 @@
       <canvas id="gameCanvas"></canvas>
 
       <!-- START SCREEN OVERLAY -->
-      <div id="startScreen" class="overlay">
-        <div style="max-width: 90%; margin: 0 auto; text-align: center">
+      <div id="startScreen" class="overlay margin-bottom: 120px;">
+        <div
+          style="
+            max-width: 90%;
+            width: auto;
+            margin: 0 auto;
+            text-align: center;
+          "
+        >
           <img
             src="img/title.png"
             alt="Eat or Get Eaten"
-            style="max-width: 50%; height: auto; padding: 12px"
+            style="
+              max-width: 50%;
+              height: auto;
+              padding: 12px;
+              padding-bottom: 0px;
+              margin-bottom: -8px;
+              max-height: 30vh;
+            "
           />
+          <p
+            style="
+              font-size: 28px;
+              color: #65c0f5;
+              font-family: 'Londrina Solid', sans-serif;
+              letter-spacing: 2px;
+            "
+          >
+            SEASON 2
+          </p>
           <p style="font-size: 12px; color: #fff; opacity: 0.5">v1.2</p>
           <div
             id="telegramStatus"
@@ -198,7 +215,7 @@
             style="
               display: flex;
               gap: 0;
-              margin-bottom: 12px;
+              margin-bottom: 0px;
               justify-content: center;
             "
           >
@@ -207,10 +224,7 @@
           </div>
 
           <!-- START -->
-          <button
-            id="startBtn"
-            style="font-size: 24px; padding: 12px 24px; margin-top: 12px"
-          >
+          <button id="startBtn" style="font-size: 24px; padding: 12px 24px">
             Start Game
           </button>
         </div>
@@ -399,10 +413,10 @@
       const fishTypeDefinitions = [
         { src: "img/fish1.png", minSize: 10, maxSize: 40, weight: 0.43 },
         { src: "img/fish2.png", minSize: 20, maxSize: 60, weight: 0.25 },
-        { src: "img/fish3.png", minSize: 25, maxSize: 80, weight: 0.2 },
-        { src: "img/fish4.png", minSize: 35, maxSize: 100, weight: 0.1 },
-        { src: "img/fish6.png", minSize: 200, maxSize: 300, weight: 0.015 },
-        { src: "img/fish5.png", minSize: 400, maxSize: 500, weight: 0.005 },
+        { src: "img/fish10.png", minSize: 25, maxSize: 80, weight: 0.2 },
+        { src: "img/fish7.png", minSize: 35, maxSize: 100, weight: 0.1 },
+        { src: "img/fish9.png", minSize: 200, maxSize: 300, weight: 0.015 },
+        { src: "img/fish8.png", minSize: 400, maxSize: 500, weight: 0.005 },
       ];
 
       /* PRELOAD IMAGES */
@@ -440,6 +454,10 @@
       let explosion = null;
       let gameStartTime = 0;
       let gameTime = 0;
+
+      /* ---------- TUNABLES (new) ---------- */
+      const EATING_LEEWAY = 1.15; // player may eat fish ≈15 % larger
+      const JELLY_SHRINK_FACTOR = 0.9; // after eating a jellyfish, size → 60 %
 
       /* POWER-UP */
       let playerPowerUpTime = 0;
@@ -1080,10 +1098,26 @@
           // collision with player
           if (checkCollisionOval(player, enemy)) {
             if (playerIsPoweredUp) {
+              // score += calculateFishScore(enemy.maxSide);
+              // player.maxSide += Math.min(Math.sqrt(enemy.maxSide) * 0.05, 1.5);
+              // player.width = null;
+              // player.height = null;
+              // playEatSound();
               score += calculateFishScore(enemy.maxSide);
-              player.maxSide += Math.min(Math.sqrt(enemy.maxSide) * 0.05, 1.5);
-              player.width = null;
-              player.height = null;
+
+              if (enemy.isJellyfish) {
+                player.maxSide = Math.max(
+                  player.maxSide * JELLY_SHRINK_FACTOR,
+                  25
+                );
+              } else {
+                player.maxSide += Math.min(
+                  Math.sqrt(enemy.maxSide) * 0.05,
+                  1.5
+                );
+              }
+
+              player.width = player.height = null;
               playEatSound();
               if (enemy.isUltraFast) {
                 playerPowerUpTime = POWER_UP_DURATION;
@@ -1092,23 +1126,69 @@
               }
               fishList.splice(i, 1);
             } else {
+              // const pR = player.getBounds().radiusX;
+              // const eR = enemy.getBounds().radiusX;
+              // if (pR > eR) {
+              //   score += calculateFishScore(enemy.maxSide);
+              //   player.maxSide += Math.min(
+              //     Math.sqrt(enemy.maxSide) * 0.05,
+              //     1.5
+              //   );
+              //   player.calculateDimensions();
+              //   playEatSound();
+              //   if (enemy.isUltraFast) {
+              //     playerPowerUpTime = POWER_UP_DURATION;
+              //     playerIsPoweredUp = true;
+              //     playPowerUpSound();
+              //   }
+              //   fishList.splice(i, 1);
+              // } else {
+              //   isGameOver = true;
+              //   gameState = "over";
+              //   sendScoreToAPI(score);
+              //   explosion = new Explosion(
+              //     player.x + (player.width ?? player.maxSide) / 2,
+              //     player.y + (player.height ?? player.maxSide) / 2,
+              //     player.maxSide
+              //   );
+              //   touchTarget = null;
+              //   return;
+              // }
               const pR = player.getBounds().radiusX;
               const eR = enemy.getBounds().radiusX;
-              if (pR > eR) {
+
+              /* ------------- key change #1: give the player 15 % grace ------------- */
+              if (pR * EATING_LEEWAY > eR) {
                 score += calculateFishScore(enemy.maxSide);
-                player.maxSide += Math.min(
-                  Math.sqrt(enemy.maxSide) * 0.05,
-                  1.5
-                );
-                player.calculateDimensions();
+
+                /* -------- key change #2: special‑case jellyfish shrink -------- */
+                if (enemy.isJellyfish) {
+                  // shrink but never below a playable minimum
+                  player.maxSide = Math.max(
+                    player.maxSide * JELLY_SHRINK_FACTOR,
+                    10
+                  );
+                } else {
+                  player.maxSide += Math.min(
+                    Math.sqrt(enemy.maxSide) * 0.05,
+                    1.5
+                  );
+                }
+
+                // force a dimension recalc next frame
+                player.width = player.height = null;
                 playEatSound();
+
+                // preserve the existing ultra‑fast / power‑up behaviour
                 if (enemy.isUltraFast) {
                   playerPowerUpTime = POWER_UP_DURATION;
                   playerIsPoweredUp = true;
                   playPowerUpSound();
                 }
-                fishList.splice(i, 1);
+
+                fishList.splice(i, 1); // remove the enemy that got eaten
               } else {
+                /* unchanged – player is smaller, so gets eaten */
                 isGameOver = true;
                 gameState = "over";
                 sendScoreToAPI(score);
@@ -1131,7 +1211,7 @@
         if (Math.random() < 0.00005 * deltaTime * 60 && fishList.length < 30) {
           spawnCrab();
         }
-        if (Math.random() < 0.0001 * deltaTime * 60 && fishList.length < 30) {
+        if (Math.random() < 0.001 * deltaTime * 60 && fishList.length < 30) {
           spawnJellyfish();
         }
 
