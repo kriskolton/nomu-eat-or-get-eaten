@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Nomu: Eat or Get Eaten</title>
+    <title>Nomu: Eat or Get Eaten</title>
 
     <!-- Fonts -->
     <link
@@ -38,55 +38,42 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
     <style>
-      /* 
-       * 1) Make page a column flex so #gameWrapper can flex to fill 
-       *    all available space if the arrow keys (#controlsContainer) are hidden.
-       */
+      /* --- layout (unchanged) --- */
       html,
       body {
         margin: 0;
         padding: 0;
         width: 100%;
         height: 100%;
-        display: flex; /* column flex container */
-        flex-direction: column; /* top: game, bottom: arrow keys */
+        display: flex;
+        flex-direction: column;
         background: #222;
         font-family: "Poppins", sans-serif;
       }
-
-      /* 2) The main game wrapper flexes to fill leftover space. */
       #gameWrapper {
-        flex: 1; /* fill vertical space */
+        flex: 1;
         width: 100%;
         position: relative;
         overflow: hidden;
-        background: #222 url("img/bg2.png") center center no-repeat;
-        background-size: cover;
-        display: flex; /* so its child (#gameCanvas) can size to 100% */
-        margin: 0 auto; /* center horizontally */
+        background: #222 url("img/bg2.png") center/cover no-repeat;
+        display: flex;
+        margin: 0 auto;
         max-width: 430px;
         max-height: 935px;
-        /* aspect-ratio: 9 / 16; */
       }
-
-      /* 3) Canvas always fills its parent (#gameWrapper). */
       #gameCanvas {
         width: 100%;
         height: 100%;
         display: block;
         touch-action: none;
       }
-
-      /* arrow‑key container */
       #controlsContainer {
         width: 100%;
-        display: none; /* toggled ON if user wants arrow keys */
+        display: none;
         flex-direction: column;
         align-items: center;
         justify-content: flex-start;
         background: #222;
-        box-sizing: border-box;
-        padding: 0;
       }
       .controlsRow {
         display: flex;
@@ -96,7 +83,7 @@
       }
       .arrowBtn {
         flex: 1;
-        background-color: #f78719;
+        background: #f78719;
         border: none;
         color: #fff;
         font-family: "Londrina Solid", sans-serif;
@@ -104,23 +91,15 @@
         margin: 1px;
         cursor: pointer;
         border-radius: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
         height: 60px;
         user-select: none;
       }
       .arrowBtn:active {
         transform: scale(0.95);
       }
-
-      /* Overlays (start / game over) */
       .overlay {
         position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        inset: 0;
         background: rgba(0, 0, 0, 0.5);
         display: flex;
         flex-direction: column;
@@ -140,11 +119,10 @@
       .overlay button {
         font-size: 18px;
         font-weight: bold;
-        color: #fff;
         padding: 8px 16px;
         cursor: pointer;
         border-radius: 40px;
-        background-color: #f78719;
+        background: #f78719;
         font-family: "Londrina Solid", sans-serif;
       }
       .overlay p {
@@ -153,22 +131,13 @@
     </style>
   </head>
   <body>
-    <!-- 
-     Top region: the main game 
-    -->
+    <!-- ---------- Top: main game ---------- -->
     <div id="gameWrapper">
       <canvas id="gameCanvas"></canvas>
 
-      <!-- START SCREEN OVERLAY -->
-      <div id="startScreen" class="overlay margin-bottom: 120px;">
-        <div
-          style="
-            max-width: 90%;
-            width: auto;
-            margin: 0 auto;
-            text-align: center;
-          "
-        >
+      <!-- Start overlay -->
+      <div id="startScreen" class="overlay">
+        <div style="max-width: 90%; margin: 0 auto; text-align: center">
           <img
             src="img/title.png"
             alt="Eat or Get Eaten"
@@ -176,7 +145,7 @@
               max-width: 50%;
               height: auto;
               padding: 12px;
-              padding-bottom: 0px;
+              padding-bottom: 0;
               margin-bottom: -8px;
               max-height: 30vh;
             "
@@ -189,7 +158,7 @@
               letter-spacing: 2px;
             "
           >
-            SEASON 2
+            SEASON 2
           </p>
           <p style="font-size: 12px; color: #fff; opacity: 0.5">v1.2</p>
           <div
@@ -210,37 +179,33 @@
           </p>
           <p>The larger the fish, the more points you get.</p>
 
-          <!-- Controls row -->
           <div
             style="
               display: flex;
               gap: 0;
-              margin-bottom: 0px;
+              margin-bottom: 0;
               justify-content: center;
             "
           >
-            <button id="soundBtn">🔊 Sound On</button>
-            <button id="arrowKeysBtn">🎮 Arrow Keys Off</button>
+            <button id="soundBtn">🔊 Sound On</button>
+            <button id="arrowKeysBtn">🎮 Arrow Keys Off</button>
           </div>
 
-          <!-- START -->
           <button id="startBtn" style="font-size: 24px; padding: 12px 24px">
-            Start Game
+            Start Game
           </button>
         </div>
       </div>
 
-      <!-- GAME OVER OVERLAY -->
+      <!-- Game‑over overlay -->
       <div id="gameOverScreen" class="overlay hidden">
         <div style="max-width: 90%; margin: 0 auto; text-align: center">
           <h1
             style="font-family: 'Londrina Solid', sans-serif; font-size: 44px"
           >
-            GAME OVER!
+            GAME OVER!
           </h1>
           <p id="finalScore"></p>
-
-          <!-- Controls row -->
           <div
             style="
               display: flex;
@@ -249,23 +214,20 @@
               justify-content: center;
             "
           >
-            <button id="soundBtnGameOver">🔊 Sound On</button>
-            <button id="arrowKeysBtnGameOver">🎮 Arrow Keys Off</button>
+            <button id="soundBtnGameOver">🔊 Sound On</button>
+            <button id="arrowKeysBtnGameOver">🎮 Arrow Keys Off</button>
           </div>
-
           <button
             id="playAgainBtn"
             style="font-size: 24px; padding: 12px 24px; margin-top: 12px"
           >
-            Play Again
+            Play Again
           </button>
         </div>
       </div>
     </div>
 
-    <!-- 
-     Bottom region: arrow keys. 
-    -->
+    <!-- ---------- Bottom: arrow keys ---------- -->
     <div id="controlsContainer">
       <div class="controlsRow">
         <button class="arrowBtn" id="arrowUp">↑</button>
@@ -278,13 +240,11 @@
     </div>
 
     <script>
-      /* API PASSWORD */
+      /* --------------------------- CONSTANTS & INIT --------------------------- */
       window.API_PASSWORD = "10a619ef-ce0d-4da6-ada4-49ae4a11fb0d";
 
-      /* TELEGRAM INIT */
-      let tg;
-      let userData;
-      let userId;
+      /* Telegram */
+      let tg, userData, userId;
       try {
         tg = window.Telegram.WebApp;
         userData = tg.initDataUnsafe?.user;
@@ -292,10 +252,9 @@
         tg.expand();
         tg.ready();
         tg.setSwipeEnabled(false);
-      } catch (error) {
-        console.error("Telegram initialization error:", error);
+      } catch (e) {
+        console.error("Telegram init error:", e);
       }
-
       const statusDiv = document.getElementById("telegramStatus");
       if (userId) {
         statusDiv.textContent = `Telegram connected ✓ (User: ${
@@ -304,11 +263,11 @@
         statusDiv.style.color = "lightgreen";
       } else {
         statusDiv.textContent =
-          "⚠️ Not tracking scores - Please access via Telegram bot";
+          "⚠️ Not tracking scores – open via Telegram bot";
         statusDiv.style.color = "red";
       }
 
-      /* -----------  FIX FOR STUCK ARROW BUTTONS -------------- */
+      /* Arrow‑key fix */
       const keys = { left: false, right: false, up: false, down: false };
       function clearKeys() {
         keys.left = keys.right = keys.up = keys.down = false;
@@ -316,20 +275,18 @@
       window.addEventListener("mouseup", clearKeys);
       window.addEventListener("touchend", clearKeys, { passive: true });
       window.addEventListener("touchcancel", clearKeys, { passive: true });
-      /* -------------------------------------------------------- */
 
-      /* SCORE SUBMISSION */
+      /* Score submission */
       async function sendScoreToAPI(score) {
         if (!userId) return;
         try {
-          const headers = {
-            "Content-Type": "application/json",
-            "x-api-password": window.API_PASSWORD,
-            "x-telegram-init-data": window.Telegram.WebApp.initData,
-          };
           await fetch("/api/scores", {
             method: "POST",
-            headers,
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-password": window.API_PASSWORD,
+              "x-telegram-init-data": window.Telegram.WebApp.initData,
+            },
             body: JSON.stringify({
               userId,
               username:
@@ -338,26 +295,23 @@
               gameTime,
             }),
           });
-        } catch (error) {
-          console.error("Error sending score:", error);
+        } catch (e) {
+          console.error("Score send error:", e);
         }
       }
 
-      /* CANVAS SETUP */
+      /* Canvas */
       const canvas = document.getElementById("gameCanvas");
       const ctx = canvas.getContext("2d");
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
-
-      let WIDTH = 800;
-      let HEIGHT = 600;
+      let WIDTH = 800,
+        HEIGHT = 600;
       function resizeCanvas() {
         canvas.width = canvas.clientWidth;
         canvas.height = canvas.clientHeight;
         WIDTH = canvas.width;
         HEIGHT = canvas.height;
-
-        // Clamp all entities inside new bounds
         if (player && player.width && player.height) {
           player.x = Math.min(Math.max(0, player.x), WIDTH - player.width);
           player.y = Math.min(Math.max(0, player.y), HEIGHT - player.height);
@@ -371,13 +325,12 @@
       }
       window.addEventListener("resize", resizeCanvas);
 
-      /* OVERLAYS */
+      /* Overlays / controls */
       const startScreen = document.getElementById("startScreen");
       const gameOverScreen = document.getElementById("gameOverScreen");
       const startBtn = document.getElementById("startBtn");
       const playAgainBtn = document.getElementById("playAgainBtn");
       const finalScoreElem = document.getElementById("finalScore");
-
       const soundBtn = document.getElementById("soundBtn");
       const arrowKeysBtn = document.getElementById("arrowKeysBtn");
       const soundBtnGameOver = document.getElementById("soundBtnGameOver");
@@ -389,7 +342,6 @@
       const arrowDown = document.getElementById("arrowDown");
       const arrowLeft = document.getElementById("arrowLeft");
       const arrowRight = document.getElementById("arrowRight");
-
       function showStartScreen() {
         startScreen.classList.remove("hidden");
       }
@@ -397,7 +349,7 @@
         startScreen.classList.add("hidden");
       }
       function showGameOverScreen(score) {
-        finalScoreElem.textContent = `Your Score: ${score}`;
+        finalScoreElem.textContent = `Your Score: ${score}`;
         gameOverScreen.classList.remove("hidden");
         playGameOverSound();
         syncGameOverUI();
@@ -405,11 +357,10 @@
       function hideGameOverScreen() {
         gameOverScreen.classList.add("hidden");
       }
+      let gameState = "start",
+        isGameOver = false;
 
-      let gameState = "start";
-      let isGameOver = false;
-
-      /* FISH DEFINITIONS */
+      /* --------------------------- IMAGES & SPRITES --------------------------- */
       const fishTypeDefinitions = [
         { src: "img/fish1.png", minSize: 10, maxSize: 40, weight: 0.43 },
         { src: "img/fish2.png", minSize: 20, maxSize: 60, weight: 0.25 },
@@ -419,7 +370,6 @@
         { src: "img/fish8.png", minSize: 400, maxSize: 500, weight: 0.005 },
       ];
 
-      /* PRELOAD IMAGES */
       const fishTypes = fishTypeDefinitions.map((def) => {
         const image = new Image();
         image.src = def.src;
@@ -430,6 +380,7 @@
           weight: def.weight,
         };
       });
+
       const playerImg = new Image();
       playerImg.src = "img/player_fish.png";
       const crabImg = new Image();
@@ -437,34 +388,36 @@
       const jellyfishImg = new Image();
       jellyfishImg.src = "img/jellyfish.png";
 
-      /* GAME VARIABLES */
-      let fishList = [];
-      let score = 0;
-      let nextMilestone = 100000;
-      let player;
-      let touchTarget = null;
-      let bubbles = [];
-      let waterTrails = [];
-      let backgroundMusic;
-      let eatSound;
-      let gameOverSound;
-      let powerUpSound;
-      let achievementSound;
-      let isSoundEnabled = true;
-      let explosion = null;
-      let gameStartTime = 0;
-      let gameTime = 0;
+      /* --- NEW: sushi power‑up sprite --- */
+      const sushiImg = new Image();
+      sushiImg.src = "img/sushi.png";
 
-      /* ---------- TUNABLES (new) ---------- */
-      const EATING_LEEWAY = 1.15; // player may eat fish ≈15 % larger
-      const JELLY_SHRINK_FACTOR = 0.9; // after eating a jellyfish, size → 60 %
+      /* --------------------------- GAME VARIABLES --------------------------- */
+      let fishList = [],
+        score = 0,
+        nextMilestone = 100000,
+        player,
+        touchTarget = null;
+      let bubbles = [],
+        waterTrails = [],
+        backgroundMusic,
+        eatSound,
+        gameOverSound,
+        powerUpSound,
+        achievementSound,
+        isSoundEnabled = true,
+        explosion = null;
+      let gameStartTime = 0,
+        gameTime = 0;
 
-      /* POWER-UP */
-      let playerPowerUpTime = 0;
+      /* Tunables */
+      const EATING_LEEWAY = 1.15;
+      const JELLY_SHRINK_FACTOR = 0.6;
+      let playerPowerUpTime = 0,
+        playerIsPoweredUp = false;
       const POWER_UP_DURATION = 10;
-      let playerIsPoweredUp = false;
 
-      /* AUDIO SETUP */
+      /* --------------------------- AUDIO --------------------------- */
       function initAudio() {
         backgroundMusic = document.getElementById("backgroundMusic");
         eatSound = document.getElementById("eatSound");
@@ -478,14 +431,13 @@
         achievementSound.volume = 0.3;
       }
       function startAudio() {
-        if (backgroundMusic && isSoundEnabled) {
+        if (backgroundMusic && isSoundEnabled)
           backgroundMusic.play().catch(() => {});
-        }
       }
       function updateSoundButtons() {
-        const text = isSoundEnabled ? "🔊 Sound On" : "🔈 Sound Off";
-        if (soundBtn) soundBtn.textContent = text;
-        if (soundBtnGameOver) soundBtnGameOver.textContent = text;
+        const txt = isSoundEnabled ? "🔊 Sound On" : "🔈 Sound Off";
+        soundBtn.textContent = txt;
+        soundBtnGameOver.textContent = txt;
       }
       function toggleSound() {
         isSoundEnabled = !isSoundEnabled;
@@ -508,99 +460,98 @@
         }
         updateSoundButtons();
       }
-      function playEatSound() {
-        if (!isSoundEnabled) return;
-        eatSound.currentTime = 0;
-        eatSound.play().catch(() => {});
-      }
-      function playGameOverSound() {
-        if (!isSoundEnabled) return;
-        gameOverSound.currentTime = 0;
-        gameOverSound.play().catch(() => {});
-      }
-      function playPowerUpSound() {
-        if (!isSoundEnabled) return;
-        powerUpSound.currentTime = 0;
-        powerUpSound.play().catch(() => {});
-      }
-      function playAchievementSound() {
-        if (!isSoundEnabled) return;
-        achievementSound.currentTime = 0;
-        achievementSound.play().catch(() => {});
-      }
+      const playEatSound = () => {
+        if (isSoundEnabled) {
+          eatSound.currentTime = 0;
+          eatSound.play().catch(() => {});
+        }
+      };
+      const playGameOverSound = () => {
+        if (isSoundEnabled) {
+          gameOverSound.currentTime = 0;
+          gameOverSound.play().catch(() => {});
+        }
+      };
+      const playPowerUpSound = () => {
+        if (isSoundEnabled) {
+          powerUpSound.currentTime = 0;
+          powerUpSound.play().catch(() => {});
+        }
+      };
+      const playAchvSound = () => {
+        if (isSoundEnabled) {
+          achievementSound.currentTime = 0;
+          achievementSound.play().catch(() => {});
+        }
+      };
 
-      /* UTILITY */
+      /* --------------------------- HELPERS --------------------------- */
       function getRandom(min, max) {
         return Math.random() * (max - min) + min;
       }
-      function calculateFishScore(fishSize) {
-        return Math.floor(fishSize);
+      function calculateFishScore(sz) {
+        return Math.floor(sz);
       }
       const totalFishWeight = fishTypes.reduce((s, f) => s + f.weight, 0);
-      function getRandomWeightedFishType(fishTypes) {
-        let randomVal = Math.random() * totalFishWeight;
-        for (const ft of fishTypes) {
-          if (randomVal < ft.weight) return ft;
-          randomVal -= ft.weight;
+      function getRandomWeightedFishType(arr) {
+        let r = Math.random() * totalFishWeight;
+        for (const ft of arr) {
+          if (r < ft.weight) return ft;
+          r -= ft.weight;
         }
-        return fishTypes[fishTypes.length - 1];
+        return arr[arr.length - 1];
       }
 
-      /* CLASSES (Fish, Crab, Jellyfish, Bubble, Explosion, WaterTrail) */
+      /* --------------------------- CLASSES --------------------------- */
       class WaterTrail {
-        constructor(x, y, direction, fishSize, isUltraFast = false) {
-          this.x = x;
-          this.y = y;
-          const baseSize = Math.min(8, Math.max(2, fishSize * 0.1));
-          this.size = getRandom(baseSize * 0.8, baseSize * 1.2);
-          this.life = 1.0;
+        constructor(x, y, dir, fishSize, isUltra = false) {
+          (this.x = x),
+            (this.y = y),
+            (this.size = getRandom(
+              Math.min(8, Math.max(2, fishSize * 0.1)) * 0.8,
+              Math.min(8, Math.max(2, fishSize * 0.1)) * 1.2
+            ));
+          this.life = 1;
           this.fadeSpeed = getRandom(0.02, 0.04);
-          this.direction = direction;
-          const offsetScale = Math.min(3, Math.max(1, fishSize * 0.03));
-          this.offsetX = getRandom(-offsetScale, offsetScale);
-          this.offsetY = getRandom(-offsetScale, offsetScale);
-          this.isUltraFast = isUltraFast;
+          this.dir = dir;
+          this.offsetX = getRandom(-3, 3);
+          this.offsetY = getRandom(-3, 3);
+          this.isUltra = isUltra;
           this.hue = Math.random() * 360;
           this.hueSpeed = getRandom(2, 4);
         }
-        update(deltaTime) {
-          this.life -= this.fadeSpeed * deltaTime * 60;
-          this.x += this.direction * 0.5 * deltaTime * 60;
-          if (this.isUltraFast) {
-            this.hue = (this.hue + this.hueSpeed) % 360;
-          }
+        update(dt) {
+          this.life -= this.fadeSpeed * dt * 60;
+          this.x += this.dir * 0.5 * dt * 60;
+          if (this.isUltra) this.hue = (this.hue + this.hueSpeed) % 360;
         }
-        draw(ctx) {
+        draw(c) {
           if (this.life <= 0) return;
-          ctx.beginPath();
-          ctx.arc(
+          c.beginPath();
+          c.arc(
             this.x + this.offsetX,
             this.y + this.offsetY,
             this.size,
             0,
             Math.PI * 2
           );
-          if (this.isUltraFast) {
-            ctx.fillStyle = `hsla(${this.hue}, 100%, 50%, ${this.life * 0.3})`;
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = `hsla(${this.hue}, 100%, 50%, ${
-              this.life * 0.3
-            })`;
-          } else {
-            ctx.fillStyle = `rgba(255, 255, 255, ${this.life * 0.05})`;
-          }
-          ctx.fill();
-          ctx.shadowBlur = 0;
+          if (this.isUltra) {
+            c.fillStyle = `hsla(${this.hue},100%,50%,${this.life * 0.3})`;
+            c.shadowBlur = 10;
+            c.shadowColor = `hsla(${this.hue},100%,50%,${this.life * 0.3})`;
+          } else c.fillStyle = `rgba(255,255,255,${this.life * 0.05})`;
+          c.fill();
+          c.shadowBlur = 0;
         }
       }
 
       class Fish {
-        constructor(x, y, speedX, speedY, sprite, maxSide, isPlayer = false) {
+        constructor(x, y, sx, sy, img, maxSide, isPlayer = false) {
           this.x = x;
           this.y = y;
-          this.speedX = speedX;
-          this.speedY = speedY;
-          this.sprite = sprite;
+          this.speedX = sx;
+          this.speedY = sy;
+          this.sprite = img;
           this.maxSide = maxSide;
           this.isPlayer = isPlayer;
           this.lastTrailTime = 0;
@@ -608,128 +559,113 @@
           this.isUltraFast = false;
           this.isCrab = false;
           this.isJellyfish = false;
-
+          this.isSushi = false;
           if (!isPlayer) {
-            this.oscillationSpeed = getRandom(0.005, 0.01);
-            this.oscillationAmount = getRandom(0.05, 0.1);
-            this.oscillationOffset = getRandom(0, Math.PI * 2);
-            this.acceleration = 0.05;
-            this.maxSpeed = Math.abs(speedX) * 1.2;
+            this.oscSpd = getRandom(0.005, 0.01);
+            this.oscAmt = getRandom(0.05, 0.1);
+            this.oscOff = getRandom(0, Math.PI * 2);
+            this.accel = 0.05;
+            this.maxSpd = Math.abs(sx) * 1.2;
           } else {
-            this.velocityX = 0;
-            this.velocityY = 0;
-            this.acceleration = 0.055;
+            this.vx = 0;
+            this.vy = 0;
+            this.accel = 0.055;
             this.friction = 0.99;
-            this.maxSpeed = 10;
+            this.maxSpd = 10;
           }
           this.width = null;
           this.height = null;
         }
         calculateDimensions() {
-          const w = this.sprite.naturalWidth;
-          const h = this.sprite.naturalHeight;
-          if (w === 0 || h === 0) {
-            this.width = this.maxSide;
-            this.height = this.maxSide;
+          const w = this.sprite.naturalWidth,
+            h = this.sprite.naturalHeight;
+          if (!w || !h) {
+            this.width = this.height = this.maxSide;
             return;
           }
-          const aspect = w / h;
-          if (aspect > 1) {
+          const asp = w / h;
+          if (asp > 1) {
             this.width = this.maxSide;
-            this.height = this.maxSide / aspect;
+            this.height = this.maxSide / asp;
           } else {
             this.height = this.maxSide;
-            this.width = this.maxSide * aspect;
+            this.width = this.maxSide * asp;
           }
         }
-        draw(ctx) {
+        draw(c) {
           if (!this.sprite.complete) return;
-          if (this.width === null || this.height === null) {
+          if (this.width === null || this.height === null)
             this.calculateDimensions();
-          }
-          const isMovingLeft = this.isPlayer
-            ? this.velocityX < 0
-            : this.speedX < 0;
-          const applyUltraFastFilter =
+          const movingLeft = this.isPlayer ? this.vx < 0 : this.speedX < 0;
+          const ultra =
             this.isUltraFast || (this.isPlayer && playerIsPoweredUp);
+          c.save();
+          if (movingLeft) {
+            c.translate(this.x + this.width / 2, this.y + this.height / 2);
+            c.scale(-1, 1);
+            c.translate(-this.width / 2, -this.height / 2);
+          } else c.translate(this.x, this.y);
 
-          ctx.save();
-          if (isMovingLeft) {
-            ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
-            ctx.scale(-1, 1);
-            ctx.translate(-this.width / 2, -this.height / 2);
-          } else {
-            ctx.translate(this.x, this.y);
-          }
-          if (applyUltraFastFilter) {
-            ctx.filter = "hue-rotate(180deg) brightness(1.5) saturate(2)";
-          } else if (this.isFast) {
-            ctx.filter = "hue-rotate(45deg) brightness(1.2)";
-          }
-          ctx.drawImage(this.sprite, 0, 0, this.width, this.height);
-          ctx.restore();
+          if (ultra)
+            c.filter = "hue-rotate(180deg) brightness(1.5) saturate(2)";
+          else if (this.isFast) c.filter = "hue-rotate(45deg) brightness(1.2)";
+          c.drawImage(this.sprite, 0, 0, this.width, this.height);
+          c.restore();
         }
         getBounds() {
           if (this.width == null || this.height == null)
             this.calculateDimensions();
-          const collisionScale = 0.6;
-          const radiusX = ((this.width || 0) * collisionScale) / 2;
-          const radiusY = ((this.height || 0) * collisionScale) / 2;
-          let centerX = this.x + (this.width || 0) / 2;
-          let centerY = this.y + (this.height || 0) / 2;
-          const shiftAmount = (this.width || 0) * 0.07;
-          const isMovingLeft = this.isPlayer
-            ? this.velocityX < 0
-            : this.speedX < 0;
-          if (isMovingLeft) centerX -= shiftAmount;
-          else centerX += shiftAmount;
-          return { centerX, centerY, radiusX, radiusY };
+          const scale = 0.6,
+            rX = (this.width * scale) / 2,
+            rY = (this.height * scale) / 2;
+          let cX = this.x + this.width / 2,
+            cY = this.y + this.height / 2;
+          const shift = this.width * 0.07;
+          const movingLeft = this.isPlayer ? this.vx < 0 : this.speedX < 0;
+          if (movingLeft) cX -= shift;
+          else cX += shift;
+          return { centerX: cX, centerY: cY, radiusX: rX, radiusY: rY };
         }
-        update(deltaTime) {
-          const deltaFrames = deltaTime * 60;
+        update(dt) {
+          const df = dt * 60;
           if (this.isPlayer) {
-            const frictionFactor = Math.pow(this.friction, deltaFrames);
-            this.velocityX *= frictionFactor;
-            this.velocityY *= frictionFactor;
-            this.x += this.velocityX * deltaFrames;
-            this.y += this.velocityY * deltaFrames;
-
+            const f = Math.pow(this.friction, df);
+            this.vx *= f;
+            this.vy *= f;
+            this.x += this.vx * df;
+            this.y += this.vy * df;
             if (this.width && this.height) {
               if (this.x < 0) {
                 this.x = 0;
-                this.velocityX = 0;
+                this.vx = 0;
               }
               if (this.y < 0) {
                 this.y = 0;
-                this.velocityY = 0;
+                this.vy = 0;
               }
               if (this.x + this.width > WIDTH) {
                 this.x = WIDTH - this.width;
-                this.velocityX = 0;
+                this.vx = 0;
               }
               if (this.y + this.height > HEIGHT) {
                 this.y = HEIGHT - this.height;
-                this.velocityY = 0;
+                this.vy = 0;
               }
             }
           } else {
-            const oscillation =
-              Math.sin(
-                performance.now() * this.oscillationSpeed +
-                  this.oscillationOffset
-              ) * this.oscillationAmount;
+            const osc =
+              Math.sin(performance.now() * this.oscSpd + this.oscOff) *
+              this.oscAmt;
             if (!this.isJellyfish && !this.isCrab) {
-              // accelerate until |speedX| >= maxSpeed, then clamp
               this.speedX +=
-                this.acceleration *
+                this.accel *
                 Math.sign(this.speedX) *
-                deltaFrames *
-                (Math.abs(this.speedX) < this.maxSpeed ? 1 : 0);
-              if (Math.abs(this.speedX) > this.maxSpeed)
-                this.speedX = Math.sign(this.speedX) * this.maxSpeed;
-
-              this.x += this.speedX * deltaFrames;
-              this.y += oscillation * deltaFrames;
+                df *
+                (Math.abs(this.speedX) < this.maxSpd ? 1 : 0);
+              if (Math.abs(this.speedX) > this.maxSpd)
+                this.speedX = Math.sign(this.speedX) * this.maxSpd;
+              this.x += this.speedX * df;
+              this.y += osc * df;
             }
           }
         }
@@ -738,28 +674,24 @@
           const now = performance.now();
           if (now - this.lastTrailTime < 50) return;
           this.lastTrailTime = now;
-
-          const isMovingLeft = this.isPlayer
-            ? this.velocityX < 0
-            : this.speedX < 0;
+          const movingLeft = this.isPlayer ? this.vx < 0 : this.speedX < 0;
           const speed = this.isPlayer
-            ? Math.sqrt(this.velocityX ** 2 + this.velocityY ** 2)
+            ? Math.hypot(this.vx, this.vy)
             : Math.abs(this.speedX);
           if (speed > 0.5) {
             const ultra =
               this.isUltraFast || (this.isPlayer && playerIsPoweredUp);
             const count = ultra ? 3 : Math.random() < 0.3 ? 2 : 1;
-            for (let i = 0; i < count; i++) {
+            for (let i = 0; i < count; i++)
               waterTrails.push(
                 new WaterTrail(
-                  this.x + (isMovingLeft ? this.width : 0),
+                  this.x + (movingLeft ? this.width : 0),
                   this.y + this.height * 0.5,
-                  isMovingLeft ? 1 : -1,
+                  movingLeft ? 1 : -1,
                   this.maxSide,
                   ultra
                 )
               );
-            }
           }
         }
       }
@@ -768,40 +700,35 @@
         constructor(x, y, size) {
           super(x, y, 0, 0, crabImg, size, false);
           this.isCrab = true;
-          this.hasEnteredScreen = false;
+          this.entered = false;
           this.timeAlive = 0;
         }
-        update(deltaTime, player) {
-          const deltaFrames = deltaTime * 60;
-          if (!this.hasEnteredScreen) {
-            this.y -= 2 * deltaFrames;
-            if (this.y + this.height <= HEIGHT) {
-              this.hasEnteredScreen = true;
-            }
+        update(dt, player) {
+          const df = dt * 60;
+          if (!this.entered) {
+            this.y -= 2 * df;
+            if (this.y + this.height <= HEIGHT) this.entered = true;
             return;
           }
-          this.timeAlive += deltaTime;
+          this.timeAlive += dt;
           if (this.timeAlive > 15) {
             spawnExplosion(this);
             this.maxSide = 0;
             return;
           }
-          const crabBounds = this.getBounds();
-          const playerBounds = player.getBounds();
-
-          const dx = playerBounds.centerX - crabBounds.centerX;
-          const dy = playerBounds.centerY - crabBounds.centerY;
-          const dist = Math.hypot(dx, dy) || 1;
-
-          const speedFactor = 1.5;
-          if (crabBounds.radiusX > playerBounds.radiusX) {
-            this.x += (dx / dist) * speedFactor * deltaFrames;
-            this.y += (dy / dist) * speedFactor * deltaFrames;
+          const c = this.getBounds(),
+            p = player.getBounds();
+          const dx = p.centerX - c.centerX,
+            dy = p.centerY - c.centerY,
+            dist = Math.hypot(dx, dy) || 1;
+          const s = 1.5;
+          if (c.radiusX > p.radiusX) {
+            this.x += (dx / dist) * s * df;
+            this.y += (dy / dist) * s * df;
           } else {
-            this.x -= (dx / dist) * speedFactor * deltaFrames;
-            this.y -= (dy / dist) * speedFactor * deltaFrames;
+            this.x -= (dx / dist) * s * df;
+            this.y -= (dy / dist) * s * df;
           }
-
           if (this.width && this.height) {
             this.x = Math.min(Math.max(0, this.x), WIDTH - this.width);
             this.y = Math.min(Math.max(0, this.y), HEIGHT - this.height);
@@ -813,25 +740,31 @@
         constructor(x, y, size) {
           super(x, y, 0, -1.2, jellyfishImg, size, false);
           this.isJellyfish = true;
-          this.oscSpeed = getRandom(0.0008, 0.0015);
-          this.oscAmplitude = getRandom(10, 15);
-          this.oscOffset = Math.random() * Math.PI * 2;
+          this.oscS = getRandom(0.0008, 0.0015);
+          this.oscA = getRandom(10, 15);
+          this.oscO = Math.random() * Math.PI * 2;
           this.baseX = x;
-          this.verticalSpeed = getRandom(0.5, 1.2);
+          this.vSpeed = getRandom(0.5, 1.2);
         }
-        update(deltaTime) {
-          const deltaFrames = deltaTime * 60;
-          this.y -= this.verticalSpeed * deltaFrames;
-          const oscValue =
-            Math.sin(performance.now() * this.oscSpeed + this.oscOffset) *
-            this.oscAmplitude;
-          this.x = this.baseX + oscValue;
-          if (this.y + (this.height || 0) < -50) {
-            this.maxSide = 0;
-          }
+        update(dt) {
+          const df = dt * 60;
+          this.y -= this.vSpeed * df;
+          this.x =
+            this.baseX +
+            Math.sin(performance.now() * this.oscS + this.oscO) * this.oscA;
+          if (this.y + this.height < -50) this.maxSide = 0;
         }
       }
 
+      /* --- NEW: Sushi power‑up (inherits Fish) --- */
+      class Sushi extends Fish {
+        constructor(x, y, speedX) {
+          super(x, y, speedX, 0, sushiImg, 30, false);
+          this.isSushi = true;
+        }
+      }
+
+      /* Bubbles & Explosion (unchanged) */
       class Bubble {
         constructor(baseX) {
           this.baseX = baseX;
@@ -844,21 +777,19 @@
           this.wobbleSpeed = getRandom(0.02, 0.05);
           this.wobbleOffset = getRandom(0, Math.PI * 2);
         }
-
-        update(deltaTime) {
-          this.y -= this.speed * deltaTime * 60;
+        update(dt) {
+          this.y -= this.speed * dt * 60;
           this.x +=
             Math.sin(this.wobbleOffset + performance.now() * this.wobbleSpeed) *
             this.wobbleAmount *
-            deltaTime *
+            dt *
             60;
         }
-
-        draw(ctx) {
-          ctx.beginPath();
-          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
-          ctx.fill();
+        draw(c) {
+          c.beginPath();
+          c.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          c.fillStyle = `rgba(255,255,255,${this.opacity})`;
+          c.fill();
         }
       }
 
@@ -868,389 +799,323 @@
           this.y = y;
           this.size = size;
           this.particles = [];
-          this.life = 1.0;
+          this.life = 1;
           this.fadeSpeed = 0.02;
           this.isComplete = false;
-
-          const particleCount = Math.floor(size * 0.5);
-          for (let i = 0; i < particleCount; i++) {
-            const angle = (i / particleCount) * Math.PI * 2;
-            const speed = getRandom(2, 4);
+          const n = Math.floor(size * 0.5);
+          for (let i = 0; i < n; i++) {
+            const angle = (i / n) * Math.PI * 2,
+              spd = getRandom(2, 4);
             this.particles.push({
               x: 0,
               y: 0,
-              speedX: Math.cos(angle) * speed,
-              speedY: Math.sin(angle) * speed,
+              sx: Math.cos(angle) * spd,
+              sy: Math.sin(angle) * spd,
               size: getRandom(3, 8),
-              life: 1.0,
+              life: 1,
               fadeSpeed: getRandom(0.01, 0.03),
             });
           }
         }
-        update(deltaTime) {
+        update(dt) {
           if (this.isComplete) return;
-          this.life -= this.fadeSpeed * deltaTime * 60;
+          this.life -= this.fadeSpeed * dt * 60;
           for (const p of this.particles) {
-            p.x += p.speedX * deltaTime * 60;
-            p.y += p.speedY * deltaTime * 60;
-            p.life -= p.fadeSpeed * deltaTime * 60;
+            p.x += p.sx * dt * 60;
+            p.y += p.sy * dt * 60;
+            p.life -= p.fadeSpeed * dt * 60;
           }
-          if (this.life <= 0) {
-            this.isComplete = true;
-          }
+          if (this.life <= 0) this.isComplete = true;
         }
-        draw(ctx) {
+        draw(c) {
           if (this.life <= 0) return;
           for (const p of this.particles) {
             if (p.life <= 0) continue;
-            ctx.beginPath();
-            ctx.arc(this.x + p.x, this.y + p.y, p.size, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(255, 255, 255, ${p.life * 0.8})`;
-            ctx.fill();
+            c.beginPath();
+            c.arc(this.x + p.x, this.y + p.y, p.size, 0, Math.PI * 2);
+            c.fillStyle = `rgba(255,255,255,${p.life * 0.8})`;
+            c.fill();
           }
         }
       }
 
-      /* SPAWN FUNCTIONS */
-      function spawnExplosion(fish) {
-        if (fish.width && fish.height) {
+      /* --------------------------- SPAWNERS --------------------------- */
+      function spawnExplosion(f) {
+        if (f.width && f.height)
           explosion = new Explosion(
-            fish.x + fish.width / 2,
-            fish.y + fish.height / 2,
-            fish.maxSide
+            f.x + f.width / 2,
+            f.y + f.height / 2,
+            f.maxSide
           );
-        }
       }
+
       function spawnFish() {
-        const chosenType = getRandomWeightedFishType(fishTypes);
-        const fishSize = getRandom(chosenType.minSize, chosenType.maxSize);
+        const t = getRandomWeightedFishType(fishTypes);
+        const size = getRandom(t.minSize, t.maxSize);
         const fromLeft = Math.random() < 0.5;
-        const x = fromLeft ? -fishSize : WIDTH;
-        const y = getRandom(0, HEIGHT - fishSize);
-
-        const sizeFactor = 1 - fishSize / 500;
-        const minSpeed = 0.3 + 0.5 * sizeFactor;
-        const maxSpeed = 1.5 + 0.3 * sizeFactor;
-        let baseSpeed = getRandom(minSpeed, maxSpeed);
-
-        const isUltraFast = Math.random() < 0.01;
-        const isFast = !isUltraFast && Math.random() < 0.03;
-
-        if (isUltraFast) baseSpeed *= 5;
-        else if (isFast) baseSpeed *= 3;
-
-        const speedX = fromLeft ? baseSpeed : -baseSpeed;
-        const enemy = new Fish(x, y, speedX, 0, chosenType.image, fishSize);
-        enemy.isFast = isFast;
-        enemy.isUltraFast = isUltraFast;
-        fishList.push(enemy);
+        const x = fromLeft ? -size : WIDTH,
+          y = getRandom(0, HEIGHT - size);
+        const sizeFactor = 1 - size / 500,
+          minSpd = 0.3 + 0.5 * sizeFactor,
+          maxSpd = 1.5 + 0.3 * sizeFactor;
+        let spd = getRandom(minSpd, maxSpd);
+        const ultra = Math.random() < 0.01,
+          fast = !ultra && Math.random() < 0.03;
+        if (ultra) spd *= 5;
+        else if (fast) spd *= 3;
+        const fish = new Fish(x, y, fromLeft ? spd : -spd, 0, t.image, size);
+        fish.isFast = fast;
+        fish.isUltraFast = ultra;
+        fishList.push(fish);
       }
       function spawnCrab() {
         const size = getRandom(50, 120);
-        const x = getRandom(0, WIDTH - size);
-        const y = HEIGHT + size;
-        const crab = new Crab(x, y, size);
+        const crab = new Crab(getRandom(0, WIDTH - size), HEIGHT + size, size);
         fishList.push(crab);
       }
       function spawnJellyfish() {
         const size = getRandom(30, 120);
-        const x = getRandom(0, WIDTH - size);
-        const y = HEIGHT + size;
-        const jelly = new Jellyfish(x, y, size);
-        fishList.push(jelly);
+        fishList.push(
+          new Jellyfish(getRandom(0, WIDTH - size), HEIGHT + size, size)
+        );
       }
+      /* --- NEW: sushi spawner --- */
+      function spawnSushi() {
+        const size = 30,
+          fromLeft = Math.random() < 0.5,
+          x = fromLeft ? -size : WIDTH,
+          y = getRandom(0, HEIGHT - size),
+          spd = (fromLeft ? 1 : -1) * 1.5;
+        fishList.push(new Sushi(x, y, spd));
+      }
+
+      /* Bubble groups */
       function spawnBubbleGroup() {
-        const groupSize = Math.floor(getRandom(3, 6));
-        const baseX = getRandom(50, WIDTH - 50);
-        for (let i = 0; i < groupSize; i++) {
-          bubbles.push(new Bubble(baseX));
-        }
+        const n = Math.floor(getRandom(3, 6)),
+          baseX = getRandom(50, WIDTH - 50);
+        for (let i = 0; i < n; i++) bubbles.push(new Bubble(baseX));
       }
+      let bubbleTimer = 0;
+      const BUBBLE_INTERVAL = 20;
 
-      let bubbleGroupTimer = 0;
-      const BUBBLE_GROUP_INTERVAL = 20;
-
-      /* ROUND RESET (milestone) */
+      /* --------------------------- ROUND RESET --------------------------- */
       function resetRound() {
         fishList = [];
         bubbles = [];
         waterTrails = [];
         explosion = null;
-
         player.maxSide = 25;
         player.width = null;
         player.height = null;
         player.x = WIDTH / 2;
         player.y = HEIGHT / 2;
-        player.velocityX = 0;
-        player.velocityY = 0;
-
+        player.vx = player.vy = 0;
         playerPowerUpTime = 0;
         playerIsPoweredUp = false;
-
         for (let i = 0; i < 3; i++) spawnFish();
         spawnBubbleGroup();
-        bubbleGroupTimer = 0;
+        bubbleTimer = 0;
       }
 
-      /* GAME LOOP */
-      function updateGame(deltaTime) {
+      /* --------------------------- GAME LOOP --------------------------- */
+      function updateGame(dt) {
         if (explosion) {
-          explosion.update(deltaTime);
+          explosion.update(dt);
           if (explosion.isComplete) {
             explosion = null;
-            if (isGameOver) {
-              showGameOverScreen(score);
-            }
+            if (isGameOver) showGameOverScreen(score);
           }
         }
         if (gameState !== "playing") return;
         if (isGameOver && !explosion) return;
-
-        // Update game time
-        gameTime += deltaTime;
-
-        // power-up
+        gameTime += dt;
+        /* power‑up timer */
         if (playerPowerUpTime > 0) {
-          playerPowerUpTime -= deltaTime;
+          playerPowerUpTime -= dt;
           if (playerPowerUpTime <= 0) {
             playerPowerUpTime = 0;
             playerIsPoweredUp = false;
           }
         }
 
-        // bubbles
+        /* bubbles */
         for (let i = bubbles.length - 1; i >= 0; i--) {
-          bubbles[i].update(deltaTime);
+          bubbles[i].update(dt);
           if (bubbles[i].y < -20) bubbles.splice(i, 1);
         }
 
-        // water trails
+        /* trails */
         for (let i = waterTrails.length - 1; i >= 0; i--) {
-          const trail = waterTrails[i];
-          trail.update(deltaTime);
-          if (trail.life <= 0) waterTrails.splice(i, 1);
+          waterTrails[i].update(dt);
+          if (waterTrails[i].life <= 0) waterTrails.splice(i, 1);
         }
 
-        // bubble group timer
-        bubbleGroupTimer += deltaTime;
-        if (bubbleGroupTimer >= BUBBLE_GROUP_INTERVAL) {
+        /* bubble wave */
+        bubbleTimer += dt;
+        if (bubbleTimer >= BUBBLE_INTERVAL) {
           spawnBubbleGroup();
-          bubbleGroupTimer = 0;
+          bubbleTimer = 0;
         }
 
-        // player movement (keys)
-        const accel = player.acceleration * deltaTime * 60;
-        if (keys.left) player.velocityX -= accel;
-        if (keys.right) player.velocityX += accel;
-        if (keys.up) player.velocityY -= accel;
-        if (keys.down) player.velocityY += accel;
+        /* keyboard movement */
+        const a = player.accel * dt * 60;
+        if (keys.left) player.vx -= a;
+        if (keys.right) player.vx += a;
+        if (keys.up) player.vy -= a;
+        if (keys.down) player.vy += a;
 
-        // touch/mouse
+        /* touch target */
         if (touchTarget && player.width && player.height) {
-          const px = player.x + player.width / 2;
-          const py = player.y + player.height / 2;
-          const dx = touchTarget.x - px;
-          const dy = touchTarget.y - py;
-          const dist = Math.sqrt(dx * dx + dy * dy);
+          const px = player.x + player.width / 2,
+            py = player.y + player.height / 2,
+            dx = touchTarget.x - px,
+            dy = touchTarget.y - py,
+            dist = Math.hypot(dx, dy);
           if (dist > 1) {
-            const ax = (dx / dist) * accel;
-            const ay = (dy / dist) * accel;
-            player.velocityX += ax;
-            player.velocityY += ay;
+            const ax = (dx / dist) * a,
+              ay = (dy / dist) * a;
+            player.vx += ax;
+            player.vy += ay;
           }
         }
 
-        // limit speed
-        const spd = Math.sqrt(player.velocityX ** 2 + player.velocityY ** 2);
-        if (spd > player.maxSpeed) {
-          const ratio = player.maxSpeed / spd;
-          player.velocityX *= ratio;
-          player.velocityY *= ratio;
+        /* speed cap */
+        const spd = Math.hypot(player.vx, player.vy);
+        if (spd > player.maxSpd) {
+          const r = player.maxSpd / spd;
+          player.vx *= r;
+          player.vy *= r;
         }
 
-        // update player
-        player.update(deltaTime);
+        /* update player */
+        player.update(dt);
         player.createWaterTrail();
 
-        // update enemies
+        /* update enemies & collisions */
         for (let i = fishList.length - 1; i >= 0; i--) {
-          const enemy = fishList[i];
-          if (enemy.isCrab) {
-            enemy.update(deltaTime, player);
-          } else {
-            enemy.update(deltaTime);
-          }
-          enemy.createWaterTrail();
+          const e = fishList[i];
+          if (e.isCrab) e.update(dt, player);
+          else e.update(dt);
+          e.createWaterTrail();
 
-          // remove off‑screen / dead
-          const bounds = enemy.getBounds();
+          /* remove off‑screen/dead */
+          const b = e.getBounds();
           if (
-            enemy.maxSide <= 0 ||
-            bounds.centerX + bounds.radiusX < -200 ||
-            bounds.centerX - bounds.radiusX > WIDTH + 200 ||
-            enemy.y > HEIGHT + 200
+            e.maxSide <= 0 ||
+            b.centerX + b.radiusX < -200 ||
+            b.centerX - b.radiusX > WIDTH + 200 ||
+            e.y > HEIGHT + 200
           ) {
             fishList.splice(i, 1);
             continue;
           }
 
-          // collision with player
-          if (checkCollisionOval(player, enemy)) {
-            if (playerIsPoweredUp) {
-              // score += calculateFishScore(enemy.maxSide);
-              // player.maxSide += Math.min(Math.sqrt(enemy.maxSide) * 0.05, 1.5);
-              // player.width = null;
-              // player.height = null;
-              // playEatSound();
-              score += calculateFishScore(enemy.maxSide);
+          /* collision */
+          if (checkCollisionOval(player, e)) {
+            /* --- Sushi: always edible, grants power‑up --- */
+            if (e.isSushi) {
+              score += 50;
+              playerPowerUpTime = POWER_UP_DURATION;
+              playerIsPoweredUp = true;
+              playPowerUpSound();
+              fishList.splice(i, 1);
+              continue;
+            }
 
-              if (enemy.isJellyfish) {
+            if (playerIsPoweredUp) {
+              score += calculateFishScore(e.maxSide);
+              if (e.isJellyfish)
                 player.maxSide = Math.max(
                   player.maxSide * JELLY_SHRINK_FACTOR,
-                  25
+                  10
                 );
-              } else {
-                player.maxSide += Math.min(
-                  Math.sqrt(enemy.maxSide) * 0.05,
-                  1.5
-                );
-              }
-
+              else player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
               player.width = player.height = null;
               playEatSound();
-              if (enemy.isUltraFast) {
+              if (e.isUltraFast) {
+                playerPowerUpTime = POWER_UP_DURATION;
+                playerIsPoweredUp = true;
+                playPowerUpSound();
+              }
+              fishList.splice(i, 1);
+              continue;
+            }
+
+            const pR = player.getBounds().radiusX,
+              eR = e.getBounds().radiusX;
+            if (pR * EATING_LEEWAY > eR) {
+              /* player eats */
+              score += calculateFishScore(e.maxSide);
+              if (e.isJellyfish)
+                player.maxSide = Math.max(
+                  player.maxSide * JELLY_SHRINK_FACTOR,
+                  10
+                );
+              else player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
+              player.width = player.height = null;
+              playEatSound();
+              if (e.isUltraFast) {
                 playerPowerUpTime = POWER_UP_DURATION;
                 playerIsPoweredUp = true;
                 playPowerUpSound();
               }
               fishList.splice(i, 1);
             } else {
-              // const pR = player.getBounds().radiusX;
-              // const eR = enemy.getBounds().radiusX;
-              // if (pR > eR) {
-              //   score += calculateFishScore(enemy.maxSide);
-              //   player.maxSide += Math.min(
-              //     Math.sqrt(enemy.maxSide) * 0.05,
-              //     1.5
-              //   );
-              //   player.calculateDimensions();
-              //   playEatSound();
-              //   if (enemy.isUltraFast) {
-              //     playerPowerUpTime = POWER_UP_DURATION;
-              //     playerIsPoweredUp = true;
-              //     playPowerUpSound();
-              //   }
-              //   fishList.splice(i, 1);
-              // } else {
-              //   isGameOver = true;
-              //   gameState = "over";
-              //   sendScoreToAPI(score);
-              //   explosion = new Explosion(
-              //     player.x + (player.width ?? player.maxSide) / 2,
-              //     player.y + (player.height ?? player.maxSide) / 2,
-              //     player.maxSide
-              //   );
-              //   touchTarget = null;
-              //   return;
-              // }
-              const pR = player.getBounds().radiusX;
-              const eR = enemy.getBounds().radiusX;
-
-              /* ------------- key change #1: give the player 15 % grace ------------- */
-              if (pR * EATING_LEEWAY > eR) {
-                score += calculateFishScore(enemy.maxSide);
-
-                /* -------- key change #2: special‑case jellyfish shrink -------- */
-                if (enemy.isJellyfish) {
-                  // shrink but never below a playable minimum
-                  player.maxSide = Math.max(
-                    player.maxSide * JELLY_SHRINK_FACTOR,
-                    10
-                  );
-                } else {
-                  player.maxSide += Math.min(
-                    Math.sqrt(enemy.maxSide) * 0.05,
-                    1.5
-                  );
-                }
-
-                // force a dimension recalc next frame
-                player.width = player.height = null;
-                playEatSound();
-
-                // preserve the existing ultra‑fast / power‑up behaviour
-                if (enemy.isUltraFast) {
-                  playerPowerUpTime = POWER_UP_DURATION;
-                  playerIsPoweredUp = true;
-                  playPowerUpSound();
-                }
-
-                fishList.splice(i, 1); // remove the enemy that got eaten
-              } else {
-                /* unchanged – player is smaller, so gets eaten */
-                isGameOver = true;
-                gameState = "over";
-                sendScoreToAPI(score);
-                explosion = new Explosion(
-                  player.x + (player.width ?? player.maxSide) / 2,
-                  player.y + (player.height ?? player.maxSide) / 2,
-                  player.maxSide
-                );
-                touchTarget = null;
-                return;
-              }
+              /* player gets eaten */
+              isGameOver = true;
+              gameState = "over";
+              sendScoreToAPI(score);
+              explosion = new Explosion(
+                player.x + (player.width ?? player.maxSide) / 2,
+                player.y + (player.height ?? player.maxSide) / 2,
+                player.maxSide
+              );
+              touchTarget = null;
+              return;
             }
           }
         }
 
-        // spawn fish
-        if (Math.random() < 0.03 * deltaTime * 60 && fishList.length < 30) {
-          spawnFish();
-        }
-        if (Math.random() < 0.00005 * deltaTime * 60 && fishList.length < 30) {
+        /* spawns */
+        if (Math.random() < 0.03 * dt * 60 && fishList.length < 30) spawnFish();
+        if (Math.random() < 0.00005 * dt * 60 && fishList.length < 30)
           spawnCrab();
-        }
-        if (Math.random() < 0.001 * deltaTime * 60 && fishList.length < 30) {
+        if (Math.random() < 0.0001 * dt * 60 && fishList.length < 30)
           spawnJellyfish();
-        }
+        /* --- Sushi: very rare --- */
+        if (Math.random() < 0.0001 * dt * 60 && fishList.length < 30)
+          spawnSushi();
 
-        /* ----- ACHIEVEMENT / ROUND RESET ----- */
+        /* achievement reset */
         if (score >= nextMilestone) {
-          playAchievementSound();
+          playAchvSound();
           resetRound();
           while (score >= nextMilestone) nextMilestone += 100000;
         }
       }
 
       function checkCollisionOval(a, b) {
-        const A = a.getBounds();
-        const B = b.getBounds();
-        const dx = A.centerX - B.centerX;
-        const dy = A.centerY - B.centerY;
-        const sumRadiiX = A.radiusX + B.radiusX;
-        const sumRadiiY = A.radiusY + B.radiusY;
+        const A = a.getBounds(),
+          B = b.getBounds(),
+          dx = A.centerX - B.centerX,
+          dy = A.centerY - B.centerY;
         return (
-          (dx * dx) / (sumRadiiX * sumRadiiX) +
-            (dy * dy) / (sumRadiiY * sumRadiiY) <=
+          (dx * dx) / (A.radiusX + B.radiusX) ** 2 +
+            (dy * dy) / (A.radiusY + B.radiusY) ** 2 <=
           1
         );
       }
 
       function renderGame() {
         ctx.clearRect(0, 0, WIDTH, HEIGHT);
-
-        for (const bubble of bubbles) bubble.draw(ctx);
-        for (const trail of waterTrails) trail.draw(ctx);
-
+        bubbles.forEach((b) => b.draw(ctx));
+        waterTrails.forEach((t) => t.draw(ctx));
         if (player && !(isGameOver && explosion)) player.draw(ctx);
-        for (const fish of fishList) fish.draw(ctx);
+        fishList.forEach((f) => f.draw(ctx));
         if (explosion) explosion.draw(ctx);
-
         ctx.fillStyle = "#fff";
-        ctx.font = "20px Londrina Solid, sans-serif";
-        ctx.fillText("Score: " + score, 20, 30);
-
+        ctx.font = "20px 'Londrina Solid',sans-serif";
+        ctx.fillText("Score: " + score, 20, 30);
         if (touchTarget) {
           ctx.beginPath();
           ctx.arc(touchTarget.x, touchTarget.y, 15, 0, Math.PI * 2);
@@ -1261,15 +1126,15 @@
       }
 
       let lastTime = 0;
-      function gameLoop(timestamp) {
-        const deltaTime = (timestamp - lastTime) / 1000;
-        lastTime = timestamp;
-        updateGame(deltaTime);
+      function gameLoop(ts) {
+        const dt = (ts - lastTime) / 1000;
+        lastTime = ts;
+        updateGame(dt);
         renderGame();
         requestAnimationFrame(gameLoop);
       }
 
-      /* INIT LOGIC */
+      /* --------------------------- INIT --------------------------- */
       function initGame() {
         resizeCanvas();
         score = 0;
@@ -1281,86 +1146,74 @@
         bubbles = [];
         waterTrails = [];
         player = new Fish(WIDTH / 2, HEIGHT / 2, 0, 0, playerImg, 25, true);
-
         playerPowerUpTime = 0;
         playerIsPoweredUp = false;
-
         clearKeys();
         initAudio();
         for (let i = 0; i < 3; i++) spawnFish();
         spawnBubbleGroup();
-        bubbleGroupTimer = 0;
+        bubbleTimer = 0;
       }
 
-      function showOrHideArrowKeys(shouldShow) {
-        controlsContainer.style.display = shouldShow ? "flex" : "none";
-        const text = shouldShow ? "🎮 Arrow Keys On" : "🎮 Arrow Keys Off";
-        if (arrowKeysBtn) arrowKeysBtn.textContent = text;
-        if (arrowKeysBtnGameOver) arrowKeysBtnGameOver.textContent = text;
-        if (!shouldShow) clearKeys();
+      function showOrHideArrowKeys(show) {
+        controlsContainer.style.display = show ? "flex" : "none";
+        const txt = show ? "🎮 Arrow Keys On" : "🎮 Arrow Keys Off";
+        arrowKeysBtn.textContent = txt;
+        arrowKeysBtnGameOver.textContent = txt;
+        if (!show) clearKeys();
       }
-
       function syncGameOverUI() {
         showOrHideArrowKeys(controlsContainer.style.display !== "none");
         updateSoundButtons();
       }
 
-      /* EVENT HANDLERS */
+      /* --------------------------- EVENTS --------------------------- */
       startBtn.onclick = () => {
         hideStartScreen();
         showOrHideArrowKeys(arrowKeysBtn.textContent.includes("On"));
         gameState = "playing";
         initGame();
       };
-
       playAgainBtn.onclick = () => {
         hideGameOverScreen();
         showOrHideArrowKeys(arrowKeysBtnGameOver.textContent.includes("On"));
         gameState = "playing";
         initGame();
       };
-
       soundBtn.onclick = toggleSound;
       soundBtnGameOver.onclick = toggleSound;
+      arrowKeysBtn.onclick = () =>
+        showOrHideArrowKeys(controlsContainer.style.display === "none");
+      arrowKeysBtnGameOver.onclick = () =>
+        showOrHideArrowKeys(controlsContainer.style.display === "none");
 
-      arrowKeysBtn.onclick = () => {
-        const currentlyVisible = controlsContainer.style.display !== "none";
-        showOrHideArrowKeys(!currentlyVisible);
-      };
-      arrowKeysBtnGameOver.onclick = () => {
-        const currentlyVisible = controlsContainer.style.display !== "none";
-        showOrHideArrowKeys(!currentlyVisible);
-      };
-
-      function pressKey(key, isDown) {
-        if (key === "left") keys.left = isDown;
-        if (key === "right") keys.right = isDown;
-        if (key === "up") keys.up = isDown;
-        if (key === "down") keys.down = isDown;
+      /* arrow buttons */
+      function pressKey(key, down) {
+        if (key === "left") keys.left = down;
+        if (key === "right") keys.right = down;
+        if (key === "up") keys.up = down;
+        if (key === "down") keys.down = down;
       }
-      arrowUp.addEventListener("mousedown", () => pressKey("up", true));
-      arrowUp.addEventListener("mouseup", () => pressKey("up", false));
-      arrowUp.addEventListener("mouseleave", () => pressKey("up", false));
-      arrowUp.addEventListener("touchstart", () => pressKey("up", true));
-      arrowUp.addEventListener("touchend", () => pressKey("up", false));
-
-      arrowDown.addEventListener("mousedown", () => pressKey("down", true));
-      arrowDown.addEventListener("mouseup", () => pressKey("down", false));
-      arrowDown.addEventListener("mouseleave", () => pressKey("down", false));
-      arrowDown.addEventListener("touchstart", () => pressKey("down", true));
-      arrowDown.addEventListener("touchend", () => pressKey("down", false));
-
-      arrowLeft.addEventListener("mousedown", () => pressKey("left", true));
-      arrowLeft.addEventListener("mouseup", () => pressKey("left", false));
-      arrowLeft.addEventListener("mouseleave", () => pressKey("left", false));
-      arrowLeft.addEventListener("touchstart", () => pressKey("left", true));
-      arrowLeft.addEventListener("touchend", () => pressKey("left", false));
-
-      arrowRight.addEventListener("mousedown", () => pressKey("right", true));
-      arrowRight.addEventListener("mouseup", () => pressKey("right", false));
-      arrowRight.addEventListener("mouseleave", () => pressKey("right", false));
-      arrowRight.addEventListener("touchstart", () => pressKey("right", true));
-      arrowRight.addEventListener("touchend", () => pressKey("right", false));
+      arrowUp.onmousedown = () => pressKey("up", true);
+      arrowUp.onmouseup = () => pressKey("up", false);
+      arrowUp.onmouseleave = () => pressKey("up", false);
+      arrowUp.ontouchstart = () => pressKey("up", true);
+      arrowUp.ontouchend = () => pressKey("up", false);
+      arrowDown.onmousedown = () => pressKey("down", true);
+      arrowDown.onmouseup = () => pressKey("down", false);
+      arrowDown.onmouseleave = () => pressKey("down", false);
+      arrowDown.ontouchstart = () => pressKey("down", true);
+      arrowDown.ontouchend = () => pressKey("down", false);
+      arrowLeft.onmousedown = () => pressKey("left", true);
+      arrowLeft.onmouseup = () => pressKey("left", false);
+      arrowLeft.onmouseleave = () => pressKey("left", false);
+      arrowLeft.ontouchstart = () => pressKey("left", true);
+      arrowLeft.ontouchend = () => pressKey("left", false);
+      arrowRight.onmousedown = () => pressKey("right", true);
+      arrowRight.onmouseup = () => pressKey("right", false);
+      arrowRight.onmouseleave = () => pressKey("right", false);
+      arrowRight.ontouchstart = () => pressKey("right", true);
+      arrowRight.ontouchend = () => pressKey("right", false);
 
       window.addEventListener("keydown", (e) => {
         if (e.key === "ArrowLeft" || e.key === "a") keys.left = true;
@@ -1375,64 +1228,58 @@
         if (e.key === "ArrowDown" || e.key === "s") keys.down = false;
       });
 
+      /* touch & mouse aiming */
       canvas.addEventListener("touchstart", (e) => {
-        const touch = e.touches[0];
-        if (touch) {
-          const rect = canvas.getBoundingClientRect();
-          touchTarget = {
-            x: touch.clientX - rect.left,
-            y: touch.clientY - rect.top,
-          };
+        const t = e.touches[0];
+        if (t) {
+          const r = canvas.getBoundingClientRect();
+          touchTarget = { x: t.clientX - r.left, y: t.clientY - r.top };
         }
       });
       canvas.addEventListener("touchmove", (e) => {
-        const touch = e.touches[0];
-        if (touch) {
-          const rect = canvas.getBoundingClientRect();
-          touchTarget = {
-            x: touch.clientX - rect.left,
-            y: touch.clientY - rect.top,
-          };
+        const t = e.touches[0];
+        if (t) {
+          const r = canvas.getBoundingClientRect();
+          touchTarget = { x: t.clientX - r.left, y: t.clientY - r.top };
         }
       });
       canvas.addEventListener("touchend", () => {
         touchTarget = null;
       });
       canvas.addEventListener("mousedown", (e) => {
-        const rect = canvas.getBoundingClientRect();
-        touchTarget = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        const r = canvas.getBoundingClientRect();
+        touchTarget = { x: e.clientX - r.left, y: e.clientY - r.top };
       });
       canvas.addEventListener("mousemove", (e) => {
         if (e.buttons > 0) {
-          const rect = canvas.getBoundingClientRect();
-          touchTarget = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+          const r = canvas.getBoundingClientRect();
+          touchTarget = { x: e.clientX - r.left, y: e.clientY - r.top };
         }
       });
       canvas.addEventListener("mouseup", () => {
         touchTarget = null;
       });
 
-      /* PRELOAD IMAGES THEN START */
+      /* --------------------------- PRELOAD & START --------------------------- */
       Promise.all([
-        new Promise((resolve) => (playerImg.onload = resolve)),
-        ...fishTypes.map(
-          ({ image }) => new Promise((resolve) => (image.onload = resolve))
-        ),
-        new Promise((resolve) => (crabImg.onload = resolve)),
-        new Promise((resolve) => (jellyfishImg.onload = resolve)),
+        new Promise((r) => (playerImg.onload = r)),
+        ...fishTypes.map(({ image }) => new Promise((r) => (image.onload = r))),
+        new Promise((r) => (crabImg.onload = r)),
+        new Promise((r) => (jellyfishImg.onload = r)),
+        /* sushi image */
+        new Promise((r) => (sushiImg.onload = r)),
       ]).then(() => {
         resizeCanvas();
         showStartScreen();
         initAudio();
-        startScreen.addEventListener("click", function firstInteraction() {
+        startScreen.addEventListener("click", function first() {
           startAudio();
-          startScreen.removeEventListener("click", firstInteraction);
+          startScreen.removeEventListener("click", first);
         });
-        document.addEventListener("mousemove", function firstInteraction() {
+        document.addEventListener("mousemove", function first() {
           startAudio();
-          document.removeEventListener("mousemove", firstInteraction);
+          document.removeEventListener("mousemove", first);
         });
-
         requestAnimationFrame(gameLoop);
       });
     </script>
