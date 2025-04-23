@@ -129,6 +129,7 @@ function verifyTelegramData(req, res, next) {
 
         // Parse init data. We will surely need it in the future.
         req.telegramUser = parse(authData).user;
+        console.log("✅ Telegram data verified", { user: req.telegramUser.id });
         return next();
       } catch (e) {
         return next(e);
