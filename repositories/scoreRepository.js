@@ -1,4 +1,6 @@
 const { MongoClient } = require("mongodb");
+const config = require("../config");
+const activeEvent = config.activeEvent;
 
 let db;
 
@@ -28,6 +30,7 @@ async function updateScore(userId, username, score, gameTime) {
       username,
       score,
       gameTime,
+      event: activeEvent,
     });
 
     // Create a game document (non-critical)
@@ -39,6 +42,7 @@ async function updateScore(userId, username, score, gameTime) {
         score,
         gameTime,
         date: new Date(),
+        event: activeEvent,
       });
       console.log("Successfully created game document");
     } catch (gameError) {
@@ -72,10 +76,12 @@ async function updateScore(userId, username, score, gameTime) {
       // Continue even if stats update fails
     }
 
+    const eventName = activeEvent;
+
     // Update or insert user score and high score
     const collection = db.collection("scores");
     const result = await collection.findOneAndUpdate(
-      { userId },
+      { userId, eventName },
       [
         {
           $set: {
@@ -91,6 +97,7 @@ async function updateScore(userId, username, score, gameTime) {
                 else: gameTime,
               },
             },
+            event: activeEvent,
           },
         },
       ],
@@ -109,11 +116,12 @@ async function updateScore(userId, username, score, gameTime) {
 }
 
 // Get high scores
-async function getHighScores(limit = 10) {
+async function getHighScores(limit = 10, eventName) {
   try {
     const collection = db.collection("scores");
+    const query = eventName ? { event: eventName } : {};
     return await collection
-      .find()
+      .find(query)
       .sort({ highScore: -1 })
       .limit(limit)
       .toArray();
@@ -123,11 +131,22 @@ async function getHighScores(limit = 10) {
   }
 }
 
+async function getActiveEventHighScores(limit = 10) {
+  try {
+    const eventName = activeEvent;
+    return await getHighScores(limit, eventName);
+  } catch (error) {
+    console.error("Error getting high scores by event:", error);
+    throw error;
+  }
+}
+
 // Get user's score
-async function getUserScore(userId) {
+async function getUserScore(userId, eventName) {
   try {
     const collection = db.collection("scores");
-    return await collection.findOne({ userId });
+    const query = eventName ? { userId, event: eventName } : { userId };
+    return await collection.findOne(query);
   } catch (error) {
     console.error("Error getting user score:", error);
     throw error;
@@ -139,4 +158,5 @@ module.exports = {
   updateScore,
   getHighScores,
   getUserScore,
+  getActiveEventHighScores,
 };

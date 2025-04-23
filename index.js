@@ -1,4 +1,6 @@
 require("dotenv").config();
+const config = require("./config");
+const activeEvent = config.activeEvent;
 const express = require("express");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
@@ -8,6 +10,7 @@ const {
   updateScore,
   getHighScores,
   getUserScore,
+  getActiveEventHighScores,
 } = require("./repositories/scoreRepository");
 const path = require("path");
 const fs = require("fs");
@@ -315,7 +318,7 @@ app.post("/api/scores", checkPassword, verifyTelegramData, async (req, res) => {
 // API endpoint to get high scores
 app.get("/api/scores", checkPassword, async (req, res) => {
   try {
-    const highScores = await getHighScores();
+    const highScores = await getActiveEventHighScores();
     res.json(highScores);
   } catch (error) {
     console.error("Error getting high scores:", error);
@@ -434,8 +437,8 @@ function setupBotCommands() {
     try {
       if (data === "highscores") {
         // Show top N high scores (10, or 5 in your text)
-        const highScores = await getHighScores(10);
-        let message = "🏆 Top 10 High Scores 🏆\n\n";
+        const highScores = await getActiveEventHighScores(10);
+        let message = `🏆 Top 10 High Scores for ${activeEvent} 🏆\n\n`;
 
         highScores.forEach((score, index) => {
           message += `${index + 1}. ${score.username || "Anonymous"}: ${
@@ -450,12 +453,12 @@ function setupBotCommands() {
         );
       } else if (data === "mystats") {
         const userId = callbackQuery.from.id;
-        const userScore = await getUserScore(userId);
+        const userScore = await getUserScore(userId, activeEvent);
 
         if (userScore) {
           await sendMessageWithErrorHandling(
             chatId,
-            `Stats for ${userScore.username}:\n\n` +
+            `${activeEvent} stats for ${userScore.username}:\n\n` +
               `High Score: ${userScore.highScore}\n` +
               `Last Score: ${userScore.lastScore}\n` +
               `Last Played: ${new Date(
@@ -466,7 +469,7 @@ function setupBotCommands() {
         } else {
           await sendMessageWithErrorHandling(
             chatId,
-            "You haven't played the game yet! Click 'Play Game' to get started!",
+            `You haven't participated in ${activeEvent} yet! Click 'Play Game' to get started!`,
             chatType === "supergroup" ? messageThreadId : null
           );
         }
