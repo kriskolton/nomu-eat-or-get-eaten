@@ -105,12 +105,16 @@ async function initializeDatabase() {
 
 /* ───────────────────────── Telegram initData verifier ────────────────── */
 
-const MAX_AGE_SECONDS = 60 * 60 * 24; // accept initData for 24 hours
+const MAX_AGE_SECONDS = 60 * 60 * 24; // 24 h
 
 function verifyTelegramData(req, res, next) {
   const initData = req.headers["x-telegram-init-data"];
-  if (!initData)
+
+  // ───── 1 ️⃣ Header present? ───────────────────────────────────────────
+  if (!initData) {
+    console.warn("401 – Missing Telegram data");
     return res.status(401).json({ error: "Missing Telegram data" });
+  }
 
   const params = new URLSearchParams(initData);
   const theirHash = params.get("hash");
@@ -121,7 +125,7 @@ function verifyTelegramData(req, res, next) {
     .map(([k, v]) => `${k}=${v}`)
     .join("\n");
 
-  // Telegram spec: secretKey = sha256(botToken)
+  // secretKey = sha256(botToken)
   const secretKey = crypto
     .createHash("sha256")
     .update(process.env.TELEGRAM_BOT_TOKEN)
@@ -132,14 +136,28 @@ function verifyTelegramData(req, res, next) {
     .update(dataCheckString)
     .digest("hex");
 
-  if (ourHash !== theirHash)
+  // ───── 2 ️⃣ Signature valid? ─────────────────────────────────────────
+  if (ourHash !== theirHash) {
+    console.warn("401 – Invalid Telegram hash", {
+      botTokenPresent: !!process.env.TELEGRAM_BOT_TOKEN,
+      theirHash,
+      ourHash,
+    });
     return res.status(401).json({ error: "Invalid Telegram hash" });
+  }
 
+  // ───── 3 ️⃣ initData still fresh? ─────────────────────────────────────
   const authDate = Number(params.get("auth_date")) || 0;
-  if (Date.now() / 1000 - authDate > MAX_AGE_SECONDS)
-    return res.status(401).json({ error: "initData expired" });
+  const age = Math.floor(Date.now() / 1000 - authDate); // seconds
 
+  if (age > MAX_AGE_SECONDS) {
+    console.warn("401 – initData expired", { age, MAX_AGE_SECONDS });
+    return res.status(401).json({ error: "initData expired" });
+  }
+
+  // ───── All good – pass control to the route handler ──────────────────
   req.telegramUser = Object.fromEntries(params);
+  console.log("✅ Telegram data verified", { user: req.telegramUser.id, age });
   next();
 }
 
