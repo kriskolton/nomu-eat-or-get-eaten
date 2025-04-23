@@ -262,11 +262,12 @@
       let tg, userData, userId;
       try {
         tg = window.Telegram.WebApp;
-        userData = tg.initDataUnsafe?.user;
+        userData = tg.initData;
         userId = userData?.id;
         tg.expand();
         tg.ready();
         tg.setSwipeEnabled(false);
+        tg.disableVerticalSwipes();
       } catch (e) {
         console.error("Telegram init error:", e);
       }
@@ -347,7 +348,8 @@
             headers: {
               "Content-Type": "application/json",
               // **Only** Telegram signature – no shared secret in the client!
-              "x-telegram-init-data": window.Telegram.WebApp.initData,
+              // "x-telegram-init-data": window.Telegram.WebApp.initData,
+              Authorization: `tma ${userData}`,
             },
             body: JSON.stringify({
               score,

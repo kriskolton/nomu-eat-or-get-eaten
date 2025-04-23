@@ -2,6 +2,8 @@ require("dotenv").config();
 const config = require("./config");
 const activeEvent = config.activeEvent;
 
+import { validate, parse } from "@telegram-apps/init-data-node";
+
 const express = require("express");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
@@ -108,7 +110,33 @@ async function initializeDatabase() {
 const MAX_AGE_SECONDS = 60 * 60 * 24; // 24 h
 
 function verifyTelegramData(req, res, next) {
-  const initData = req.headers["x-telegram-init-data"];
+  // We expect passing init data in the Authorization header in the following format:
+  // <auth-type> <auth-data>
+  // <auth-type> must be "tma", and <auth-data> is Telegram Mini Apps init data.
+  const [authType, authData = ""] = (req.header("authorization") || "").split(
+    " "
+  );
+
+  switch (authType) {
+    case "tma":
+      try {
+        // Validate init data.
+        validate(authData, token, {
+          // We consider init data sign valid for 1 hour from their creation moment.
+          // CHANGE THIS TO 24 HOURS
+          expiresIn: 3600,
+        });
+
+        // Parse init data. We will surely need it in the future.
+        req.telegramUser = parse(authData).user;
+        return next();
+      } catch (e) {
+        return next(e);
+      }
+    // ... other authorization methods.
+    default:
+      return next(new Error("Unauthorized"));
+  }
 
   /* ───── 1️⃣  Header present? ─────────────────────────────────────── */
   if (!initData) {
