@@ -110,32 +110,34 @@ const MAX_AGE_SECONDS = 60 * 60 * 24; // 24 h
 function verifyTelegramData(req, res, next) {
   const initData = req.headers["x-telegram-init-data"];
 
-  // ───── 1️⃣ Header present? ──────────────────────────────────────────
+  /* ───── 1️⃣  Header present? ─────────────────────────────────────── */
   if (!initData) {
     console.warn("401 – Missing Telegram data");
     return res.status(401).json({ error: "Missing Telegram data" });
   }
 
-  // ───── 2️⃣ Build data_check_string without decoding ─────────────────
-  const dataCheckString = initData
-    .split("&")
-    .filter((p) => !p.startsWith("hash=")) // drop the hash
-    .sort((a, b) => a.localeCompare(b)) // sort by key
-    .join("\n"); // join with newline
+  /* ───── 2️⃣  Build data_check_string (values DECODED) ─────────────── */
+  const urlParams = new URLSearchParams(initData); // this decodes %xx
 
-  // ───── 3️⃣ Derive Web-App secret key ───────────────────────────────
+  const pairs = [];
+  urlParams.forEach((value, key) => {
+    if (key !== "hash") pairs.push(`${key}=${value}`); // plain key=value
+  });
+  pairs.sort(); // sort by key
+  const dataCheckString = pairs.join("\n"); // newline-joined
+
+  /* ───── 3️⃣  Derive Web-App secret key ────────────────────────────── */
   const secretKey = crypto
     .createHmac("sha256", process.env.TELEGRAM_BOT_TOKEN.trim()) // key = bot token
-    .update("WebAppData") // msg = literal string
-    .digest(); // Buffer
+    .update("WebAppData") // msg = literal
+    .digest(); // raw bytes
 
-  // ───── 4️⃣ Calculate ourHash vs theirHash ────────────────────────
+  /* ───── 4️⃣  Compare HMACs ────────────────────────────────────────── */
   const ourHash = crypto
     .createHmac("sha256", secretKey)
     .update(dataCheckString)
     .digest("hex");
-
-  const theirHash = new URLSearchParams(initData).get("hash");
+  const theirHash = urlParams.get("hash");
 
   if (ourHash !== theirHash) {
     console.warn("401 – Invalid Telegram hash", {
@@ -146,8 +148,8 @@ function verifyTelegramData(req, res, next) {
     return res.status(401).json({ error: "Invalid Telegram hash" });
   }
 
-  // ───── 5️⃣ Check initData age ───────────────────────────────────────
-  const authDate = Number(new URLSearchParams(initData).get("auth_date")) || 0;
+  /* ───── 5️⃣  Expiry check ─────────────────────────────────────────── */
+  const authDate = Number(urlParams.get("auth_date")) || 0;
   const age = Math.floor(Date.now() / 1000 - authDate);
 
   if (age > MAX_AGE_SECONDS) {
@@ -155,10 +157,8 @@ function verifyTelegramData(req, res, next) {
     return res.status(401).json({ error: "initData expired" });
   }
 
-  // ───── 6️⃣ Success ─────────────────────────────────────────────────
-  req.telegramUser = Object.fromEntries(
-    new URLSearchParams(initData).entries()
-  );
+  /* ───── 6️⃣  Success ──────────────────────────────────────────────── */
+  req.telegramUser = Object.fromEntries(urlParams); // already decoded
   delete req.telegramUser.hash;
   console.log("✅ Telegram data verified", { user: req.telegramUser.id, age });
   next();
