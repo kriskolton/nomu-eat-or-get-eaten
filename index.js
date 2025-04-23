@@ -105,7 +105,7 @@ async function initializeDatabase() {
 
 /* ───────────────────────── Telegram initData verifier ────────────────── */
 
-const MAX_AGE_SECONDS = 60 * 0.5; // accept initData for 5 min
+const MAX_AGE_SECONDS = 60 * 60 * 24; // accept initData for 24 hours
 
 function verifyTelegramData(req, res, next) {
   const initData = req.headers["x-telegram-init-data"];
