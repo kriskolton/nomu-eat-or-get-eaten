@@ -2,7 +2,7 @@ require("dotenv").config();
 const config = require("./config");
 const activeEvent = config.activeEvent;
 
-import { validate, parse } from "@telegram-apps/init-data-node";
+const { validate, parse } = require("@telegram-apps/init-data-node");
 
 const express = require("express");
 const helmet = require("helmet");
