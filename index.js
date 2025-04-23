@@ -24,17 +24,24 @@ const port = process.env.PORT || 3000;
 /* ───────────────────────── Security middleware ───────────────────────── */
 
 app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        // allow exactly the one JS file we need
-        scriptSrc: ["'self'", "https://telegram.org"],
-        // (optional) if you ever load images/avatars from Telegram
-        imgSrc: ["'self'", "data:", "https://telegram.org"],
-        // let the Web-App live inside Telegram’s iframe
-        frameAncestors: ["'self'", "https://t.me", "https://web.telegram.org"],
-      },
+  helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: [
+        "'self'",
+        "https://telegram.org",
+        "'unsafe-inline'", // allow inline scripts
+      ],
+      styleSrc: [
+        "'self'",
+        "'unsafe-inline'", // allow inline styles / style attributes
+        "https://fonts.googleapis.com",
+      ],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https://telegram.org"],
+      mediaSrc: ["'self'"], // serve your MP3s
+      connectSrc: ["'self'"], // fetch() to your API
+      frameAncestors: ["'self'", "https://t.me", "https://web.telegram.org"],
     },
   })
 );
