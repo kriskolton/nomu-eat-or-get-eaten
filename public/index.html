@@ -359,11 +359,25 @@
       ctx.imageSmoothingQuality = "high";
       let WIDTH = 800,
         HEIGHT = 600;
+
+      /* --------------  UPDATED FOR HIGH-DPI SCREENS ------------------ */
       function resizeCanvas() {
-        canvas.width = canvas.clientWidth;
-        canvas.height = canvas.clientHeight;
-        WIDTH = canvas.width;
-        HEIGHT = canvas.height;
+        const dpr = window.devicePixelRatio || 1;
+
+        /* physical backing-store size */
+        const cssW = canvas.clientWidth;
+        const cssH = canvas.clientHeight;
+        canvas.width = cssW * dpr;
+        canvas.height = cssH * dpr;
+
+        /* reset any previous transform, then scale once */
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+
+        /* logical game-space size (CSS pixels) */
+        WIDTH = cssW;
+        HEIGHT = cssH;
+
         /* keep everything inside the new bounds */
         if (player && player.width && player.height) {
           player.x = Math.min(Math.max(0, player.x), WIDTH - player.width);
@@ -376,6 +390,8 @@
           }
         });
       }
+      /* ------------------------------------------------------------------ */
+
       window.addEventListener("resize", resizeCanvas);
 
       /* Overlay / control DOM elements ----------------------------------- */
