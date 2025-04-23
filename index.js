@@ -23,7 +23,21 @@ const port = process.env.PORT || 3000;
 
 /* ───────────────────────── Security middleware ───────────────────────── */
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        // allow exactly the one JS file we need
+        scriptSrc: ["'self'", "https://telegram.org"],
+        // (optional) if you ever load images/avatars from Telegram
+        imgSrc: ["'self'", "data:", "https://telegram.org"],
+        // let the Web-App live inside Telegram’s iframe
+        frameAncestors: ["'self'", "https://t.me", "https://web.telegram.org"],
+      },
+    },
+  })
+);
 
 app.use(
   rateLimit({
