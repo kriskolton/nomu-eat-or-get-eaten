@@ -407,7 +407,7 @@ function setupBotCommands() {
 
     await sendMessageWithErrorHandling(
       chatId,
-      `Welcome to Nomu: Eat or Get Eaten 🐟\n\n` +
+      `Welcome to Nomu: Eat or Get Eaten ${activeEvent} 🐟\n\n` +
         `Eat smaller fish to grow bigger, but watch out for bigger ones!\n\n` +
         `Use the buttons below to:`,
       // Only pass message_thread_id if it's a supergroup with a forum topic
