@@ -35,7 +35,6 @@
     <audio id="achievementSound">
       <source src="sounds/achievement.mp3" type="audio/mpeg" />
     </audio>
-
     <!-- NEW: shrink sound -->
     <audio id="shrinkSound">
       <source src="sounds/shrink.mp3" type="audio/mpeg" />
@@ -141,7 +140,7 @@
 
   <body>
     <!-- ----------------------------------------------------------------- -->
-    <!--                            MARK‑UP                                -->
+    <!--                            MARK-UP                                -->
     <!-- ----------------------------------------------------------------- -->
     <div id="gameWrapper">
       <canvas id="gameCanvas"></canvas>
@@ -209,7 +208,7 @@
         </div>
       </div>
 
-      <!-- ---------- Game‑over overlay ---------- -->
+      <!-- ---------- Game-over overlay ---------- -->
       <div id="gameOverScreen" class="overlay hidden">
         <div style="max-width: 90%; margin: 0 auto; text-align: center">
           <h1
@@ -239,7 +238,7 @@
       </div>
     </div>
 
-    <!-- ---------- Bottom: on‑screen arrow keys ---------- -->
+    <!-- ---------- Bottom: on-screen arrow keys ---------- -->
     <div id="controlsContainer">
       <div class="controlsRow">
         <button class="arrowBtn" id="arrowUp">↑</button>
@@ -370,7 +369,7 @@
       };
       const hideGameOverScreen = () => gameOverScreen.classList.add("hidden");
 
-      /* Game‑state flags -------------------------------------------------- */
+      /* Game-state flags -------------------------------------------------- */
       let gameState = "start"; // "start" | "playing" | "over"
       let isGameOver = false;
 
@@ -418,7 +417,7 @@
         gameOverSound,
         powerUpSound,
         achievementSound,
-        shrinkSound,
+        shrinkSound, // NEW
         isSoundEnabled = true,
         explosion = null;
       let gameStartTime = 0,
@@ -439,15 +438,13 @@
         gameOverSound = document.getElementById("gameOverSound");
         powerUpSound = document.getElementById("powerUpSound");
         achievementSound = document.getElementById("achievementSound");
-        shrinkSound = document.getElementById("shrinkSound");
-
+        shrinkSound = document.getElementById("shrinkSound"); // NEW
         backgroundMusic.volume = 0.2;
-        eatSound.volume =
-          gameOverSound.volume =
-          powerUpSound.volume =
-          achievementSound.volume =
-            0.5;
-        shrinkSound.volume = 0.3;
+        eatSound.volume = 0.5;
+        gameOverSound.volume = 0.5;
+        powerUpSound.volume = 0.5;
+        achievementSound.volume = 0.5;
+        shrinkSound.volume = 0.3; // NEW
       }
       const startAudio = () => {
         if (backgroundMusic && isSoundEnabled)
@@ -460,21 +457,26 @@
       };
       const toggleSound = () => {
         isSoundEnabled = !isSoundEnabled;
-        const vol = isSoundEnabled ? 0.5 : 0;
         if (backgroundMusic) {
           if (isSoundEnabled) {
             startAudio();
             backgroundMusic.volume = 0.2;
+            eatSound.volume =
+              gameOverSound.volume =
+              powerUpSound.volume =
+              achievementSound.volume =
+                0.5; // NEW
+            shrinkSound.volume = 0.3;
           } else {
             backgroundMusic.pause();
             backgroundMusic.volume = 0;
+            eatSound.volume =
+              gameOverSound.volume =
+              powerUpSound.volume =
+              achievementSound.volume =
+              shrinkSound.volume =
+                0; // NEW
           }
-          eatSound.volume =
-            gameOverSound.volume =
-            powerUpSound.volume =
-            achievementSound.volume =
-            shrinkSound.volume =
-              vol;
         }
         updateSoundButtons();
       };
@@ -492,7 +494,7 @@
         achievementSound.play().catch(() => {}));
       const playShrinkSound = () =>
         isSoundEnabled &&
-        ((shrinkSound.currentTime = 0), shrinkSound.play().catch(() => {}));
+        ((shrinkSound.currentTime = 0), shrinkSound.play().catch(() => {})); // NEW
 
       /*********************   UTILITY HELPERS   ***************************/
       const getRandom = (min, max) => Math.random() * (max - min) + min;
@@ -603,7 +605,6 @@
           if (!this.sprite.complete) return;
           if (this.width === null || this.height === null)
             this.calculateDimensions();
-
           const movingLeft = this.isPlayer ? this.vx < 0 : this.speedX < 0;
           const ultra =
             this.isUltraFast || (this.isPlayer && playerIsPoweredUp);
@@ -615,25 +616,21 @@
             Math.floor(performance.now() / 100) % 2 === 0;
 
           c.save();
-
-          /* flip if swimming left */
           if (movingLeft) {
             c.translate(this.x + this.width / 2, this.y + this.height / 2);
             c.scale(-1, 1);
             c.translate(-this.width / 2, -this.height / 2);
-          } else {
-            c.translate(this.x, this.y);
-          }
+          } else c.translate(this.x, this.y);
 
-          /* tint / glow */
           if (ultra)
             c.filter = "hue-rotate(180deg) brightness(1.5) saturate(2)";
           else if (this.isFast) c.filter = "hue-rotate(45deg) brightness(1.2)";
 
-          /* power-up is about to expire -> flicker darker & semi-transparent */
           if (flickerActive) {
             c.globalAlpha = 0.5;
-            c.filter = (c.filter ? c.filter + " " : "") + "brightness(0.7)";
+            c.filter =
+              (c.filter ? c.filter + " " : "") +
+              "brightness(0.7) contrast(0.9)";
           }
 
           c.drawImage(this.sprite, 0, 0, this.width, this.height);
@@ -1086,75 +1083,58 @@
           }
 
           if (checkCollisionOval(player, e)) {
-            // Sushi must *always* be edible – skip any size checks
+            /* sushi == power-up */
             if (e.isSushi) {
-              // 1. award points
-              score += calculateFishScore(e.maxSide);
-
-              // 2. let the player grow a little (same rule as for normal fish)
-              player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
-              playEatSound();
-
-              // 3. force a dimension recalculation next frame
-              player.width = player.height = null;
-
-              // 4. remove the sushi from play and continue the loop
+              score += 50;
+              playerPowerUpTime = POWER_UP_DURATION;
+              playerIsPoweredUp = true;
+              playPowerUpSound();
               fishList.splice(i, 1);
               continue;
             }
 
-            /* ----- POWER-UP branch ----- */
             if (playerIsPoweredUp) {
               score += calculateFishScore(e.maxSide);
-
               if (e.isJellyfish) {
                 player.maxSide = Math.max(
                   player.maxSide * JELLY_SHRINK_FACTOR,
                   MIN_PLAYER_SIZE
                 );
-                playShrinkSound();
+                playShrinkSound(); // NEW
               } else {
                 player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
                 playEatSound();
               }
-
               player.width = player.height = null;
-
               if (e.isUltraFast) {
                 playerPowerUpTime = POWER_UP_DURATION;
                 playerIsPoweredUp = true;
                 playPowerUpSound();
               }
-
               fishList.splice(i, 1);
               continue;
             }
 
-            /* ----- NORMAL branch ----- */
             const pR = player.getBounds().radiusX,
               eR = e.getBounds().radiusX;
             if (pR * EATING_LEEWAY > eR) {
               score += calculateFishScore(e.maxSide);
-
               if (e.isJellyfish) {
                 player.maxSide = Math.max(
                   player.maxSide * JELLY_SHRINK_FACTOR,
                   MIN_PLAYER_SIZE
                 );
-                playShrinkSound();
+                playShrinkSound(); // NEW
               } else {
                 player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
                 playEatSound();
               }
-
               player.width = player.height = null;
-
               if (e.isUltraFast) {
                 playerPowerUpTime = POWER_UP_DURATION;
                 playerIsPoweredUp = true;
                 playPowerUpSound();
               }
-
               fishList.splice(i, 1);
             } else {
               isGameOver = true;
@@ -1223,7 +1203,7 @@
       }
       setInterval(simLoop, SIM_STEP_MS);
 
-      /* ---- RENDER LOOP (unchanged) ---- */
+      /* ---- RENDER LOOP ---- */
       function gameLoop() {
         renderGame();
         requestAnimationFrame(gameLoop);
@@ -1232,7 +1212,7 @@
       /*********************        INIT          ***************************/
       function initGame() {
         resizeCanvas();
-        lastSimTime = performance.now(); // reset sim‑timer for fresh round
+        lastSimTime = performance.now(); // reset sim-timer for fresh round
         score = 0;
         nextMilestone = 50000;
         gameTime = 0;
@@ -1284,7 +1264,7 @@
       arrowKeysBtnGameOver.onclick = () =>
         showOrHideArrowKeys(controlsContainer.style.display === "none");
 
-      /* on‑screen arrows */
+      /* on-screen arrows */
       const pressKey = (key, down) => {
         keys[key] = down;
       };
@@ -1375,7 +1355,7 @@
           startAudio();
           document.removeEventListener("mousemove", first);
         });
-        requestAnimationFrame(gameLoop); /* kick‑off renderer */
+        requestAnimationFrame(gameLoop); /* kick-off renderer */
       });
     </script>
   </body>
