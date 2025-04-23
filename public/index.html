@@ -262,7 +262,7 @@
       let tg, userData, userId;
       try {
         tg = window.Telegram.WebApp;
-        userData = tg.initData;
+        userData = tg.initData.user;
         userId = userData?.id;
         tg.expand();
         tg.ready();
