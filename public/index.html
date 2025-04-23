@@ -40,6 +40,7 @@
       <source src="sounds/shrink.mp3" type="audio/mpeg" />
     </audio>
 
+    <!-- Telegram Web-App JS -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
     <!-- ----------------------------------------------------------------- -->
@@ -256,9 +257,8 @@
     <!-- ----------------------------------------------------------------- -->
     <script>
       /********************* CONSTANTS & GLOBALS ***************************/
-      window.API_PASSWORD = "10a619ef-ce0d-4da6-ada4-49ae4a11fb0d";
 
-      /* Telegram init ---------------------------------------------------- */
+      /* -------- Telegram initialisation -------- */
       let tg, userData, userId;
       try {
         tg = window.Telegram.WebApp;
@@ -270,6 +270,7 @@
       } catch (e) {
         console.error("Telegram init error:", e);
       }
+
       const statusDiv = document.getElementById("telegramStatus");
       if (userId) {
         statusDiv.textContent = `Telegram connected ✓ (User: ${
@@ -282,7 +283,7 @@
         statusDiv.style.color = "red";
       }
 
-      /* Keyboard state --------------------------------------------------- */
+      /* -------- Keyboard state -------- */
       const keys = { left: false, right: false, up: false, down: false };
       const clearKeys = () => {
         keys.left = keys.right = keys.up = keys.down = false;
@@ -290,17 +291,12 @@
 
       /* ------------------------------------------------------------------
          IMPROVED ON-SCREEN BUTTON HANDLING
-         ------------------------------------------------------------------
-         - Pointer Events for natural multi-touch.
-         - Each button toggles only its own direction.
-         - Keys are cleared on page blur/visibility change to prevent
-           “stuck” states.
       ------------------------------------------------------------------ */
       const pointerDirMap = Object.create(null); // pointerId → dir
 
-      const pressKey = (dir, down) => {
+      function pressKey(dir, down) {
         keys[dir] = down;
-      };
+      }
 
       function setupArrowButton(btn, dir) {
         btn.addEventListener(
@@ -314,11 +310,11 @@
           { passive: false }
         );
 
-        const release = (e) => {
+        function release(e) {
           const d = pointerDirMap[e.pointerId] ?? dir;
           pressKey(d, false);
           delete pointerDirMap[e.pointerId];
-        };
+        }
 
         btn.addEventListener("pointerup", release);
         btn.addEventListener("pointercancel", release);
@@ -327,15 +323,30 @@
         });
       }
 
-      /* Score submission -------------------------------------------------- */
-      async function sendScoreToAPI(score) {
-        if (!userId) return;
+      ["Up", "Left", "Down", "Right"].forEach((dir) => {
+        setupArrowButton(
+          document.getElementById(`arrow${dir}`),
+          dir.toLowerCase()
+        );
+      });
+
+      /* -------- Score submission -------- */
+      /**
+       * Send the player’s score to the back-end.
+       * The only credential we pass is Telegram’s signed initData string.
+       * The server will:
+       *   1. Verify the HMAC signature inside initData.
+       *   2. Make sure the auth_date is not older than MAX_AGE_SECONDS.
+       */
+      async function sendScoreToAPI(score, gameTime) {
+        if (!userId) return; // not running inside Telegram → skip
+
         try {
           await fetch("/api/scores", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-api-password": window.API_PASSWORD,
+              // **Only** Telegram signature – no shared secret in the client!
               "x-telegram-init-data": window.Telegram.WebApp.initData,
             },
             body: JSON.stringify({
