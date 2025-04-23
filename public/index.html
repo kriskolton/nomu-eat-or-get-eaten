@@ -37,6 +37,7 @@
     </audio>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="/config/index.js"></script>
 
     <!-- ----------------------------------------------------------------- -->
     <!--                              STYLES                               -->
@@ -303,6 +304,7 @@
                 userData?.username || userData?.first_name || "Anonymous",
               score,
               gameTime,
+              event: config.activeEvent,
             }),
           });
         } catch (e) {

@@ -1,187 +1,223 @@
+// scoreRepository.js
+// Handles all score-related persistence for the game.
+// Fixed and refactored on 2025-04-23
+
 const { MongoClient } = require("mongodb");
 const config = require("../config");
-const activeEvent = config.activeEvent;
 
-let db;
+// The event that is currently active (e.g. "Season 1")
+const { activeEvent } = config;
 
-// Initialize database connection
+let db; // Cached reference to the database instance so we reuse the same connection
+let client; // Keep a reference to the MongoClient so we can start sessions if needed
+
+/**
+ * Initialise the MongoDB connection (singleton).
+ * Call this at the start of any public function that needs the DB.
+ */
 async function initDB() {
-  const client = new MongoClient(process.env.MONGODB_URI);
+  if (db) return db; // Already connected
+
+  const uri = process.env.MONGODB_URI;
+  const dbName = process.env.DATABASE_NAME;
+
+  if (!uri || !dbName) {
+    throw new Error(
+      "Environment variables MONGODB_URI and DATABASE_NAME must be set"
+    );
+  }
+
+  client = new MongoClient(uri, {
+    // useUnifiedTopology is default since driver 4.x
+    retryWrites: true,
+  });
+
   await client.connect();
-  db = client.db(process.env.DATABASE_NAME);
+  db = client.db(dbName);
   console.log("Connected to MongoDB");
+  return db;
 }
 
-// Helper function to get the start of the current week (Sunday)
-function getStartOfWeek() {
-  const date = new Date();
-  const day = date.getDay();
-  const diff = date.getDate() - day;
-  const startOfWeek = new Date(date.setDate(diff));
-  startOfWeek.setHours(0, 0, 0, 0);
-  return startOfWeek;
+/**
+ * Get the beginning of the current week (Sunday 00:00 UTC).
+ *
+ * @param {Date=} date – reference date (defaults to `new Date()`)
+ * @returns {Date} Sunday at 00:00 UTC for the week containing `date`
+ */
+function getStartOfWeek(date = new Date()) {
+  const d = new Date(date); // Copy so we do not mutate caller's date
+  const day = d.getUTCDay(); // 0 = Sunday
+  d.setUTCHours(0, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() - day);
+  return d; // Sunday at 00:00 UTC
 }
 
-// Update or create a score
-async function updateScore(userId, username, score, gameTime) {
+/**
+ * Upsert a user's score and update all related statistics.
+ *
+ * @param {string}  userId    – unique player ID
+ * @param {string}  username  – display name (for leaderboards)
+ * @param {number}  score     – score achieved in the game
+ * @param {number}  gameTime  – game duration in milliseconds
+ * @param {string=} event     – name of the event / season (defaults to the active event)
+ *
+ * @returns {Promise<object>} – the updated score document
+ */
+async function updateScore(
+  userId,
+  username,
+  score,
+  gameTime,
+  event = activeEvent
+) {
+  await initDB();
+
+  if (event !== activeEvent) {
+    console.warn(
+      `Event does not match active event: ${event} (active: ${activeEvent})`
+    );
+  }
+
+  const now = new Date();
+  const resolvedEvent = event || "Season 1";
+
+  // 1️⃣ Record the single game – best-effort (do not abort on failure)
   try {
-    console.log("Database operation - Updating score:", {
+    await db.collection("games").insertOne({
       userId,
       username,
       score,
       gameTime,
-      event: activeEvent,
+      date: now,
+      event: resolvedEvent,
     });
+  } catch (e) {
+    console.error("Error creating game document:", e);
+  }
 
-    // Create a game document (non-critical)
-    try {
-      const gamesCollection = db.collection("games");
-      await gamesCollection.insertOne({
-        userId,
-        username,
-        score,
-        gameTime,
-        date: new Date(),
-        event: activeEvent,
-      });
-      console.log("Successfully created game document");
-    } catch (gameError) {
-      console.error("Error creating game document:", gameError);
-      // Continue even if game document creation fails
-    }
-
-    // Update weekly stats (non-critical)
-    try {
-      const statsCollection = db.collection("stats");
-      const weekStart = getStartOfWeek();
-      await statsCollection.updateOne(
-        { weekStart },
-        {
-          $inc: {
-            totalGamesPlayed: 1,
-            totalGameTime: gameTime,
-          },
-          $set: {
-            lastUpdatedAt: new Date(),
-          },
-          $setOnInsert: {
-            weekStart,
-          },
+  // 2️⃣ Update weekly stats – best-effort
+  try {
+    const weekStart = getStartOfWeek(now);
+    await db.collection("stats").updateOne(
+      { weekStart },
+      {
+        $inc: {
+          totalGamesPlayed: 1,
+          totalGameTime: gameTime,
         },
-        { upsert: true }
-      );
-      console.log("Successfully updated weekly stats");
-    } catch (statsError) {
-      console.error("Error updating weekly stats:", statsError);
-      // Continue even if stats update fails
-    }
-
-    const eventName = activeEvent;
-
-    // Update event stats (non-critical)
-    try {
-      const eventStatsCollection = db.collection("event-stats");
-      await eventStatsCollection.updateOne(
-        { event: eventName },
-        {
-          $inc: {
-            totalGamesPlayed: 1,
-            totalGameTime: gameTime,
-          },
-          $addToSet: {
-            players: userId,
-          },
-          $set: {
-            lastUpdatedAt: new Date(),
-          },
-          $setOnInsert: {
-            event: eventName,
-          },
+        $set: {
+          lastUpdatedAt: now,
         },
-        { upsert: true }
-      );
-      console.log("Successfully updated event stats");
-    } catch (eventStatsError) {
-      console.error("Error updating event stats:", eventStatsError);
-      // Continue even if event stats update fails
-    }
+        $setOnInsert: {
+          weekStart,
+        },
+      },
+      { upsert: true }
+    );
+  } catch (e) {
+    console.error("Error updating weekly stats:", e);
+  }
 
-    // Update or insert user score and high score
-    const collection = db.collection("scores");
-    const result = await collection.findOneAndUpdate(
-      { userId, event: eventName },
+  // 3️⃣ Update event-level stats – best-effort
+  try {
+    await db.collection("event-stats").updateOne(
+      { event: resolvedEvent },
+      {
+        $inc: {
+          totalGamesPlayed: 1,
+          totalGameTime: gameTime,
+        },
+        $addToSet: {
+          players: userId,
+        },
+        $set: {
+          lastUpdatedAt: now,
+        },
+        $setOnInsert: {
+          event: resolvedEvent,
+        },
+      },
+      { upsert: true }
+    );
+  } catch (e) {
+    console.error("Error updating event stats:", e);
+  }
+
+  // 4️⃣ Upsert *player* score (this is the critical bit – if this fails we throw)
+  try {
+    const scores = db.collection("scores");
+
+    const { value } = await scores.findOneAndUpdate(
+      { userId, event: resolvedEvent },
       [
         {
           $set: {
+            // Always (re)set identifiers on upsert – without this a new document created by upsert
+            // would *not* contain userId / event, because aggregation-style updates do **not**
+            // copy the query filter fields automatically.
+            userId,
+            event: resolvedEvent,
             username,
             lastScore: score,
-            lastPlayed: new Date(),
             lastGameTime: gameTime,
+            lastPlayed: now,
             highScore: {
-              $max: [{ $ifNull: ["$highScore", score] }, score],
+              $cond: [{ $gt: ["$highScore", score] }, "$highScore", score],
             },
             highScoreGameTime: {
-              $cond: {
-                if: { $gt: [{ $ifNull: ["$highScore", 0] }, score] },
-                then: "$highScoreGameTime",
-                else: gameTime,
-              },
+              $cond: [
+                { $gt: ["$highScore", score] },
+                "$highScoreGameTime",
+                gameTime,
+              ],
             },
-
-            event: eventName,
           },
         },
       ],
       {
         upsert: true,
-        returnDocument: "after",
+        returnDocument: "after", // return the document *after* the update / upsert
       }
     );
 
-    console.log("Database operation result:", result);
-    return result.value;
+    return value;
   } catch (error) {
-    console.error("Error updating score in database:", error);
-    throw error;
+    console.error("Error upserting score:", error);
+    throw error; // Propagate so the caller knows the critical step failed
   }
 }
 
-// Get high scores
+/**
+ * Get a list of high-scores, optionally filtered by event.
+ *
+ * @param {number}  limit     – number of entries to return (default 10)
+ * @param {string=} eventName – filter by event (undefined = all-time leaderboard)
+ */
 async function getHighScores(limit = 10, eventName) {
-  try {
-    const collection = db.collection("scores");
-    const query = eventName ? { event: eventName } : {};
-    return await collection
-      .find(query)
-      .sort({ highScore: -1 })
-      .limit(limit)
-      .toArray();
-  } catch (error) {
-    console.error("Error getting high scores:", error);
-    throw error;
-  }
+  await initDB();
+  const query = eventName ? { event: eventName } : {};
+  return db
+    .collection("scores")
+    .find(query, { projection: { _id: 0 } })
+    .sort({ highScore: -1, lastPlayed: 1 })
+    .limit(limit)
+    .toArray();
 }
 
-async function getActiveEventHighScores(limit = 10) {
-  try {
-    const eventName = activeEvent;
-    return await getHighScores(limit, eventName);
-  } catch (error) {
-    console.error("Error getting high scores by event:", error);
-    throw error;
-  }
+/**
+ * Convenience helper that returns the leaderboard for the currently active event.
+ */
+function getActiveEventHighScores(limit = 10) {
+  return getHighScores(limit, activeEvent);
 }
 
-// Get user's score
+/**
+ * Fetch a single user's score document (optionally for a specific event).
+ */
 async function getUserScore(userId, eventName) {
-  try {
-    const collection = db.collection("scores");
-    const query = eventName ? { userId, event: eventName } : { userId };
-    return await collection.findOne(query);
-  } catch (error) {
-    console.error("Error getting user score:", error);
-    throw error;
-  }
+  await initDB();
+  const query = eventName ? { userId, event: eventName } : { userId };
+  return db.collection("scores").findOne(query, { projection: { _id: 0 } });
 }
 
 module.exports = {
