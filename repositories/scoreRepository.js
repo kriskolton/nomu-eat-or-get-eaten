@@ -78,10 +78,38 @@ async function updateScore(userId, username, score, gameTime) {
 
     const eventName = activeEvent;
 
+    // Update event stats (non-critical)
+    try {
+      const eventStatsCollection = db.collection("event-stats");
+      await eventStatsCollection.updateOne(
+        { event: eventName },
+        {
+          $inc: {
+            totalGamesPlayed: 1,
+            totalGameTime: gameTime,
+          },
+          $addToSet: {
+            players: userId,
+          },
+          $set: {
+            lastUpdatedAt: new Date(),
+          },
+          $setOnInsert: {
+            event: eventName,
+          },
+        },
+        { upsert: true }
+      );
+      console.log("Successfully updated event stats");
+    } catch (eventStatsError) {
+      console.error("Error updating event stats:", eventStatsError);
+      // Continue even if event stats update fails
+    }
+
     // Update or insert user score and high score
     const collection = db.collection("scores");
     const result = await collection.findOneAndUpdate(
-      { userId, eventName },
+      { userId, event: eventName },
       [
         {
           $set: {
@@ -89,15 +117,18 @@ async function updateScore(userId, username, score, gameTime) {
             lastScore: score,
             lastPlayed: new Date(),
             lastGameTime: gameTime,
-            highScore: { $max: ["$highScore", score] },
+            highScore: {
+              $max: [{ $ifNull: ["$highScore", score] }, score],
+            },
             highScoreGameTime: {
               $cond: {
-                if: { $gt: ["$highScore", score] },
+                if: { $gt: [{ $ifNull: ["$highScore", 0] }, score] },
                 then: "$highScoreGameTime",
                 else: gameTime,
               },
             },
-            event: activeEvent,
+
+            event: eventName,
           },
         },
       ],

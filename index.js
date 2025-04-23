@@ -458,7 +458,7 @@ function setupBotCommands() {
         if (userScore) {
           await sendMessageWithErrorHandling(
             chatId,
-            `${activeEvent} stats for ${userScore.username}:\n\n` +
+            `${activeEvent} Stats for ${userScore.username}:\n\n` +
               `High Score: ${userScore.highScore}\n` +
               `Last Score: ${userScore.lastScore}\n` +
               `Last Played: ${new Date(
