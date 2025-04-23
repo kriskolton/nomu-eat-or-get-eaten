@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Nomu: Eat or Get Eaten</title>
+    <title>Nomu: Eat or Get Eaten</title>
 
     <!-- ----------------------------------------------------------------- -->
     <!--                       FONTS & AUDIO ASSETS                         -->
@@ -34,6 +34,11 @@
     </audio>
     <audio id="achievementSound">
       <source src="sounds/achievement.mp3" type="audio/mpeg" />
+    </audio>
+
+    <!-- NEW: shrink sound -->
+    <audio id="shrinkSound">
+      <source src="sounds/shrink.mp3" type="audio/mpeg" />
     </audio>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -164,7 +169,7 @@
               letter-spacing: 2px;
             "
           >
-            SEASON 2
+            SEASON 2
           </p>
           <p style="font-size: 12px; color: #fff; opacity: 0.5">v1.3</p>
 
@@ -194,12 +199,12 @@
               justify-content: center;
             "
           >
-            <button id="soundBtn">🔊 Sound On</button>
-            <button id="arrowKeysBtn">🎮 Arrow Keys Off</button>
+            <button id="soundBtn">🔊 Sound On</button>
+            <button id="arrowKeysBtn">🎮 Arrow Keys Off</button>
           </div>
 
           <button id="startBtn" style="font-size: 24px; padding: 12px 24px">
-            Start Game
+            Start Game
           </button>
         </div>
       </div>
@@ -210,7 +215,7 @@
           <h1
             style="font-family: 'Londrina Solid', sans-serif; font-size: 44px"
           >
-            GAME OVER!
+            GAME OVER!
           </h1>
           <p id="finalScore"></p>
           <div
@@ -221,14 +226,14 @@
               justify-content: center;
             "
           >
-            <button id="soundBtnGameOver">🔊 Sound On</button>
-            <button id="arrowKeysBtnGameOver">🎮 Arrow Keys Off</button>
+            <button id="soundBtnGameOver">🔊 Sound On</button>
+            <button id="arrowKeysBtnGameOver">🎮 Arrow Keys Off</button>
           </div>
           <button
             id="playAgainBtn"
             style="font-size: 24px; padding: 12px 24px; margin-top: 12px"
           >
-            Play Again
+            Play Again
           </button>
         </div>
       </div>
@@ -273,7 +278,7 @@
         statusDiv.style.color = "lightgreen";
       } else {
         statusDiv.textContent =
-          "⚠️ Not tracking scores – open via Telegram bot";
+          "⚠️ Not tracking scores – open via Telegram bot";
         statusDiv.style.color = "red";
       }
 
@@ -358,7 +363,7 @@
       const showStartScreen = () => startScreen.classList.remove("hidden");
       const hideStartScreen = () => startScreen.classList.add("hidden");
       const showGameOverScreen = (score) => {
-        finalScoreElem.textContent = `Your Score: ${score}`;
+        finalScoreElem.textContent = `Your Score: ${score}`;
         gameOverScreen.classList.remove("hidden");
         playGameOverSound();
         syncGameOverUI();
@@ -376,7 +381,7 @@
         { src: "img/fish3-2.png", minSize: 25, maxSize: 80, weight: 0.2 },
         { src: "img/fish4-2.png", minSize: 35, maxSize: 100, weight: 0.1 },
         { src: "img/fish5-2.png", minSize: 200, maxSize: 300, weight: 0.013 },
-        { src: "img/fish8.png", minSize: 400, maxSize: 500, weight: 0.003 },
+        { src: "img/fish6-2.png", minSize: 400, maxSize: 500, weight: 0.003 },
       ];
       const fishTypes = fishTypeDefinitions.map((def) => {
         const image = new Image();
@@ -392,7 +397,7 @@
       const playerImg = new Image();
       playerImg.src = "img/player_fish.png";
       const crabImg = new Image();
-      crabImg.src = "img/crab-2.png";
+      crabImg.src = "img/crab.png";
       const jellyfishImg = new Image();
       jellyfishImg.src = "img/jellyfish-2.png";
       const sushiImg = new Image();
@@ -413,6 +418,7 @@
         gameOverSound,
         powerUpSound,
         achievementSound,
+        shrinkSound,
         isSoundEnabled = true,
         explosion = null;
       let gameStartTime = 0,
@@ -433,41 +439,42 @@
         gameOverSound = document.getElementById("gameOverSound");
         powerUpSound = document.getElementById("powerUpSound");
         achievementSound = document.getElementById("achievementSound");
-        backgroundMusic.volume = 0.05;
-        eatSound.volume = 0.3;
-        gameOverSound.volume = 0.3;
-        powerUpSound.volume = 0.3;
-        achievementSound.volume = 0.3;
+        shrinkSound = document.getElementById("shrinkSound");
+
+        backgroundMusic.volume = 0.2;
+        eatSound.volume =
+          gameOverSound.volume =
+          powerUpSound.volume =
+          achievementSound.volume =
+            0.5;
+        shrinkSound.volume = 0.3;
       }
       const startAudio = () => {
         if (backgroundMusic && isSoundEnabled)
           backgroundMusic.play().catch(() => {});
       };
       const updateSoundButtons = () => {
-        const txt = isSoundEnabled ? "🔊 Sound On" : "🔈 Sound Off";
+        const txt = isSoundEnabled ? "🔊 Sound On" : "🔈 Sound Off";
         soundBtn.textContent = txt;
         soundBtnGameOver.textContent = txt;
       };
       const toggleSound = () => {
         isSoundEnabled = !isSoundEnabled;
+        const vol = isSoundEnabled ? 0.5 : 0;
         if (backgroundMusic) {
           if (isSoundEnabled) {
             startAudio();
-            backgroundMusic.volume = 0.3;
-            eatSound.volume =
-              gameOverSound.volume =
-              powerUpSound.volume =
-              achievementSound.volume =
-                0.5;
+            backgroundMusic.volume = 0.2;
           } else {
             backgroundMusic.pause();
-            backgroundMusic.volume =
-              eatSound.volume =
-              gameOverSound.volume =
-              powerUpSound.volume =
-              achievementSound.volume =
-                0;
+            backgroundMusic.volume = 0;
           }
+          eatSound.volume =
+            gameOverSound.volume =
+            powerUpSound.volume =
+            achievementSound.volume =
+            shrinkSound.volume =
+              vol;
         }
         updateSoundButtons();
       };
@@ -483,6 +490,9 @@
         isSoundEnabled &&
         ((achievementSound.currentTime = 0),
         achievementSound.play().catch(() => {}));
+      const playShrinkSound = () =>
+        isSoundEnabled &&
+        ((shrinkSound.currentTime = 0), shrinkSound.play().catch(() => {}));
 
       /*********************   UTILITY HELPERS   ***************************/
       const getRandom = (min, max) => Math.random() * (max - min) + min;
@@ -593,18 +603,39 @@
           if (!this.sprite.complete) return;
           if (this.width === null || this.height === null)
             this.calculateDimensions();
+
           const movingLeft = this.isPlayer ? this.vx < 0 : this.speedX < 0;
           const ultra =
             this.isUltraFast || (this.isPlayer && playerIsPoweredUp);
+
+          const flickerActive =
+            this.isPlayer &&
+            playerIsPoweredUp &&
+            playerPowerUpTime <= 3 &&
+            Math.floor(performance.now() / 100) % 2 === 0;
+
           c.save();
+
+          /* flip if swimming left */
           if (movingLeft) {
             c.translate(this.x + this.width / 2, this.y + this.height / 2);
             c.scale(-1, 1);
             c.translate(-this.width / 2, -this.height / 2);
-          } else c.translate(this.x, this.y);
+          } else {
+            c.translate(this.x, this.y);
+          }
+
+          /* tint / glow */
           if (ultra)
             c.filter = "hue-rotate(180deg) brightness(1.5) saturate(2)";
           else if (this.isFast) c.filter = "hue-rotate(45deg) brightness(1.2)";
+
+          /* power-up is about to expire -> flicker darker & semi-transparent */
+          if (flickerActive) {
+            c.globalAlpha = 0.5;
+            c.filter = (c.filter ? c.filter + " " : "") + "brightness(0.7)";
+          }
+
           c.drawImage(this.sprite, 0, 0, this.width, this.height);
           c.restore();
         }
@@ -1055,52 +1086,75 @@
           }
 
           if (checkCollisionOval(player, e)) {
-            /* sushi == power‑up */
+            // Sushi must *always* be edible – skip any size checks
             if (e.isSushi) {
-              score += 50;
-              playerPowerUpTime = POWER_UP_DURATION;
-              playerIsPoweredUp = true;
-              playPowerUpSound();
+              // 1. award points
+              score += calculateFishScore(e.maxSide);
+
+              // 2. let the player grow a little (same rule as for normal fish)
+              player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
+              playEatSound();
+
+              // 3. force a dimension recalculation next frame
+              player.width = player.height = null;
+
+              // 4. remove the sushi from play and continue the loop
               fishList.splice(i, 1);
               continue;
             }
 
+            /* ----- POWER-UP branch ----- */
             if (playerIsPoweredUp) {
               score += calculateFishScore(e.maxSide);
-              if (e.isJellyfish)
+
+              if (e.isJellyfish) {
                 player.maxSide = Math.max(
                   player.maxSide * JELLY_SHRINK_FACTOR,
                   MIN_PLAYER_SIZE
                 );
-              else player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
+                playShrinkSound();
+              } else {
+                player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
+                playEatSound();
+              }
+
               player.width = player.height = null;
-              playEatSound();
+
               if (e.isUltraFast) {
                 playerPowerUpTime = POWER_UP_DURATION;
                 playerIsPoweredUp = true;
                 playPowerUpSound();
               }
+
               fishList.splice(i, 1);
               continue;
             }
 
+            /* ----- NORMAL branch ----- */
             const pR = player.getBounds().radiusX,
               eR = e.getBounds().radiusX;
             if (pR * EATING_LEEWAY > eR) {
               score += calculateFishScore(e.maxSide);
-              if (e.isJellyfish)
+
+              if (e.isJellyfish) {
                 player.maxSide = Math.max(
                   player.maxSide * JELLY_SHRINK_FACTOR,
                   MIN_PLAYER_SIZE
                 );
-              else player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
+                playShrinkSound();
+              } else {
+                player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
+                playEatSound();
+              }
+
               player.width = player.height = null;
-              playEatSound();
+
               if (e.isUltraFast) {
                 playerPowerUpTime = POWER_UP_DURATION;
                 playerIsPoweredUp = true;
                 playPowerUpSound();
               }
+
               fishList.splice(i, 1);
             } else {
               isGameOver = true;
@@ -1145,7 +1199,7 @@
         if (explosion) explosion.draw(ctx);
         ctx.fillStyle = "#fff";
         ctx.font = "20px 'Londrina Solid',sans-serif";
-        ctx.fillText("Score: " + score, 20, 30);
+        ctx.fillText("Score: " + score, 20, 30);
         if (touchTarget) {
           ctx.beginPath();
           ctx.arc(touchTarget.x, touchTarget.y, 15, 0, Math.PI * 2);
@@ -1159,7 +1213,7 @@
       /* ---- SIMULATION LOOP (NEW) ---- */
       let lastSimTime = performance.now();
       const MAX_DT = 0.1,
-        SIM_STEP_MS = 16; // cap & 60 Hz
+        SIM_STEP_MS = 16; // cap & 60 Hz
       function simLoop() {
         const now = performance.now();
         let dt = (now - lastSimTime) / 1000;
@@ -1201,7 +1255,7 @@
       /*********************      UI EVENTS       ***************************/
       const showOrHideArrowKeys = (show) => {
         controlsContainer.style.display = show ? "flex" : "none";
-        const txt = show ? "🎮 Arrow Keys On" : "🎮 Arrow Keys Off";
+        const txt = show ? "🎮 Arrow Keys On" : "🎮 Arrow Keys Off";
         arrowKeysBtn.textContent = txt;
         arrowKeysBtnGameOver.textContent = txt;
         if (!show) clearKeys();
