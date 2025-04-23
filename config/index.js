@@ -2,4 +2,4 @@ const config = {
   activeEvent: "Season 2",
 };
 
-export default config;
+module.exports = config;
