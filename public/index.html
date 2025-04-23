@@ -100,6 +100,7 @@
         border-radius: 4px;
         height: 60px;
         user-select: none;
+        touch-action: none; /* important for multi-touch */
       }
       .arrowBtn:active {
         transform: scale(0.95);
@@ -286,9 +287,45 @@
       const clearKeys = () => {
         keys.left = keys.right = keys.up = keys.down = false;
       };
-      window.addEventListener("mouseup", clearKeys);
-      window.addEventListener("touchend", clearKeys, { passive: true });
-      window.addEventListener("touchcancel", clearKeys, { passive: true });
+
+      /* ------------------------------------------------------------------
+         IMPROVED ON-SCREEN BUTTON HANDLING
+         ------------------------------------------------------------------
+         - Pointer Events for natural multi-touch.
+         - Each button toggles only its own direction.
+         - Keys are cleared on page blur/visibility change to prevent
+           “stuck” states.
+      ------------------------------------------------------------------ */
+      const pointerDirMap = Object.create(null); // pointerId → dir
+
+      const pressKey = (dir, down) => {
+        keys[dir] = down;
+      };
+
+      function setupArrowButton(btn, dir) {
+        btn.addEventListener(
+          "pointerdown",
+          (e) => {
+            pressKey(dir, true);
+            btn.setPointerCapture(e.pointerId);
+            pointerDirMap[e.pointerId] = dir;
+            e.preventDefault();
+          },
+          { passive: false }
+        );
+
+        const release = (e) => {
+          const d = pointerDirMap[e.pointerId] ?? dir;
+          pressKey(d, false);
+          delete pointerDirMap[e.pointerId];
+        };
+
+        btn.addEventListener("pointerup", release);
+        btn.addEventListener("pointercancel", release);
+        btn.addEventListener("pointerleave", (e) => {
+          if (e.buttons === 0) release(e);
+        });
+      }
 
       /* Score submission -------------------------------------------------- */
       async function sendScoreToAPI(score) {
@@ -465,7 +502,7 @@
               gameOverSound.volume =
               powerUpSound.volume =
               achievementSound.volume =
-                0.5; // NEW
+                0.5;
             shrinkSound.volume = 0.3;
           } else {
             backgroundMusic.pause();
@@ -475,7 +512,7 @@
               powerUpSound.volume =
               achievementSound.volume =
               shrinkSound.volume =
-                0; // NEW
+                0;
           }
         }
         updateSoundButtons();
@@ -494,7 +531,7 @@
         achievementSound.play().catch(() => {}));
       const playShrinkSound = () =>
         isSoundEnabled &&
-        ((shrinkSound.currentTime = 0), shrinkSound.play().catch(() => {})); // NEW
+        ((shrinkSound.currentTime = 0), shrinkSound.play().catch(() => {}));
 
       /*********************   UTILITY HELPERS   ***************************/
       const getRandom = (min, max) => Math.random() * (max - min) + min;
@@ -1100,7 +1137,7 @@
                   player.maxSide * JELLY_SHRINK_FACTOR,
                   MIN_PLAYER_SIZE
                 );
-                playShrinkSound(); // NEW
+                playShrinkSound();
               } else {
                 player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
                 playEatSound();
@@ -1124,7 +1161,7 @@
                   player.maxSide * JELLY_SHRINK_FACTOR,
                   MIN_PLAYER_SIZE
                 );
-                playShrinkSound(); // NEW
+                playShrinkSound();
               } else {
                 player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
                 playEatSound();
@@ -1190,7 +1227,7 @@
       }
 
       /*********************   GAME & SIM LOOPS    **************************/
-      /* ---- SIMULATION LOOP (NEW) ---- */
+      /* ---- SIMULATION LOOP ---- */
       let lastSimTime = performance.now();
       const MAX_DT = 0.1,
         SIM_STEP_MS = 16; // cap & 60 Hz
@@ -1264,32 +1301,13 @@
       arrowKeysBtnGameOver.onclick = () =>
         showOrHideArrowKeys(controlsContainer.style.display === "none");
 
-      /* on-screen arrows */
-      const pressKey = (key, down) => {
-        keys[key] = down;
-      };
-      arrowUp.onmousedown = () => pressKey("up", true);
-      arrowUp.onmouseup = () => pressKey("up", false);
-      arrowUp.onmouseleave = () => pressKey("up", false);
-      arrowUp.ontouchstart = () => pressKey("up", true);
-      arrowUp.ontouchend = () => pressKey("up", false);
-      arrowDown.onmousedown = () => pressKey("down", true);
-      arrowDown.onmouseup = () => pressKey("down", false);
-      arrowDown.onmouseleave = () => pressKey("down", false);
-      arrowDown.ontouchstart = () => pressKey("down", true);
-      arrowDown.ontouchend = () => pressKey("down", false);
-      arrowLeft.onmousedown = () => pressKey("left", true);
-      arrowLeft.onmouseup = () => pressKey("left", false);
-      arrowLeft.onmouseleave = () => pressKey("left", false);
-      arrowLeft.ontouchstart = () => pressKey("left", true);
-      arrowLeft.ontouchend = () => pressKey("left", false);
-      arrowRight.onmousedown = () => pressKey("right", true);
-      arrowRight.onmouseup = () => pressKey("right", false);
-      arrowRight.onmouseleave = () => pressKey("right", false);
-      arrowRight.ontouchstart = () => pressKey("right", true);
-      arrowRight.ontouchend = () => pressKey("right", false);
+      /* ----------   NEW: pointer-based on-screen controls   ---------- */
+      setupArrowButton(arrowUp, "up");
+      setupArrowButton(arrowDown, "down");
+      setupArrowButton(arrowLeft, "left");
+      setupArrowButton(arrowRight, "right");
 
-      /* hardware keyboard */
+      /* ----------   HARDWARE KEYBOARD   ---------- */
       window.addEventListener("keydown", (e) => {
         if (e.key === "ArrowLeft" || e.key === "a") keys.left = true;
         if (e.key === "ArrowRight" || e.key === "d") keys.right = true;
@@ -1303,7 +1321,7 @@
         if (e.key === "ArrowDown" || e.key === "s") keys.down = false;
       });
 
-      /* touch/mouse aiming */
+      /* ----------   TOUCH / MOUSE AIMING   ---------- */
       canvas.addEventListener("touchstart", (e) => {
         const t = e.touches[0];
         if (t) {
@@ -1333,6 +1351,12 @@
       });
       canvas.addEventListener("mouseup", () => {
         touchTarget = null;
+      });
+
+      /*********************    SAFETY: CLEAR KEYS ON BLUR   **************************/
+      window.addEventListener("blur", clearKeys);
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) clearKeys();
       });
 
       /*********************    PRELOAD & BOOT     **************************/
