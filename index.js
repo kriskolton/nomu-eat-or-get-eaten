@@ -84,7 +84,7 @@ async function initializeDatabase() {
 
 /* ───────────────────────── Telegram initData verifier ────────────────── */
 
-const MAX_AGE_SECONDS = 60 * 5; // accept initData for 5 min
+const MAX_AGE_SECONDS = 60 * 0.5; // accept initData for 5 min
 
 function verifyTelegramData(req, res, next) {
   const initData = req.headers["x-telegram-init-data"];
@@ -136,19 +136,19 @@ app.get("/", (req, res) => {
 // Protected only by Telegram signature
 app.post("/api/scores", verifyTelegramData, async (req, res) => {
   try {
-    const { userId, username, score, gameTime, event } = req.body;
-    if (!userId || typeof score !== "number" || typeof gameTime !== "number") {
+    const { score, gameTime, event } = req.body;
+
+    if (typeof score !== "number" || typeof gameTime !== "number") {
       return res.status(400).json({ error: "Invalid or missing fields" });
     }
 
-    const updatedScore = await updateScore(
-      userId,
-      username,
-      score,
-      gameTime,
-      event
-    );
-    res.json(updatedScore);
+    const {
+      id: userId,
+      username = req.telegramUser.first_name || "Anonymous",
+    } = req.telegramUser;
+
+    const updated = await updateScore(userId, username, score, gameTime, event);
+    res.json(updated);
   } catch (err) {
     console.error("Error submitting score:", err);
     res.status(500).json({ error: "Internal server error" });
