@@ -42,9 +42,6 @@
       <source src="sounds/shrink.mp3" type="audio/mpeg" />
     </audio>
 
-    <!-- Telegram Web-App JS -->
-    <!-- <script src="https://telegram.org/js/telegram-web-app.js"></script> -->
-
     <!-- ----------------------------------------------------------------- -->
     <!--                              STYLES                               -->
     <!-- ----------------------------------------------------------------- -->
@@ -269,7 +266,6 @@
         userId = userData?.id;
         tg.expand();
         tg.ready();
-        // tg.setSwipeEnabled(false);
         tg.disableVerticalSwipes();
       } catch (e) {
         console.error("Telegram init error:", e);
@@ -337,10 +333,6 @@
       /* -------- Score submission -------- */
       /**
        * Send the player’s score to the back-end.
-       * The only credential we pass is Telegram’s signed initData string.
-       * The server will:
-       *   1. Verify the HMAC signature inside initData.
-       *   2. Make sure the auth_date is not older than MAX_AGE_SECONDS.
        */
       async function sendScoreToAPI(score) {
         if (!userId) return; // not running inside Telegram → skip
