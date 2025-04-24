@@ -211,16 +211,24 @@ app.get("/", (req, res) => {
 // Protected only by Telegram signature
 app.post("/api/scores", verifyTelegramData, async (req, res) => {
   try {
+    console.log("Received score submission request:", req.body);
     const { score, gameTime, event } = req.body;
 
-    if (typeof score !== "number" || typeof gameTime !== "number") {
+    if (
+      typeof score !== "number" ||
+      typeof gameTime !== "number" ||
+      typeof event !== "string"
+    ) {
+      console.error("Invalid or missing required fields:", {
+        // userId,
+        score,
+        gameTime,
+        event,
+      });
       return res.status(400).json({ error: "Invalid or missing fields" });
     }
 
-    const {
-      id: userId,
-      username = req.telegramUser.first_name || "Anonymous",
-    } = req.telegramUser;
+    const { id: userId, username } = req.telegramUser;
 
     const updated = await updateScore(userId, username, score, gameTime, event);
     res.json(updated);
