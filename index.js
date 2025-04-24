@@ -25,35 +25,35 @@ const port = process.env.PORT || 3000;
 
 /* ───────────────────────── Security middleware ───────────────────────── */
 
-app.use(
-  helmet.contentSecurityPolicy({
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: [
-        "'self'",
-        "https://telegram.org",
-        "'unsafe-inline'", // allow inline scripts
-      ],
-      styleSrc: [
-        "'self'",
-        "'unsafe-inline'", // allow inline styles / style attributes
-        "https://fonts.googleapis.com",
-      ],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https://telegram.org"],
-      mediaSrc: ["'self'"], // serve your MP3s
-      connectSrc: ["'self'"], // fetch() to your API
-      frameAncestors: ["'self'", "https://t.me", "https://web.telegram.org"],
-    },
-  })
-);
+// app.use(
+//   helmet.contentSecurityPolicy({
+//     directives: {
+//       defaultSrc: ["'self'"],
+//       scriptSrc: [
+//         "'self'",
+//         "https://telegram.org",
+//         "'unsafe-inline'", // allow inline scripts
+//       ],
+//       styleSrc: [
+//         "'self'",
+//         "'unsafe-inline'", // allow inline styles / style attributes
+//         "https://fonts.googleapis.com",
+//       ],
+//       fontSrc: ["'self'", "https://fonts.gstatic.com"],
+//       imgSrc: ["'self'", "data:", "https://telegram.org"],
+//       mediaSrc: ["'self'"], // serve your MP3s
+//       connectSrc: ["'self'"], // fetch() to your API
+//       frameAncestors: ["'self'", "https://t.me", "https://web.telegram.org"],
+//     },
+//   })
+// );
 
 app.use(
   rateLimit({
     windowMs: 5 * 60 * 1000, // 5 min
     max: 100,
-    standardHeaders: true,
-    legacyHeaders: false,
+    // standardHeaders: true,
+    // legacyHeaders: false,
   })
 );
 
@@ -117,11 +117,13 @@ function verifyTelegramData(req, res, next) {
     " "
   );
 
+  console.log("authType", authType);
+  console.log("authData", authData);
   switch (authType) {
     case "tma":
       try {
         // Validate init data.
-        validate(authData, token, {
+        validate(authData, process.env.TELEGRAM_BOT_TOKEN, {
           // We consider init data sign valid for 1 hour from their creation moment.
           // CHANGE THIS TO 24 HOURS
           expiresIn: 3600,
