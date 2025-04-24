@@ -25,35 +25,35 @@ const port = process.env.PORT || 3000;
 
 /* ───────────────────────── Security middleware ───────────────────────── */
 
-// app.use(
-//   helmet.contentSecurityPolicy({
-//     directives: {
-//       defaultSrc: ["'self'"],
-//       scriptSrc: [
-//         "'self'",
-//         "https://telegram.org",
-//         "'unsafe-inline'", // allow inline scripts
-//       ],
-//       styleSrc: [
-//         "'self'",
-//         "'unsafe-inline'", // allow inline styles / style attributes
-//         "https://fonts.googleapis.com",
-//       ],
-//       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-//       imgSrc: ["'self'", "data:", "https://telegram.org"],
-//       mediaSrc: ["'self'"], // serve your MP3s
-//       connectSrc: ["'self'"], // fetch() to your API
-//       frameAncestors: ["'self'", "https://t.me", "https://web.telegram.org"],
-//     },
-//   })
-// );
+app.use(
+  helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: [
+        "'self'",
+        "https://telegram.org",
+        "'unsafe-inline'", // allow inline scripts
+      ],
+      styleSrc: [
+        "'self'",
+        "'unsafe-inline'", // allow inline styles / style attributes
+        "https://fonts.googleapis.com",
+      ],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https://telegram.org"],
+      mediaSrc: ["'self'"], // serve your MP3s
+      connectSrc: ["'self'"], // fetch() to your API
+      frameAncestors: ["'self'", "https://t.me", "https://web.telegram.org"],
+    },
+  })
+);
 
 app.use(
   rateLimit({
     windowMs: 5 * 60 * 1000, // 5 min
     max: 100,
-    // standardHeaders: true,
-    // legacyHeaders: false,
+    standardHeaders: true,
+    legacyHeaders: false,
   })
 );
 
