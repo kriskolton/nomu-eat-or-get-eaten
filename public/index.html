@@ -261,10 +261,10 @@
       /********************* CONSTANTS & GLOBALS ***************************/
 
       /* -------- Telegram initialisation -------- */
-      let tg, userData, userId;
+      let tg, userData, userId, initDataRaw;
       try {
         tg = window.Telegram.WebApp;
-        const initDataRaw = tg.initData;
+        initDataRaw = tg.initData;
         userData = tg.initDataUnsafe?.user;
         userId = userData?.id;
         tg.expand();
