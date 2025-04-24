@@ -171,7 +171,7 @@
           >
             SEASON 2
           </p>
-          <p style="font-size: 12px; color: #fff; opacity: 0.5">v2.1</p>
+          <p style="font-size: 12px; color: #fff; opacity: 0.5">v2.2</p>
 
           <div
             id="telegramStatus"
@@ -465,7 +465,7 @@
       /*********************   GAME VARIABLES   ****************************/
       let fishList = [],
         score = 0,
-        nextMilestone = 50000,
+        nextMilestone = 100000,
         player,
         touchTarget = null;
       let bubbles = [],
@@ -1223,7 +1223,7 @@
         if (score >= nextMilestone) {
           playAchvSound();
           resetRound();
-          while (score >= nextMilestone) nextMilestone += 50000;
+          while (score >= nextMilestone) nextMilestone += 100000;
         }
       }
 
@@ -1272,7 +1272,7 @@
         resizeCanvas();
         lastSimTime = performance.now(); // reset sim-timer for fresh round
         score = 0;
-        nextMilestone = 50000;
+        nextMilestone = 100000;
         gameTime = 0;
         gameStartTime = performance.now();
         isGameOver = false;
