@@ -205,37 +205,26 @@ app.get("/", (req, res) => {
 
 // Submit a score (POST)
 // Protected only by Telegram signature
-app.post(
-  "/api/scores",
-  logTelegramData,
-  verifyTelegramData,
-  async (req, res) => {
-    try {
-      const { score, gameTime, event } = req.body;
+app.post("/api/scores", verifyTelegramData, async (req, res) => {
+  try {
+    const { score, gameTime, event } = req.body;
 
-      if (typeof score !== "number" || typeof gameTime !== "number") {
-        return res.status(400).json({ error: "Invalid or missing fields" });
-      }
-
-      const {
-        id: userId,
-        username = req.telegramUser.first_name || "Anonymous",
-      } = req.telegramUser;
-
-      const updated = await updateScore(
-        userId,
-        username,
-        score,
-        gameTime,
-        event
-      );
-      res.json(updated);
-    } catch (err) {
-      console.error("Error submitting score:", err);
-      res.status(500).json({ error: "Internal server error" });
+    if (typeof score !== "number" || typeof gameTime !== "number") {
+      return res.status(400).json({ error: "Invalid or missing fields" });
     }
+
+    const {
+      id: userId,
+      username = req.telegramUser.first_name || "Anonymous",
+    } = req.telegramUser;
+
+    const updated = await updateScore(userId, username, score, gameTime, event);
+    res.json(updated);
+  } catch (err) {
+    console.error("Error submitting score:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
-);
+});
 
 // Public high-score board for the active event
 app.get("/api/scores", async (_req, res) => {
