@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <script src="https://telegram.org/js/telegram-web-app.js?57"></script>
+
     <meta charset="UTF-8" />
     <meta
       name="viewport"
@@ -41,7 +43,7 @@
     </audio>
 
     <!-- Telegram Web-App JS -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- <script src="https://telegram.org/js/telegram-web-app.js"></script> -->
 
     <!-- ----------------------------------------------------------------- -->
     <!--                              STYLES                               -->
@@ -262,11 +264,12 @@
       let tg, userData, userId;
       try {
         tg = window.Telegram.WebApp;
-        userData = tg.initData.user;
+        const initDataRaw = tg.initData;
+        userData = tg.initDataUnsafe?.user;
         userId = userData?.id;
         tg.expand();
         tg.ready();
-        tg.setSwipeEnabled(false);
+        // tg.setSwipeEnabled(false);
         tg.disableVerticalSwipes();
       } catch (e) {
         console.error("Telegram init error:", e);
@@ -349,7 +352,7 @@
               "Content-Type": "application/json",
               // **Only** Telegram signature – no shared secret in the client!
               // "x-telegram-init-data": window.Telegram.WebApp.initData,
-              Authorization: `tma ${userData}`,
+              Authorization: `tma ${initDataRaw}`,
             },
             body: JSON.stringify({
               score,
