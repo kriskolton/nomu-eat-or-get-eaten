@@ -342,7 +342,7 @@
        *   1. Verify the HMAC signature inside initData.
        *   2. Make sure the auth_date is not older than MAX_AGE_SECONDS.
        */
-      async function sendScoreToAPI(score, gameTime) {
+      async function sendScoreToAPI(score) {
         if (!userId) return; // not running inside Telegram → skip
 
         try {
