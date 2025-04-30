@@ -23,7 +23,7 @@
     />
 
     <audio id="backgroundMusic" loop>
-      <source src="sounds/background2.mp3" type="audio/mpeg" />
+      <source src="sounds/background3.mp3" type="audio/mpeg" />
     </audio>
     <audio id="eatSound">
       <source src="sounds/eat.mp3" type="audio/mpeg" />
@@ -40,6 +40,14 @@
     <!-- NEW: shrink sound -->
     <audio id="shrinkSound">
       <source src="sounds/shrink.mp3" type="audio/mpeg" />
+    </audio>
+    <!-- NEW: electric pulse sound -->
+    <audio id="electricSound">
+      <source src="sounds/electric.mp3" type="audio/mpeg" />
+    </audio>
+    <!-- NEW: shock sound played when the player is actually hit -->
+    <audio id="shockSound">
+      <source src="sounds/shock.mp3" type="audio/mpeg" />
     </audio>
 
     <!-- ----------------------------------------------------------------- -->
@@ -62,7 +70,7 @@
         width: 100%;
         position: relative;
         overflow: hidden;
-        background: #222 url("img/bg2.png") center/cover no-repeat;
+        background: #222 url("img/bg6.png") center/cover no-repeat;
         display: flex;
         margin: 0 auto;
         max-width: 430px;
@@ -164,14 +172,14 @@
           <p
             style="
               font-size: 28px;
-              color: #65c0f5;
+              color: #f63924;
               font-family: 'Londrina Solid', sans-serif;
               letter-spacing: 2px;
             "
           >
-            SEASON 2
+            SEASON 3
           </p>
-          <p style="font-size: 12px; color: #fff; opacity: 0.5">v2.2</p>
+          <p style="font-size: 12px; color: #fff; opacity: 0.5">v3.0</p>
 
           <div
             id="telegramStatus"
@@ -199,7 +207,17 @@
               justify-content: center;
             "
           >
-            <button id="soundBtn">🔊 Sound On</button>
+            <button id="musicBtn">🎵 Music On</button>
+            <button id="sfxBtn">🔊 SFX On</button>
+          </div>
+          <div
+            style="
+              display: flex;
+              gap: 0;
+              margin-bottom: 0;
+              justify-content: center;
+            "
+          >
             <button id="arrowKeysBtn">🎮 Arrow Keys Off</button>
           </div>
 
@@ -226,7 +244,8 @@
               justify-content: center;
             "
           >
-            <button id="soundBtnGameOver">🔊 Sound On</button>
+            <button id="musicBtnGameOver">🎵 Music On</button>
+            <button id="sfxBtnGameOver">🔊 SFX On</button>
             <button id="arrowKeysBtnGameOver">🎮 Arrow Keys Off</button>
           </div>
           <button
@@ -349,7 +368,7 @@
             body: JSON.stringify({
               score,
               gameTime,
-              event: "Season 2",
+              event: "Season 3",
             }),
           });
         } catch (e) {
@@ -405,9 +424,11 @@
       const startBtn = document.getElementById("startBtn");
       const playAgainBtn = document.getElementById("playAgainBtn");
       const finalScoreElem = document.getElementById("finalScore");
-      const soundBtn = document.getElementById("soundBtn");
+      const musicBtn = document.getElementById("musicBtn");
+      const sfxBtn = document.getElementById("sfxBtn");
       const arrowKeysBtn = document.getElementById("arrowKeysBtn");
-      const soundBtnGameOver = document.getElementById("soundBtnGameOver");
+      const musicBtnGameOver = document.getElementById("musicBtnGameOver");
+      const sfxBtnGameOver = document.getElementById("sfxBtnGameOver");
       const arrowKeysBtnGameOver = document.getElementById(
         "arrowKeysBtnGameOver"
       );
@@ -433,12 +454,12 @@
 
       /*********************   IMAGES & SPRITES   ***************************/
       const fishTypeDefinitions = [
-        { src: "img/fish1-2.png", minSize: 10, maxSize: 40, weight: 0.432 },
-        { src: "img/fish2-2.png", minSize: 20, maxSize: 60, weight: 0.252 },
-        { src: "img/fish3-2.png", minSize: 25, maxSize: 80, weight: 0.2 },
-        { src: "img/fish4-2.png", minSize: 35, maxSize: 100, weight: 0.1 },
-        { src: "img/fish5-2.png", minSize: 200, maxSize: 300, weight: 0.013 },
-        { src: "img/fish6-2.png", minSize: 400, maxSize: 500, weight: 0.003 },
+        { src: "img/fish1-3.png", minSize: 10, maxSize: 40, weight: 0.432 },
+        { src: "img/fish2-3.png", minSize: 20, maxSize: 60, weight: 0.252 },
+        { src: "img/fish3-3.png", minSize: 25, maxSize: 80, weight: 0.2 },
+        { src: "img/fish4-3.png", minSize: 35, maxSize: 100, weight: 0.1 },
+        { src: "img/fish5-3.png", minSize: 200, maxSize: 300, weight: 0.013 },
+        { src: "img/fish6-3.png", minSize: 400, maxSize: 500, weight: 0.003 },
       ];
       const fishTypes = fishTypeDefinitions.map((def) => {
         const image = new Image();
@@ -456,11 +477,14 @@
       const crabImg = new Image();
       crabImg.src = "img/crab.png";
       const jellyfishImg = new Image();
-      jellyfishImg.src = "img/jellyfish-2.png";
+      jellyfishImg.src = "img/jellyfish-3.png";
+      /* NEW: dedicated electric-jellyfish sprite */
+      const electricJellyfishImg = new Image();
+      electricJellyfishImg.src = "img/electric-jellyfish.png";
       const sushiImg = new Image();
       sushiImg.src = "img/sushi.png";
       const pufferImg = new Image();
-      pufferImg.src = "img/pufferfish.png";
+      pufferImg.src = "img/pufferfish-3.png";
 
       /*********************   GAME VARIABLES   ****************************/
       let fishList = [],
@@ -475,11 +499,18 @@
         gameOverSound,
         powerUpSound,
         achievementSound,
-        shrinkSound, // NEW
-        isSoundEnabled = true,
+        shrinkSound,
+        electricSound,
+        shockSound /* NEW */,
+        isSfxEnabled = true,
+        isMusicEnabled = true,
         explosion = null;
       let gameStartTime = 0,
         gameTime = 0;
+
+      /* NEW: paralysis */
+      let playerParalyzeTime = 0;
+      const PARALYZE_DURATION = 5; // seconds
 
       /* Balance / tuning constants */
       const EATING_LEEWAY = 1.15;
@@ -496,63 +527,85 @@
         gameOverSound = document.getElementById("gameOverSound");
         powerUpSound = document.getElementById("powerUpSound");
         achievementSound = document.getElementById("achievementSound");
-        shrinkSound = document.getElementById("shrinkSound"); // NEW
+        shrinkSound = document.getElementById("shrinkSound");
+        electricSound = document.getElementById("electricSound");
+        shockSound = document.getElementById("shockSound"); /* NEW */
         backgroundMusic.volume = 0.2;
-        eatSound.volume = 0.5;
-        gameOverSound.volume = 0.5;
-        powerUpSound.volume = 0.5;
-        achievementSound.volume = 0.5;
-        shrinkSound.volume = 0.3; // NEW
+        eatSound.volume =
+          gameOverSound.volume =
+          powerUpSound.volume =
+          achievementSound.volume =
+          electricSound.volume =
+          shockSound.volume =
+            0.5;
+        shrinkSound.volume = 0.3;
       }
       const startAudio = () => {
-        if (backgroundMusic && isSoundEnabled)
+        if (backgroundMusic && isMusicEnabled)
           backgroundMusic.play().catch(() => {});
       };
-      const updateSoundButtons = () => {
-        const txt = isSoundEnabled ? "🔊 Sound On" : "🔈 Sound Off";
-        soundBtn.textContent = txt;
-        soundBtnGameOver.textContent = txt;
+
+      /* ----------  MUSIC / SFX TOGGLES ---------- */
+      const updateMusicButtons = () => {
+        const txt = isMusicEnabled ? "🎵 Music On" : "🎵 Music Off";
+        musicBtn.textContent = txt;
+        musicBtnGameOver.textContent = txt;
       };
-      const toggleSound = () => {
-        isSoundEnabled = !isSoundEnabled;
+      const updateSfxButtons = () => {
+        const txt = isSfxEnabled ? "🔊 SFX On" : "🔈 SFX Off";
+        sfxBtn.textContent = txt;
+        sfxBtnGameOver.textContent = txt;
+      };
+      const toggleMusic = () => {
+        isMusicEnabled = !isMusicEnabled;
         if (backgroundMusic) {
-          if (isSoundEnabled) {
+          if (isMusicEnabled) {
             startAudio();
             backgroundMusic.volume = 0.2;
-            eatSound.volume =
-              gameOverSound.volume =
-              powerUpSound.volume =
-              achievementSound.volume =
-                0.5;
-            shrinkSound.volume = 0.3;
           } else {
             backgroundMusic.pause();
             backgroundMusic.volume = 0;
-            eatSound.volume =
-              gameOverSound.volume =
-              powerUpSound.volume =
-              achievementSound.volume =
-              shrinkSound.volume =
-                0;
           }
         }
-        updateSoundButtons();
+        updateMusicButtons();
       };
+      const toggleSFX = () => {
+        isSfxEnabled = !isSfxEnabled;
+        const v = isSfxEnabled ? 0.5 : 0;
+        eatSound.volume =
+          gameOverSound.volume =
+          powerUpSound.volume =
+          achievementSound.volume =
+          electricSound.volume =
+          shockSound.volume =
+            v;
+        shrinkSound.volume = isSfxEnabled ? 0.3 : 0;
+        updateSfxButtons();
+      };
+
+      /* helpers that respect SFX flag */
       const playEatSound = () =>
-        isSoundEnabled && eatSound.play().catch(() => {});
+        isSfxEnabled && eatSound.play().catch(() => {});
       const playGameOverSound = () =>
-        isSoundEnabled &&
+        isSfxEnabled &&
         ((gameOverSound.currentTime = 0), gameOverSound.play().catch(() => {}));
       const playPowerUpSound = () =>
-        isSoundEnabled &&
+        isSfxEnabled &&
         ((powerUpSound.currentTime = 0), powerUpSound.play().catch(() => {}));
       const playAchvSound = () =>
-        isSoundEnabled &&
+        isSfxEnabled &&
         ((achievementSound.currentTime = 0),
         achievementSound.play().catch(() => {}));
       const playShrinkSound = () =>
-        isSoundEnabled &&
+        isSfxEnabled &&
         ((shrinkSound.currentTime = 0), shrinkSound.play().catch(() => {}));
+      const playElectricSound = () =>
+        isSfxEnabled &&
+        ((electricSound.currentTime = 0), electricSound.play().catch(() => {}));
+      /* NEW: sound when player is shocked */
+      const playShockSound = () =>
+        isSfxEnabled &&
+        ((shockSound.currentTime = 0), shockSound.play().catch(() => {}));
 
       /*********************   UTILITY HELPERS   ***************************/
       const getRandom = (min, max) => Math.random() * (max - min) + min;
@@ -640,6 +693,7 @@
             this.accel = 0.055;
             this.friction = 0.99;
             this.maxSpd = 10;
+            this.facingLeft = false; // NEW: remember orientation
           }
           this.width = this.height = null;
         }
@@ -663,7 +717,14 @@
           if (!this.sprite.complete) return;
           if (this.width === null || this.height === null)
             this.calculateDimensions();
-          const movingLeft = this.isPlayer ? this.vx < 0 : this.speedX < 0;
+
+          /* -------- orientation -------- */
+          if (this.isPlayer) {
+            // maintain orientation if paralyzed
+            if (Math.abs(this.vx) > 0.1) this.facingLeft = this.vx < 0;
+          }
+          const movingLeft = this.isPlayer ? this.facingLeft : this.speedX < 0;
+
           const ultra =
             this.isUltraFast || (this.isPlayer && playerIsPoweredUp);
 
@@ -680,9 +741,14 @@
             c.translate(-this.width / 2, -this.height / 2);
           } else c.translate(this.x, this.y);
 
-          if (ultra)
+          /* NEW: player frozen → yellow tint */
+          if (this.isPlayer && playerParalyzeTime > 0) {
+            c.filter = "hue-rotate(-60deg) brightness(1.4) saturate(1.8)";
+          } else if (ultra) {
             c.filter = "hue-rotate(180deg) brightness(1.5) saturate(2)";
-          else if (this.isFast) c.filter = "hue-rotate(45deg) brightness(1.2)";
+          } else if (this.isFast) {
+            c.filter = "hue-rotate(45deg) brightness(1.2)";
+          }
 
           if (flickerActive) {
             c.globalAlpha = 0.5;
@@ -703,7 +769,7 @@
           let cX = this.x + this.width / 2,
             cY = this.y + this.height / 2;
           const shift = this.width * 0.07;
-          const movingLeft = this.isPlayer ? this.vx < 0 : this.speedX < 0;
+          const movingLeft = this.isPlayer ? this.facingLeft : this.speedX < 0;
           if (movingLeft) cX -= shift;
           else cX += shift;
           return { centerX: cX, centerY: cY, radiusX: rX, radiusY: rY };
@@ -756,7 +822,7 @@
           const now = performance.now();
           if (now - this.lastTrailTime < 50) return;
           this.lastTrailTime = now;
-          const movingLeft = this.isPlayer ? this.vx < 0 : this.speedX < 0;
+          const movingLeft = this.isPlayer ? this.facingLeft : this.speedX < 0;
           const speed = this.isPlayer
             ? Math.hypot(this.vx, this.vy)
             : Math.abs(this.speedX);
@@ -837,6 +903,74 @@
             this.baseX +
             Math.sin(performance.now() * this.oscS + this.oscO) * this.oscA;
           if (this.y + this.height < -50) this.maxSide = 0;
+        }
+      }
+
+      /* ---- Electric Jellyfish ---- */
+      class ElectricJellyfish extends Jellyfish {
+        constructor(x, y, size) {
+          super(x, y, size);
+          this.sprite = electricJellyfishImg; /* NEW sprite */
+          this.isElectric = true;
+          this.pulseCooldown = getRandom(5, 12); // seconds until first pulse
+          this.pauseTimeRemaining = 0; // while pulsing, no movement
+          this.pulseRadius = size * 3;
+
+          // NEW: remember when we last started/ended a pulse
+          this._justFinishedPulse = false;
+        }
+        update(dt) {
+          // During pulse: stay still and decrement pause timer
+          if (this.pauseTimeRemaining > 0) {
+            this.pauseTimeRemaining -= dt;
+            if (this.pauseTimeRemaining <= 0) {
+              /* pulse finished → lock current x as new baseX so drift continues smoothly */
+              this.baseX = this.x;
+              this.pulseCooldown = getRandom(5, 12);
+            }
+            return; // skip normal movement while pulsing
+          }
+
+          // Countdown to next pulse
+          this.pulseCooldown -= dt;
+          if (this.pulseCooldown <= 0) {
+            this.performPulse();
+            return;
+          }
+
+          // Normal upward drift
+          super.update(dt);
+        }
+        performPulse() {
+          this.pauseTimeRemaining = 1; // 1-second pulse animation
+          playElectricSound();
+          // Check if player is within pulse radius
+          const p = player.getBounds();
+          const b = this.getBounds();
+          const dx = p.centerX - b.centerX;
+          const dy = p.centerY - b.centerY;
+          const dist = Math.hypot(dx, dy);
+          if (dist <= this.pulseRadius) {
+            playerParalyzeTime = PARALYZE_DURATION;
+            playShockSound(); /* NEW */
+          }
+        }
+        draw(c) {
+          super.draw(c);
+          // Render electric pulse when active
+          if (this.pauseTimeRemaining > 0 && this.width && this.height) {
+            const alpha = this.pauseTimeRemaining; // fades as timer counts down
+            const cx = this.x + this.width / 2;
+            const cy = this.y + this.height / 2;
+            c.save();
+            c.beginPath();
+            c.arc(cx, cy, this.pulseRadius * (1 - alpha * 0.2), 0, Math.PI * 2);
+            c.strokeStyle = `rgba(255,255,0,${alpha * 0.8})`;
+            c.lineWidth = 3;
+            c.setLineDash([6, 6]);
+            c.stroke();
+            c.restore();
+          }
         }
       }
 
@@ -997,6 +1131,12 @@
           new Jellyfish(getRandom(0, WIDTH - size), HEIGHT + size, size)
         );
       }
+      function spawnElectricJellyfish() {
+        const size = getRandom(40, 90);
+        fishList.push(
+          new ElectricJellyfish(getRandom(0, WIDTH - size), HEIGHT + size, size)
+        );
+      }
       function spawnSushi() {
         const size = 30,
           fromLeft = Math.random() < 0.5,
@@ -1036,6 +1176,7 @@
         player.vx = player.vy = 0;
         playerPowerUpTime = 0;
         playerIsPoweredUp = false;
+        playerParalyzeTime = 0;
         for (let i = 0; i < 3; i++) spawnFish();
         spawnBubbleGroup();
         bubbleTimer = 0;
@@ -1074,6 +1215,11 @@
           }
         }
 
+        if (playerParalyzeTime > 0) {
+          playerParalyzeTime -= dt;
+          if (playerParalyzeTime < 0) playerParalyzeTime = 0;
+        }
+
         /* ----- bubbles ----- */
         for (let i = bubbles.length - 1; i >= 0; i--) {
           bubbles[i].update(dt);
@@ -1092,24 +1238,30 @@
         }
 
         /* ----- player input ----- */
+        const canMove = playerParalyzeTime <= 0;
         const a = player.accel * dt * 60;
-        if (keys.left) player.vx -= a;
-        if (keys.right) player.vx += a;
-        if (keys.up) player.vy -= a;
-        if (keys.down) player.vy += a;
+        if (canMove) {
+          if (keys.left) player.vx -= a;
+          if (keys.right) player.vx += a;
+          if (keys.up) player.vy -= a;
+          if (keys.down) player.vy += a;
 
-        if (touchTarget && player.width && player.height) {
-          const px = player.x + player.width / 2,
-            py = player.y + player.height / 2,
-            dx = touchTarget.x - px,
-            dy = touchTarget.y - py,
-            dist = Math.hypot(dx, dy);
-          if (dist > 1) {
-            const ax = (dx / dist) * a,
-              ay = (dy / dist) * a;
-            player.vx += ax;
-            player.vy += ay;
+          if (touchTarget && player.width && player.height) {
+            const px = player.x + player.width / 2,
+              py = player.y + player.height / 2,
+              dx = touchTarget.x - px,
+              dy = touchTarget.y - py,
+              dist = Math.hypot(dx, dy);
+            if (dist > 1) {
+              const ax = (dx / dist) * a,
+                ay = (dy / dist) * a;
+              player.vx += ax;
+              player.vy += ay;
+            }
           }
+        } else {
+          // paralyzed → clear movement
+          player.vx = player.vy = 0;
         }
 
         const spd = Math.hypot(player.vx, player.vy);
@@ -1125,7 +1277,8 @@
         /* ----- enemies & collisions ----- */
         for (let i = fishList.length - 1; i >= 0; i--) {
           const e = fishList[i];
-          if (e.isCrab) e.update(dt, player);
+          if (e instanceof ElectricJellyfish) e.update(dt);
+          else if (e.isCrab) e.update(dt, player);
           else e.update(dt);
           e.createWaterTrail();
 
@@ -1215,6 +1368,8 @@
           spawnCrab();
         if (Math.random() < 0.001 * dt * 60 && fishList.length < 30)
           spawnJellyfish();
+        if (Math.random() < 0.0008 * dt * 60 && fishList.length < 30)
+          spawnElectricJellyfish();
         if (Math.random() < 0.0005 * dt * 60 && fishList.length < 30)
           spawnSushi();
         if (Math.random() < 0.002 * dt * 60 && fishList.length < 30)
@@ -1235,7 +1390,7 @@
         if (player && !(isGameOver && explosion)) player.draw(ctx);
         fishList.forEach((f) => f.draw(ctx));
         if (explosion) explosion.draw(ctx);
-        ctx.fillStyle = "#fff";
+        ctx.fillStyle = playerParalyzeTime > 0 ? "#ffea00" : "#fff";
         ctx.font = "20px 'Londrina Solid',sans-serif";
         ctx.fillText("Score: " + score, 20, 30);
         if (touchTarget) {
@@ -1244,6 +1399,11 @@
           ctx.strokeStyle = "#ffffff88";
           ctx.lineWidth = 2;
           ctx.stroke();
+        }
+        if (playerParalyzeTime > 0) {
+          ctx.font = "16px 'Poppins',sans-serif";
+          ctx.fillStyle = "#ffea00";
+          ctx.fillText(`Paralyzed: ${playerParalyzeTime.toFixed(1)}s`, 20, 55);
         }
       }
 
@@ -1283,11 +1443,14 @@
         player = new Fish(WIDTH / 2, HEIGHT / 2, 0, 0, playerImg, 25, true);
         playerPowerUpTime = 0;
         playerIsPoweredUp = false;
+        playerParalyzeTime = 0;
         clearKeys();
         initAudio();
         for (let i = 0; i < 3; i++) spawnFish();
         spawnBubbleGroup();
         bubbleTimer = 0;
+        updateMusicButtons();
+        updateSfxButtons();
       }
 
       /*********************      UI EVENTS       ***************************/
@@ -1300,7 +1463,8 @@
       };
       const syncGameOverUI = () => {
         showOrHideArrowKeys(controlsContainer.style.display !== "none");
-        updateSoundButtons();
+        updateMusicButtons();
+        updateSfxButtons();
       };
 
       startBtn.onclick = () => {
@@ -1315,8 +1479,10 @@
         gameState = "playing";
         initGame();
       };
-      soundBtn.onclick = toggleSound;
-      soundBtnGameOver.onclick = toggleSound;
+      musicBtn.onclick = toggleMusic;
+      musicBtnGameOver.onclick = toggleMusic;
+      sfxBtn.onclick = toggleSFX;
+      sfxBtnGameOver.onclick = toggleSFX;
       arrowKeysBtn.onclick = () =>
         showOrHideArrowKeys(controlsContainer.style.display === "none");
       arrowKeysBtnGameOver.onclick = () =>
@@ -1386,6 +1552,7 @@
         ...fishTypes.map(({ image }) => new Promise((r) => (image.onload = r))),
         new Promise((r) => (crabImg.onload = r)),
         new Promise((r) => (jellyfishImg.onload = r)),
+        new Promise((r) => (electricJellyfishImg.onload = r)) /* NEW */,
         new Promise((r) => (sushiImg.onload = r)),
         new Promise((r) => (pufferImg.onload = r)),
       ]).then(() => {
