@@ -240,7 +240,7 @@ function setupBotCommands() {
 
     await sendMessageWithErrorHandling(
       chatId,
-      `Welcome to Nomu: Eat or Get Eaten ${activeEvent} 🪸\n\n` +
+      `Welcome to Nomu: Eat or Get Eaten ${activeEvent} 🌋\n\n` +
         `Eat smaller fish to grow bigger, but watch out for bigger ones!\n\n` +
         `Use the buttons below to:`,
       messageThreadId,
