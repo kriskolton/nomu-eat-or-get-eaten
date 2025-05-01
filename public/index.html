@@ -172,14 +172,17 @@
           <p
             style="
               font-size: 28px;
-              color: #f63924;
+              background: linear-gradient(to top, #ff0000, #ff6600, #ffcc00);
+              -webkit-background-clip: text;
+              background-clip: text;
+              color: transparent;
               font-family: 'Londrina Solid', sans-serif;
               letter-spacing: 2px;
             "
           >
             SEASON 3
           </p>
-          <p style="font-size: 12px; color: #fff; opacity: 0.5">v3.0</p>
+          <p style="font-size: 12px; color: #fff; opacity: 0.5">v3.1</p>
 
           <div
             id="telegramStatus"
@@ -236,16 +239,11 @@
             GAME OVER!
           </h1>
           <p id="finalScore"></p>
-          <div
-            style="
-              display: flex;
-              gap: 0;
-              margin-bottom: 12px;
-              justify-content: center;
-            "
-          >
+          <div style="display: flex; gap: 0; justify-content: center">
             <button id="musicBtnGameOver">🎵 Music On</button>
             <button id="sfxBtnGameOver">🔊 SFX On</button>
+          </div>
+          <div style="display: flex; gap: 0; justify-content: center">
             <button id="arrowKeysBtnGameOver">🎮 Arrow Keys Off</button>
           </div>
           <button
@@ -351,7 +349,7 @@
 
       /* -------- Score submission -------- */
       /**
-       * Send the player’s score to the back-end.
+       * Send the player's score to the back-end.
        */
       async function sendScoreToAPI(score) {
         if (!userId) return; // not running inside Telegram → skip
@@ -510,7 +508,7 @@
 
       /* NEW: paralysis */
       let playerParalyzeTime = 0;
-      const PARALYZE_DURATION = 5; // seconds
+      const PARALYZE_DURATION = 3; // seconds
 
       /* Balance / tuning constants */
       const EATING_LEEWAY = 1.15;
@@ -623,7 +621,14 @@
       /*********************    CLASS DEFINITIONS  *************************/
       /* ---- WaterTrail ---- */
       class WaterTrail {
-        constructor(x, y, dir, fishSize, isUltra = false) {
+        constructor(
+          x,
+          y,
+          dir,
+          fishSize,
+          isUltra = false,
+          colorRGB = null /* NEW */
+        ) {
           this.x = x;
           this.y = y;
           this.size = getRandom(
@@ -636,6 +641,7 @@
           this.offsetX = getRandom(-3, 3);
           this.offsetY = getRandom(-3, 3);
           this.isUltra = isUltra;
+          this.colorRGB = colorRGB; /* store custom colour */
           this.hue = Math.random() * 360;
           this.hueSpeed = getRandom(2, 4);
         }
@@ -654,11 +660,20 @@
             0,
             Math.PI * 2
           );
+
           if (this.isUltra) {
             c.fillStyle = `hsla(${this.hue},100%,50%,${this.life * 0.3})`;
             c.shadowBlur = 10;
             c.shadowColor = `hsla(${this.hue},100%,50%,${this.life * 0.3})`;
-          } else c.fillStyle = `rgba(255,255,255,${this.life * 0.05})`;
+          } else if (this.colorRGB) {
+            const { r, g, b } = this.colorRGB;
+            c.fillStyle = `rgba(${r},${g},${b},${this.life * 0.3})`;
+            c.shadowBlur = 6;
+            c.shadowColor = `rgba(${r},${g},${b},${this.life * 0.3})`;
+          } else {
+            c.fillStyle = `rgba(255,255,255,${this.life * 0.05})`;
+            c.shadowBlur = 0;
+          }
           c.fill();
           c.shadowBlur = 0;
         }
@@ -743,7 +758,7 @@
 
           /* NEW: player frozen → yellow tint */
           if (this.isPlayer && playerParalyzeTime > 0) {
-            c.filter = "hue-rotate(-60deg) brightness(1.4) saturate(1.8)";
+            c.filter = "hue-rotate(30deg) brightness(1.4) saturate(1.8)";
           } else if (ultra) {
             c.filter = "hue-rotate(180deg) brightness(1.5) saturate(2)";
           } else if (this.isFast) {
@@ -904,6 +919,23 @@
             Math.sin(performance.now() * this.oscS + this.oscO) * this.oscA;
           if (this.y + this.height < -50) this.maxSide = 0;
         }
+        /* NEW: poison trail */
+        createWaterTrail() {
+          if (!this.width || !this.height) return;
+          const now = performance.now();
+          if (now - this.lastTrailTime < 80) return;
+          this.lastTrailTime = now;
+          waterTrails.push(
+            new WaterTrail(
+              this.x + this.width / 2,
+              this.y + this.height,
+              0,
+              this.maxSide * 0.4,
+              false,
+              { r: 120, g: 0, b: 0 } // dark-red poison colour
+            )
+          );
+        }
       }
 
       /* ---- Electric Jellyfish ---- */
@@ -914,18 +946,16 @@
           this.isElectric = true;
           this.pulseCooldown = getRandom(5, 12); // seconds until first pulse
           this.pauseTimeRemaining = 0; // while pulsing, no movement
-          this.pulseRadius = size * 3;
-
-          // NEW: remember when we last started/ended a pulse
-          this._justFinishedPulse = false;
+          this.pulseRadius = size * 2.3;
         }
         update(dt) {
           // During pulse: stay still and decrement pause timer
           if (this.pauseTimeRemaining > 0) {
             this.pauseTimeRemaining -= dt;
             if (this.pauseTimeRemaining <= 0) {
-              /* pulse finished → lock current x as new baseX so drift continues smoothly */
-              this.baseX = this.x;
+              /* pulse finished → adjust baseX so that the oscillation resumes without a visual jump */
+              const phase = Math.sin(performance.now() * this.oscS + this.oscO);
+              this.baseX = this.x - phase * this.oscA;
               this.pulseCooldown = getRandom(5, 12);
             }
             return; // skip normal movement while pulsing
@@ -956,21 +986,68 @@
           }
         }
         draw(c) {
+          /* 1) render the sprite itself ----------------------------- */
           super.draw(c);
-          // Render electric pulse when active
+
+          /* 2) render the lightning pulse while the jellyfish is “hot” */
           if (this.pauseTimeRemaining > 0 && this.width && this.height) {
-            const alpha = this.pauseTimeRemaining; // fades as timer counts down
+            const alpha = this.pauseTimeRemaining; // 1 → 0
             const cx = this.x + this.width / 2;
             const cy = this.y + this.height / 2;
-            c.save();
-            c.beginPath();
-            c.arc(cx, cy, this.pulseRadius * (1 - alpha * 0.2), 0, Math.PI * 2);
-            c.strokeStyle = `rgba(255,255,0,${alpha * 0.8})`;
-            c.lineWidth = 3;
-            c.setLineDash([6, 6]);
-            c.stroke();
-            c.restore();
+            const maxLen = this.pulseRadius * (1 - alpha * 0.25); // slight shrink
+            const bolts = 10; // how many rays
+            const segmentsPerBolt = 3; // jaggedness
+
+            /* draw each bolt */
+            for (let i = 0; i < bolts; i++) {
+              const baseAngle = (i / bolts) * Math.PI * 2;
+
+              /* build the zig-zag path one segment at a time */
+              let prevX = cx,
+                prevY = cy;
+              for (let s = 1; s <= segmentsPerBolt; s++) {
+                const segLen = (maxLen / segmentsPerBolt) * s;
+                const jitter = segLen * 0.25; // random wobble
+                const angle = baseAngle + getRandom(-0.2, 0.2); // ± a little
+                const x =
+                  cx + Math.cos(angle) * segLen + getRandom(-jitter, jitter);
+                const y =
+                  cy + Math.sin(angle) * segLen + getRandom(-jitter, jitter);
+
+                /* stroke that segment */
+                c.save();
+                c.beginPath();
+                c.moveTo(prevX, prevY);
+                c.lineTo(x, y);
+                c.strokeStyle = `rgba(255,255,0,${alpha})`;
+                c.lineWidth = 2;
+                c.shadowBlur = 8;
+                c.shadowColor = `rgba(255,255,0,${alpha})`;
+                c.stroke();
+                c.restore();
+
+                prevX = x;
+                prevY = y;
+              }
+            }
           }
+        }
+        /* NEW: spark trail */
+        createWaterTrail() {
+          if (!this.width || !this.height) return;
+          const now = performance.now();
+          if (now - this.lastTrailTime < 80) return;
+          this.lastTrailTime = now;
+          waterTrails.push(
+            new WaterTrail(
+              this.x + this.width / 2,
+              this.y + this.height,
+              0,
+              this.maxSide * 0.4,
+              false,
+              { r: 255, g: 255, b: 0 } // yellow spark colour
+            )
+          );
         }
       }
 
@@ -990,7 +1067,7 @@
           this.baseSize = baseSize;
           this.inflating = false;
           this.inflateStart = 0;
-          this.inflateDuration = 1000;
+          this.inflateDuration = 500;
         }
         update(dt) {
           super.update(dt);
@@ -1154,6 +1231,12 @@
         fishList.push(new Pufferfish(x, y, spd, baseSize));
       }
 
+      /* ---------------- MOD: dynamic max enemies ---------------- */
+      function currentMaxEnemies() {
+        return score < 1000 ? 20 : 30;
+      }
+      /* ---------------------------------------------------------- */
+
       /* bubble groups */
       function spawnBubbleGroup() {
         const n = Math.floor(getRandom(3, 6)),
@@ -1259,10 +1342,8 @@
               player.vy += ay;
             }
           }
-        } else {
-          // paralyzed → clear movement
-          player.vx = player.vy = 0;
         }
+        // If paralyzed, no new input is applied; the fish just glides and slows via friction.
 
         const spd = Math.hypot(player.vx, player.vy);
         if (spd > player.maxSpd) {
@@ -1304,18 +1385,29 @@
               continue;
             }
 
+            /* ---------- Player IS powered-up ---------- */
             if (playerIsPoweredUp) {
               score += calculateFishScore(e.maxSide);
-              if (e.isJellyfish) {
+
+              if (e.isJellyfish && !e.isElectric) {
+                /* regular jellyfish → shrink */
                 player.maxSide = Math.max(
                   player.maxSide * JELLY_SHRINK_FACTOR,
                   MIN_PLAYER_SIZE
                 );
                 playShrinkSound();
               } else {
+                /* any other fish (including electric jelly) → grow */
                 player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
                 playEatSound();
               }
+
+              /* Special case: electric jellyfish causes paralysis when eaten */
+              if (e.isElectric) {
+                playerParalyzeTime = PARALYZE_DURATION;
+                playShockSound();
+              }
+
               player.width = player.height = null;
               if (e.isUltraFast) {
                 playerPowerUpTime = POWER_UP_DURATION;
@@ -1326,20 +1418,33 @@
               continue;
             }
 
+            /* ---------- Player is NOT powered-up ---------- */
+
             const pR = player.getBounds().radiusX,
               eR = e.getBounds().radiusX;
             if (pR * EATING_LEEWAY > eR) {
+              /* player eats the fish */
               score += calculateFishScore(e.maxSide);
-              if (e.isJellyfish) {
+
+              if (e.isJellyfish && !e.isElectric) {
+                /* regular jellyfish → shrink */
                 player.maxSide = Math.max(
                   player.maxSide * JELLY_SHRINK_FACTOR,
                   MIN_PLAYER_SIZE
                 );
                 playShrinkSound();
               } else {
+                /* other fish (including electric) → grow */
                 player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
                 playEatSound();
               }
+
+              /* electric jellyfish paralyses the player */
+              if (e.isElectric) {
+                playerParalyzeTime = PARALYZE_DURATION;
+                playShockSound();
+              }
+
               player.width = player.height = null;
               if (e.isUltraFast) {
                 playerPowerUpTime = POWER_UP_DURATION;
@@ -1348,6 +1453,7 @@
               }
               fishList.splice(i, 1);
             } else {
+              /* player gets eaten */
               isGameOver = true;
               gameState = "over";
               sendScoreToAPI(score);
@@ -1362,18 +1468,25 @@
           }
         }
 
-        /* spawning */
-        if (Math.random() < 0.03 * dt * 60 && fishList.length < 30) spawnFish();
-        if (Math.random() < 0.00005 * dt * 60 && fishList.length < 30)
+        /* -------------------- SPAWNING -------------------- */
+        const maxEnemies = currentMaxEnemies(); // MOD: dynamic limit
+        if (Math.random() < 0.03 * dt * 60 && fishList.length < maxEnemies)
+          spawnFish();
+        if (
+          score >= 2000 /* MOD: crabs only after 2000 points */ &&
+          Math.random() < 0.00005 * dt * 60 &&
+          fishList.length < maxEnemies
+        )
           spawnCrab();
-        if (Math.random() < 0.001 * dt * 60 && fishList.length < 30)
+        if (Math.random() < 0.001 * dt * 60 && fishList.length < maxEnemies)
           spawnJellyfish();
-        if (Math.random() < 0.0008 * dt * 60 && fishList.length < 30)
+        if (Math.random() < 0.0005 * dt * 60 && fishList.length < maxEnemies)
           spawnElectricJellyfish();
-        if (Math.random() < 0.0005 * dt * 60 && fishList.length < 30)
+        if (Math.random() < 0.0005 * dt * 60 && fishList.length < maxEnemies)
           spawnSushi();
-        if (Math.random() < 0.002 * dt * 60 && fishList.length < 30)
+        if (Math.random() < 0.002 * dt * 60 && fishList.length < maxEnemies)
           spawnPufferfish();
+        /* --------------------------------------------------- */
 
         if (score >= nextMilestone) {
           playAchvSound();
