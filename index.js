@@ -38,6 +38,7 @@ app.use(
       scriptSrc: [
         "'self'",
         "https://telegram.org",
+        "https://cdnjs.cloudflare.com", // allow seedrandom CDN
         "'unsafe-inline'", // allow inline scripts
       ],
       styleSrc: [
