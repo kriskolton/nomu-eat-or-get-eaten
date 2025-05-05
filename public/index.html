@@ -2,6 +2,8 @@
 <html lang="en">
   <head>
     <script src="https://telegram.org/js/telegram-web-app.js?57"></script>
+    <!-- Deterministic RNG (client & server must match) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
 
     <meta charset="UTF-8" />
     <meta
@@ -275,18 +277,38 @@
     <script>
       /********************* CONSTANTS & GLOBALS ***************************/
 
-      /* -------- Telegram initialisation -------- */
+      /*
+       * In *development* we may not run inside Telegram.  If the server
+       * sets ENVIRONMENT=development we can simply skip Telegram checks –
+       * but the front-end also needs a dummy userId so the game sends test
+       * scores.  The simplest switch is a URL parameter ?dev or manually
+       * uncommenting the block below.
+       *
+       * 1. When testing locally → add ?dev to the URL or uncomment.
+       * 2. In production the normal Telegram initialisation runs.
+       */
+      const urlParams = new URLSearchParams(window.location.search);
+      const forceDev = urlParams.has("dev");
+
       let tg, userData, userId, initDataRaw;
       try {
         tg = window.Telegram.WebApp;
-        initDataRaw = tg.initData;
-        userData = tg.initDataUnsafe?.user;
-        userId = userData?.id;
-        tg.expand();
-        tg.ready();
-        tg.disableVerticalSwipes();
+        if (!forceDev) {
+          initDataRaw = tg.initData;
+          userData = tg.initDataUnsafe?.user;
+          userId = userData?.id;
+          tg.expand();
+          tg.ready();
+          tg.disableVerticalSwipes();
+        }
       } catch (e) {
         console.error("Telegram init error:", e);
+      }
+
+      // Development fallback
+      if (forceDev || !userId) {
+        userId = "local-dev";
+        userData = { username: "dev" };
       }
 
       const statusDiv = document.getElementById("telegramStatus");
@@ -349,10 +371,41 @@
       });
 
       /* -------- Score submission -------- */
-      /**
-       * Send the player's score to the back-end.
+      /*
+       *  ───────────────────────────────────────────────────────────────
+       *  API PASSWORD (light-weight obfuscation)
+       *
+       *  The password is **not** hard-coded in plain-text.  Instead, a
+       *  short seed is stored as an offset-encoded character array.
+       *  Reconstructing the seed then running the simple hex-encoding
+       *  algorithm below yields the password.  Reverse-engineering is
+       *  therefore required to discover the correct header value that
+       *  the back-end now expects.
+       *  ───────────────────────────────────────────────────────────────
        */
-      async function sendScoreToAPI(score) {
+
+      const getApiSeed = (() => {
+        /* Each code-point has +3 added – trivial, but hides raw text */
+        const codes = [68, 111, 115, 107, 100, 82, 112, 104, 106, 100];
+        let cached = null;
+        return () => {
+          if (cached) return cached;
+          cached = codes.map((c) => String.fromCharCode(c - 3)).join("");
+          return cached;
+        };
+      })();
+
+      /**
+       * Convert seed → password (hex-encoded char codes).
+       * Must stay in sync with the server's implementation.
+       */
+      const getApiPassword = () =>
+        getApiSeed()
+          .split("")
+          .map((ch) => ch.charCodeAt(0).toString(16))
+          .join("");
+
+      async function sendScoreToAPI(score, eaten, sessionId) {
         if (!userId) return; // not running inside Telegram → skip
 
         try {
@@ -363,11 +416,14 @@
               // **Only** Telegram signature – no shared secret in the client!
               // "x-telegram-init-data": window.Telegram.WebApp.initData,
               Authorization: `tma ${initDataRaw}`,
+              "x-api-password": getApiPassword(), // NEW header
             },
             body: JSON.stringify({
               score,
               gameTime,
               event: "Season 3",
+              eaten,
+              sessionId,
             }),
           });
         } catch (e) {
@@ -450,6 +506,10 @@
       /* Game-state flags -------------------------------------------------- */
       let gameState = "start"; // "start" | "playing" | "over"
       let isGameOver = false;
+
+      /* NEW: per-round tracking for anti-cheat */
+      let eatenEvents = [];
+      let currentSessionId = null;
 
       /*********************   IMAGES & SPRITES   ***************************/
       const fishTypeDefinitions = [
@@ -990,7 +1050,7 @@
           /* 1) render the sprite itself ----------------------------- */
           super.draw(c);
 
-          /* 2) render the lightning pulse while the jellyfish is “hot” */
+          /* 2) render the lightning pulse while the jellyfish is "hot" */
           if (this.pauseTimeRemaining > 0 && this.width && this.height) {
             const alpha = this.pauseTimeRemaining; // 1 → 0
             const cx = this.x + this.width / 2;
@@ -1382,6 +1442,7 @@
               playerPowerUpTime = POWER_UP_DURATION;
               playerIsPoweredUp = true;
               playPowerUpSound();
+              eatenEvents.push({ t: gameTime, size: e.maxSide });
               fishList.splice(i, 1);
               continue;
             }
@@ -1389,6 +1450,7 @@
             /* ---------- Player IS powered-up ---------- */
             if (playerIsPoweredUp) {
               score += calculateFishScore(e.maxSide);
+              eatenEvents.push({ t: gameTime, size: e.maxSide });
 
               if (e.isJellyfish && !e.isElectric) {
                 /* regular jellyfish → shrink */
@@ -1426,6 +1488,7 @@
             if (pR * EATING_LEEWAY > eR) {
               /* player eats the fish */
               score += calculateFishScore(e.maxSide);
+              eatenEvents.push({ t: gameTime, size: e.maxSide });
 
               if (e.isJellyfish && !e.isElectric) {
                 /* regular jellyfish → shrink */
@@ -1453,11 +1516,12 @@
                 playPowerUpSound();
               }
               fishList.splice(i, 1);
+              continue;
             } else {
               /* player gets eaten */
               isGameOver = true;
               gameState = "over";
-              sendScoreToAPI(score);
+              sendScoreToAPI(score, eatenEvents, currentSessionId);
               explosion = new Explosion(
                 player.x + (player.width ?? player.maxSide) / 2,
                 player.y + (player.height ?? player.maxSide) / 2,
@@ -1581,15 +1645,67 @@
         updateSfxButtons();
       };
 
-      startBtn.onclick = () => {
+      startBtn.onclick = async () => {
         hideStartScreen();
         showOrHideArrowKeys(arrowKeysBtn.textContent.includes("On"));
+
+        /* 1️⃣ Create a fresh session on the server */
+        let sessionInfo;
+        try {
+          const resp = await fetch("/api/session", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `tma ${initDataRaw}`,
+              "x-api-password": getApiPassword(),
+            },
+          });
+          sessionInfo = await resp.json(); // {sessionId, seed}
+        } catch (e) {
+          alert("Cannot start game – session failed.");
+          window.location.reload();
+          return;
+        }
+
+        /* 2️⃣ Replace Math.random with deterministic RNG */
+        const rng = Math.seedrandom(sessionInfo.seed);
+        Math.random = rng;
+
+        currentSessionId = sessionInfo.sessionId;
+        eatenEvents.length = 0; // clear any previous run
+
         gameState = "playing";
         initGame();
       };
-      playAgainBtn.onclick = () => {
+
+      playAgainBtn.onclick = async () => {
         hideGameOverScreen();
         showOrHideArrowKeys(arrowKeysBtnGameOver.textContent.includes("On"));
+
+        /* Same session initialisation as the first run */
+        let sessionInfo;
+        try {
+          const resp = await fetch("/api/session", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `tma ${initDataRaw}`,
+              "x-api-password": getApiPassword(),
+            },
+          });
+          sessionInfo = await resp.json();
+        } catch (e) {
+          alert("Cannot start game – session failed.");
+          window.location.reload();
+          return;
+        }
+
+        const rng = Math.seedrandom(sessionInfo.seed);
+        Math.random = rng;
+
+        currentSessionId = sessionInfo.sessionId;
+        eatenEvents.length = 0;
+
         gameState = "playing";
         initGame();
       };

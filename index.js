@@ -20,6 +20,12 @@ const {
   getActiveEventHighScores,
 } = require("./repositories/scoreRepository");
 
+const {
+  createSession,
+  fetchSession,
+  verifyReplay,
+} = require("./repositories/sessionRepository");
+
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -108,6 +114,13 @@ async function initializeDatabase() {
 /* ───────────────────────── Telegram initData verifier ────────────────── */
 
 function verifyTelegramData(req, res, next) {
+  // ─── Development mode bypass ────────────────────────────────────
+  if (process.env.ENVIRONMENT === "development") {
+    // Inject a dummy Telegram user so the rest of the pipeline works.
+    req.telegramUser = { id: "local-dev", username: "dev" };
+    return next();
+  }
+  // ────────────────────────────────────────────────────────────────
   // We expect passing init data in the Authorization header in the following format:
   // <auth-type> <auth-data>
   // <auth-type> must be "tma", and <auth-data> is Telegram Mini Apps init data.
@@ -140,6 +153,24 @@ function verifyTelegramData(req, res, next) {
   }
 }
 
+/* ───────────────────────── API password (obfuscated) ────────────────── */
+
+function generateApiPassword() {
+  /* Mirror the client-side obfuscation logic – seed stored as offset codes */
+  const codes = [68, 111, 115, 107, 100, 82, 112, 104, 106, 100];
+  const seed = codes.map((c) => String.fromCharCode(c - 3)).join("");
+  return seed
+    .split("")
+    .map((ch) => ch.charCodeAt(0).toString(16))
+    .join("");
+}
+
+function verifyApiPassword(req, res, next) {
+  const provided = req.header("x-api-password") || "";
+  if (provided === generateApiPassword()) return next();
+  return res.status(401).json({ error: "Unauthorized" });
+}
+
 /* ───────────────────────── Express routes ────────────────────────────── */
 
 app.use(express.static("public"));
@@ -147,39 +178,96 @@ app.use(express.json());
 
 // Serve index.html *as is* – no credentials leaked to the client
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  const obfPath = path.join(__dirname, "public", "index.obf.html");
+  if (fs.existsSync(obfPath)) {
+    res.sendFile(obfPath);
+  } else {
+    res.sendFile(path.join(__dirname, "public", "index.html"));
+  }
 });
+
+/* ───────────────────────── Start-game session ──────────────────────── */
+
+app.post(
+  "/api/session",
+  verifyTelegramData,
+  verifyApiPassword,
+  async (req, res) => {
+    try {
+      const { id: userId } = req.telegramUser;
+      const { sessionId, seed } = await createSession(userId);
+      res.json({ sessionId, seed });
+    } catch (err) {
+      console.error("Session creation error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
 
 // Submit a score (POST)
 // Protected only by Telegram signature
-app.post("/api/scores", verifyTelegramData, async (req, res) => {
-  try {
-    console.log("Received score submission request:", req.body);
-    const { score, gameTime, event } = req.body;
+app.post(
+  "/api/scores",
+  verifyTelegramData,
+  verifyApiPassword,
+  async (req, res) => {
+    try {
+      console.log("Received score submission request:", req.body);
 
-    if (
-      typeof score !== "number" ||
-      typeof gameTime !== "number" ||
-      typeof event !== "string"
-    ) {
-      console.error("Invalid or missing required fields:", {
-        // userId,
+      const { score, gameTime, event, sessionId, eaten } = req.body;
+
+      if (
+        typeof score !== "number" ||
+        typeof gameTime !== "number" ||
+        typeof event !== "string" ||
+        typeof sessionId !== "string" ||
+        !Array.isArray(eaten)
+      ) {
+        console.error("Invalid or missing required fields:", {
+          score,
+          gameTime,
+          event,
+          sessionId,
+          eaten,
+        });
+        return res.status(400).json({ error: "Invalid or missing fields" });
+      }
+
+      const { id: userId, username } = req.telegramUser;
+
+      // 🔒 validate session & replay
+      const sess = await fetchSession(sessionId, userId);
+      if (!sess) {
+        return res.status(400).json({ error: "Invalid or expired session" });
+      }
+
+      const ok = verifyReplay({
+        seed: sess.seed,
+        eatenEvents: eaten,
+        finalScore: score,
+        gameTime,
+      });
+
+      if (!ok) {
+        console.warn("Replay verification failed", { userId, sessionId });
+        return res.status(400).json({ error: "Replay check failed" });
+      }
+
+      const updated = await updateScore(
+        userId,
+        username,
         score,
         gameTime,
         event,
-      });
-      return res.status(400).json({ error: "Invalid or missing fields" });
+        sessionId // optional extra
+      );
+      res.json(updated);
+    } catch (err) {
+      console.error("Error submitting score:", err);
+      res.status(500).json({ error: "Internal server error" });
     }
-
-    const { id: userId, username } = req.telegramUser;
-
-    const updated = await updateScore(userId, username, score, gameTime, event);
-    res.json(updated);
-  } catch (err) {
-    console.error("Error submitting score:", err);
-    res.status(500).json({ error: "Internal server error" });
   }
-});
+);
 
 // Public high-score board for the active event
 app.get("/api/scores", async (_req, res) => {
