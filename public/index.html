@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <!-- Telegram Mini‑App bridge -->
     <script src="https://telegram.org/js/telegram-web-app.js?57"></script>
-    <!-- Deterministic RNG (client & server must match) -->
+
+    <!-- Deterministic RNG (client & server share the same seed) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
 
     <meta charset="UTF-8" />
@@ -39,15 +41,12 @@
     <audio id="achievementSound">
       <source src="sounds/achievement.mp3" type="audio/mpeg" />
     </audio>
-    <!-- NEW: shrink sound -->
     <audio id="shrinkSound">
       <source src="sounds/shrink.mp3" type="audio/mpeg" />
     </audio>
-    <!-- NEW: electric pulse sound -->
     <audio id="electricSound">
       <source src="sounds/electric.mp3" type="audio/mpeg" />
     </audio>
-    <!-- NEW: shock sound played when the player is actually hit -->
     <audio id="shockSound">
       <source src="sounds/shock.mp3" type="audio/mpeg" />
     </audio>
@@ -56,6 +55,7 @@
     <!--                              STYLES                               -->
     <!-- ----------------------------------------------------------------- -->
     <style>
+      /* --- layout basics --- */
       html,
       body {
         margin: 0;
@@ -72,7 +72,7 @@
         width: 100%;
         position: relative;
         overflow: hidden;
-        background: #222 url("img/bg6.png") center/cover no-repeat;
+        background: #222 url("img/bg6.png") center / cover no-repeat;
         display: flex;
         margin: 0 auto;
         max-width: 430px;
@@ -84,6 +84,8 @@
         display: block;
         touch-action: none;
       }
+
+      /* --- on‑screen arrow keys --- */
       #controlsContainer {
         width: 100%;
         display: none;
@@ -106,15 +108,16 @@
         font-family: "Londrina Solid", sans-serif;
         font-size: 20px;
         margin: 1px;
-        cursor: pointer;
         border-radius: 4px;
         height: 60px;
         user-select: none;
-        touch-action: none; /* important for multi-touch */
+        touch-action: none;
       }
       .arrowBtn:active {
         transform: scale(0.95);
       }
+
+      /* --- overlay screens --- */
       .overlay {
         position: absolute;
         inset: 0;
@@ -152,7 +155,7 @@
 
   <body>
     <!-- ----------------------------------------------------------------- -->
-    <!--                            MARK-UP                                -->
+    <!--                            MARK‑UP                                -->
     <!-- ----------------------------------------------------------------- -->
     <div id="gameWrapper">
       <canvas id="gameCanvas"></canvas>
@@ -217,15 +220,6 @@
             <button id="sfxBtn">🔊 SFX On</button>
             <button id="arrowKeysBtn">🎮 Arrow Keys Off</button>
           </div>
-          <!-- <div
-            style="
-              display: flex;
-              gap: 0;
-              margin-bottom: 0;
-              justify-content: center;
-            "
-          >
-          </div> -->
 
           <button id="startBtn" style="font-size: 24px; padding: 12px 24px">
             Start Game
@@ -233,7 +227,7 @@
         </div>
       </div>
 
-      <!-- ---------- Game-over overlay ---------- -->
+      <!-- ---------- Game‑over overlay ---------- -->
       <div id="gameOverScreen" class="overlay hidden">
         <div style="max-width: 90%; margin: 0 auto; text-align: center">
           <h1
@@ -247,8 +241,6 @@
             <button id="sfxBtnGameOver">🔊 SFX On</button>
             <button id="arrowKeysBtnGameOver">🎮 Arrow Keys Off</button>
           </div>
-          <!-- <div style="display: flex; gap: 0; justify-content: center">
-          </div> -->
           <button
             id="playAgainBtn"
             style="font-size: 24px; padding: 12px 24px; margin-top: 12px"
@@ -259,7 +251,7 @@
       </div>
     </div>
 
-    <!-- ---------- Bottom: on-screen arrow keys ---------- -->
+    <!-- ---------- Bottom: on‑screen arrow keys ---------- -->
     <div id="controlsContainer">
       <div class="controlsRow">
         <button class="arrowBtn" id="arrowUp">↑</button>
@@ -277,16 +269,7 @@
     <script>
       /********************* CONSTANTS & GLOBALS ***************************/
 
-      /*
-       * In *development* we may not run inside Telegram.  If the server
-       * sets ENVIRONMENT=development we can simply skip Telegram checks –
-       * but the front-end also needs a dummy userId so the game sends test
-       * scores.  The simplest switch is a URL parameter ?dev or manually
-       * uncommenting the block below.
-       *
-       * 1. When testing locally → add ?dev to the URL or uncomment.
-       * 2. In production the normal Telegram initialisation runs.
-       */
+      /* Dev helper – ?dev in the URL skips Telegram auth */
       const urlParams = new URLSearchParams(window.location.search);
       const forceDev = urlParams.has("dev");
 
@@ -305,12 +288,13 @@
         console.error("Telegram init error:", e);
       }
 
-      // Development fallback
+      /* Local fallback */
       if (forceDev || !userId) {
         userId = "local-dev";
         userData = { username: "dev" };
       }
 
+      /* Status banner */
       const statusDiv = document.getElementById("telegramStatus");
       if (userId) {
         statusDiv.textContent = `Telegram connected ✓ (User: ${
@@ -323,21 +307,17 @@
         statusDiv.style.color = "red";
       }
 
-      /* -------- Keyboard state -------- */
+      /* Keyboard state */
       const keys = { left: false, right: false, up: false, down: false };
       const clearKeys = () => {
         keys.left = keys.right = keys.up = keys.down = false;
       };
 
-      /* ------------------------------------------------------------------
-         IMPROVED ON-SCREEN BUTTON HANDLING
-      ------------------------------------------------------------------ */
-      const pointerDirMap = Object.create(null); // pointerId → dir
-
+      /* Pointer‑aware button helper */
+      const pointerDirMap = Object.create(null);
       function pressKey(dir, down) {
         keys[dir] = down;
       }
-
       function setupArrowButton(btn, dir) {
         btn.addEventListener(
           "pointerdown",
@@ -349,43 +329,26 @@
           },
           { passive: false }
         );
-
         function release(e) {
           const d = pointerDirMap[e.pointerId] ?? dir;
           pressKey(d, false);
           delete pointerDirMap[e.pointerId];
         }
-
         btn.addEventListener("pointerup", release);
         btn.addEventListener("pointercancel", release);
         btn.addEventListener("pointerleave", (e) => {
           if (e.buttons === 0) release(e);
         });
       }
-
-      ["Up", "Left", "Down", "Right"].forEach((dir) => {
+      ["Up", "Left", "Down", "Right"].forEach((dir) =>
         setupArrowButton(
           document.getElementById(`arrow${dir}`),
           dir.toLowerCase()
-        );
-      });
+        )
+      );
 
       /* -------- Score submission -------- */
-      /*
-       *  ───────────────────────────────────────────────────────────────
-       *  API PASSWORD (light-weight obfuscation)
-       *
-       *  The password is **not** hard-coded in plain-text.  Instead, a
-       *  short seed is stored as an offset-encoded character array.
-       *  Reconstructing the seed then running the simple hex-encoding
-       *  algorithm below yields the password.  Reverse-engineering is
-       *  therefore required to discover the correct header value that
-       *  the back-end now expects.
-       *  ───────────────────────────────────────────────────────────────
-       */
-
       const getApiSeed = (() => {
-        /* Each code-point has +3 added – trivial, but hides raw text */
         const codes = [68, 111, 115, 107, 100, 82, 112, 104, 106, 100];
         let cached = null;
         return () => {
@@ -394,33 +357,25 @@
           return cached;
         };
       })();
-
-      /**
-       * Convert seed → password (hex-encoded char codes).
-       * Must stay in sync with the server's implementation.
-       */
       const getApiPassword = () =>
         getApiSeed()
           .split("")
           .map((ch) => ch.charCodeAt(0).toString(16))
           .join("");
 
-      async function sendScoreToAPI(score, eaten, sessionId) {
-        if (!userId) return; // not running inside Telegram → skip
-
+      async function sendScoreToAPI(score, eaten, sessionId, gameTimeMs) {
+        if (!userId) return; // in dev mode, skip network
         try {
           await fetch("/api/scores", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              // **Only** Telegram signature – no shared secret in the client!
-              // "x-telegram-init-data": window.Telegram.WebApp.initData,
               Authorization: `tma ${initDataRaw}`,
-              "x-api-password": getApiPassword(), // NEW header
+              "x-api-password": getApiPassword(),
             },
             body: JSON.stringify({
               score,
-              gameTime,
+              gameTime: gameTimeMs, // milliseconds
               event: "Season 3",
               eaten,
               sessionId,
@@ -431,7 +386,7 @@
         }
       }
 
-      /* Canvas & resize --------------------------------------------------- */
+      /* Canvas */
       const canvas = document.getElementById("gameCanvas");
       const ctx = canvas.getContext("2d");
       ctx.imageSmoothingEnabled = true;
@@ -439,25 +394,17 @@
       let WIDTH = 800,
         HEIGHT = 600;
 
-      /* --------------  UPDATED FOR HIGH-DPI SCREENS ------------------ */
       function resizeCanvas() {
         const dpr = window.devicePixelRatio || 1;
-
-        /* physical backing-store size */
         const cssW = canvas.clientWidth;
         const cssH = canvas.clientHeight;
         canvas.width = cssW * dpr;
         canvas.height = cssH * dpr;
-
-        /* reset any previous transform, then scale once */
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.scale(dpr, dpr);
-
-        /* logical game-space size (CSS pixels) */
         WIDTH = cssW;
         HEIGHT = cssH;
 
-        /* keep everything inside the new bounds */
         if (player && player.width && player.height) {
           player.x = Math.min(Math.max(0, player.x), WIDTH - player.width);
           player.y = Math.min(Math.max(0, player.y), HEIGHT - player.height);
@@ -469,11 +416,9 @@
           }
         });
       }
-      /* ------------------------------------------------------------------ */
-
       window.addEventListener("resize", resizeCanvas);
 
-      /* Overlay / control DOM elements ----------------------------------- */
+      /* Overlay/DOM refs */
       const startScreen = document.getElementById("startScreen");
       const gameOverScreen = document.getElementById("gameOverScreen");
       const startBtn = document.getElementById("startBtn");
@@ -495,20 +440,21 @@
 
       const showStartScreen = () => startScreen.classList.remove("hidden");
       const hideStartScreen = () => startScreen.classList.add("hidden");
-      const showGameOverScreen = (score) => {
-        finalScoreElem.textContent = `Your Score: ${score}`;
+      const showGameOverScreen = (scoreVal) => {
+        finalScoreElem.textContent = `Your Score: ${scoreVal}`;
         gameOverScreen.classList.remove("hidden");
         playGameOverSound();
         syncGameOverUI();
       };
       const hideGameOverScreen = () => gameOverScreen.classList.add("hidden");
 
-      /* Game-state flags -------------------------------------------------- */
+      /* Game‑state flags */
       let gameState = "start"; // "start" | "playing" | "over"
       let isGameOver = false;
 
-      /* NEW: per-round tracking for anti-cheat */
+      /* Anti‑cheat tracking */
       let eatenEvents = [];
+      let spawnCounter = 0;
       let currentSessionId = null;
 
       /*********************   IMAGES & SPRITES   ***************************/
@@ -537,7 +483,6 @@
       crabImg.src = "img/crab.png";
       const jellyfishImg = new Image();
       jellyfishImg.src = "img/jellyfish-3.png";
-      /* NEW: dedicated electric-jellyfish sprite */
       const electricJellyfishImg = new Image();
       electricJellyfishImg.src = "img/electric-jellyfish-c.png";
       const sushiImg = new Image();
@@ -560,18 +505,16 @@
         achievementSound,
         shrinkSound,
         electricSound,
-        shockSound /* NEW */,
+        shockSound,
         isSfxEnabled = true,
         isMusicEnabled = true,
         explosion = null;
-      let gameStartTime = 0,
-        gameTime = 0;
+      let gameTime = 0, // seconds
+        gameTimeMs = 0; // milliseconds
 
-      /* NEW: paralysis */
+      /* Status effects */
       let playerParalyzeTime = 0;
-      const PARALYZE_DURATION = 3; // seconds
-
-      /* Balance / tuning constants */
+      const PARALYZE_DURATION = 3;
       const EATING_LEEWAY = 1.15;
       const JELLY_SHRINK_FACTOR = 0.6;
       const MIN_PLAYER_SIZE = 25;
@@ -588,7 +531,7 @@
         achievementSound = document.getElementById("achievementSound");
         shrinkSound = document.getElementById("shrinkSound");
         electricSound = document.getElementById("electricSound");
-        shockSound = document.getElementById("shockSound"); /* NEW */
+        shockSound = document.getElementById("shockSound");
         backgroundMusic.volume = 0.2;
         eatSound.volume =
           gameOverSound.volume =
@@ -604,7 +547,6 @@
           backgroundMusic.play().catch(() => {});
       };
 
-      /* ----------  MUSIC / SFX TOGGLES ---------- */
       const updateMusicButtons = () => {
         const txt = isMusicEnabled ? "🎵 Music On" : "🎵 Music Off";
         musicBtn.textContent = txt;
@@ -642,7 +584,6 @@
         updateSfxButtons();
       };
 
-      /* helpers that respect SFX flag */
       const playEatSound = () =>
         isSfxEnabled && eatSound.play().catch(() => {});
       const playGameOverSound = () =>
@@ -661,12 +602,11 @@
       const playElectricSound = () =>
         isSfxEnabled &&
         ((electricSound.currentTime = 0), electricSound.play().catch(() => {}));
-      /* NEW: sound when player is shocked */
       const playShockSound = () =>
         isSfxEnabled &&
         ((shockSound.currentTime = 0), shockSound.play().catch(() => {}));
 
-      /*********************   UTILITY HELPERS   ***************************/
+      /*********************   HELPERS   *****************************/
       const getRandom = (min, max) => Math.random() * (max - min) + min;
       const calculateFishScore = (sz) => Math.floor(sz);
       const totalFishWeight = fishTypes.reduce((s, f) => s + f.weight, 0);
@@ -678,18 +618,16 @@
         }
         return arr[arr.length - 1];
       }
+      function tagEntity(ent, type) {
+        ent.spawnIdx = spawnCounter++;
+        ent.spawnType = type;
+        return ent;
+      }
 
       /*********************    CLASS DEFINITIONS  *************************/
       /* ---- WaterTrail ---- */
       class WaterTrail {
-        constructor(
-          x,
-          y,
-          dir,
-          fishSize,
-          isUltra = false,
-          colorRGB = null /* NEW */
-        ) {
+        constructor(x, y, dir, fishSize, isUltra = false, colorRGB = null) {
           this.x = x;
           this.y = y;
           this.size = getRandom(
@@ -702,7 +640,7 @@
           this.offsetX = getRandom(-3, 3);
           this.offsetY = getRandom(-3, 3);
           this.isUltra = isUltra;
-          this.colorRGB = colorRGB; /* store custom colour */
+          this.colorRGB = colorRGB;
           this.hue = Math.random() * 360;
           this.hueSpeed = getRandom(2, 4);
         }
@@ -769,7 +707,7 @@
             this.accel = 0.055;
             this.friction = 0.99;
             this.maxSpd = 10;
-            this.facingLeft = false; // NEW: remember orientation
+            this.facingLeft = false;
           }
           this.width = this.height = null;
         }
@@ -794,16 +732,12 @@
           if (this.width === null || this.height === null)
             this.calculateDimensions();
 
-          /* -------- orientation -------- */
           if (this.isPlayer) {
-            // maintain orientation if paralyzed
             if (Math.abs(this.vx) > 0.1) this.facingLeft = this.vx < 0;
           }
           const movingLeft = this.isPlayer ? this.facingLeft : this.speedX < 0;
-
           const ultra =
             this.isUltraFast || (this.isPlayer && playerIsPoweredUp);
-
           const flickerActive =
             this.isPlayer &&
             playerIsPoweredUp &&
@@ -817,7 +751,6 @@
             c.translate(-this.width / 2, -this.height / 2);
           } else c.translate(this.x, this.y);
 
-          /* NEW: player frozen → yellow tint */
           if (this.isPlayer && playerParalyzeTime > 0) {
             c.filter = "hue-rotate(30deg) brightness(1.4) saturate(1.8)";
           } else if (ultra) {
@@ -825,7 +758,6 @@
           } else if (this.isFast) {
             c.filter = "hue-rotate(45deg) brightness(1.2)";
           }
-
           if (flickerActive) {
             c.globalAlpha = 0.5;
             c.filter =
@@ -980,7 +912,6 @@
             Math.sin(performance.now() * this.oscS + this.oscO) * this.oscA;
           if (this.y + this.height < -50) this.maxSide = 0;
         }
-        /* NEW: poison trail */
         createWaterTrail() {
           if (!this.width || !this.height) return;
           const now = performance.now();
@@ -993,7 +924,7 @@
               0,
               this.maxSide * 0.4,
               false,
-              { r: 120, g: 0, b: 0 } // dark-red poison colour
+              { r: 120, g: 0, b: 0 }
             )
           );
         }
@@ -1003,39 +934,32 @@
       class ElectricJellyfish extends Jellyfish {
         constructor(x, y, size) {
           super(x, y, size);
-          this.sprite = electricJellyfishImg; /* NEW sprite */
+          this.sprite = electricJellyfishImg;
           this.isElectric = true;
-          this.pulseCooldown = getRandom(5, 12); // seconds until first pulse
-          this.pauseTimeRemaining = 0; // while pulsing, no movement
+          this.pulseCooldown = getRandom(5, 12); // seconds
+          this.pauseTimeRemaining = 0;
           this.pulseRadius = size * 2.3;
         }
         update(dt) {
-          // During pulse: stay still and decrement pause timer
           if (this.pauseTimeRemaining > 0) {
             this.pauseTimeRemaining -= dt;
             if (this.pauseTimeRemaining <= 0) {
-              /* pulse finished → adjust baseX so that the oscillation resumes without a visual jump */
               const phase = Math.sin(performance.now() * this.oscS + this.oscO);
               this.baseX = this.x - phase * this.oscA;
               this.pulseCooldown = getRandom(5, 12);
             }
-            return; // skip normal movement while pulsing
+            return;
           }
-
-          // Countdown to next pulse
           this.pulseCooldown -= dt;
           if (this.pulseCooldown <= 0) {
             this.performPulse();
             return;
           }
-
-          // Normal upward drift
           super.update(dt);
         }
         performPulse() {
-          this.pauseTimeRemaining = 1; // 1-second pulse animation
+          this.pauseTimeRemaining = 1;
           playElectricSound();
-          // Check if player is within pulse radius
           const p = player.getBounds();
           const b = this.getBounds();
           const dx = p.centerX - b.centerX;
@@ -1043,39 +967,30 @@
           const dist = Math.hypot(dx, dy);
           if (dist <= this.pulseRadius) {
             playerParalyzeTime = PARALYZE_DURATION;
-            playShockSound(); /* NEW */
+            playShockSound();
           }
         }
         draw(c) {
-          /* 1) render the sprite itself ----------------------------- */
           super.draw(c);
-
-          /* 2) render the lightning pulse while the jellyfish is "hot" */
           if (this.pauseTimeRemaining > 0 && this.width && this.height) {
-            const alpha = this.pauseTimeRemaining; // 1 → 0
+            const alpha = this.pauseTimeRemaining;
             const cx = this.x + this.width / 2;
             const cy = this.y + this.height / 2;
-            const maxLen = this.pulseRadius * (1 - alpha * 0.25); // slight shrink
-            const bolts = 10; // how many rays
-            const segmentsPerBolt = 3; // jaggedness
-
-            /* draw each bolt */
+            const maxLen = this.pulseRadius * (1 - alpha * 0.25);
+            const bolts = 10;
+            const segmentsPerBolt = 3;
             for (let i = 0; i < bolts; i++) {
               const baseAngle = (i / bolts) * Math.PI * 2;
-
-              /* build the zig-zag path one segment at a time */
               let prevX = cx,
                 prevY = cy;
               for (let s = 1; s <= segmentsPerBolt; s++) {
                 const segLen = (maxLen / segmentsPerBolt) * s;
-                const jitter = segLen * 0.25; // random wobble
-                const angle = baseAngle + getRandom(-0.2, 0.2); // ± a little
+                const jitter = segLen * 0.25;
+                const angle = baseAngle + getRandom(-0.2, 0.2);
                 const x =
                   cx + Math.cos(angle) * segLen + getRandom(-jitter, jitter);
                 const y =
                   cy + Math.sin(angle) * segLen + getRandom(-jitter, jitter);
-
-                /* stroke that segment */
                 c.save();
                 c.beginPath();
                 c.moveTo(prevX, prevY);
@@ -1086,14 +1001,12 @@
                 c.shadowColor = `rgba(255,255,0,${alpha})`;
                 c.stroke();
                 c.restore();
-
                 prevX = x;
                 prevY = y;
               }
             }
           }
         }
-        /* NEW: spark trail */
         createWaterTrail() {
           if (!this.width || !this.height) return;
           const now = performance.now();
@@ -1106,7 +1019,7 @@
               0,
               this.maxSide * 0.4,
               false,
-              { r: 255, g: 255, b: 0 } // yellow spark colour
+              { r: 255, g: 255, b: 0 }
             )
           );
         }
@@ -1241,73 +1154,83 @@
         const t = getRandomWeightedFishType(fishTypes);
         const size = getRandom(t.minSize, t.maxSize);
         const fromLeft = Math.random() < 0.5;
-        const x = fromLeft ? -size : WIDTH,
-          y = getRandom(0, HEIGHT - size);
+        const x = fromLeft ? -size : WIDTH;
+        const y = getRandom(0, HEIGHT - size);
         const sizeFactor = 1 - size / 500;
-        const minSpd = 0.3 + 0.5 * sizeFactor,
-          maxSpd = 1.5 + 0.3 * sizeFactor;
-        const difficulty = Math.min(score / 1000, 1),
-          spdMultiplier = 0.4 + 0.6 * difficulty;
-        let spd = getRandom(minSpd, maxSpd) * spdMultiplier;
-        const ultra = Math.random() < 0.01,
-          fast = !ultra && Math.random() < 0.03;
+        const minSpd = 0.3 + 0.5 * sizeFactor;
+        const maxSpd = 1.5 + 0.3 * sizeFactor;
+        const difficulty = Math.min(score / 1000, 1);
+        let spd = getRandom(minSpd, maxSpd) * (0.4 + 0.6 * difficulty);
+        const ultra = Math.random() < 0.01;
+        const fast = !ultra && Math.random() < 0.03;
         if (ultra) spd *= 5;
         else if (fast) spd *= 3;
-        const fish = new Fish(x, y, fromLeft ? spd : -spd, 0, t.image, size);
+        const fish = tagEntity(
+          new Fish(x, y, fromLeft ? spd : -spd, 0, t.image, size),
+          "fish"
+        );
         fish.isFast = fast;
         fish.isUltraFast = ultra;
         fishList.push(fish);
       }
       function spawnCrab() {
         const size = getRandom(50, 120);
-        const crab = new Crab(getRandom(0, WIDTH - size), HEIGHT + size, size);
-        fishList.push(crab);
+        fishList.push(
+          tagEntity(
+            new Crab(getRandom(0, WIDTH - size), HEIGHT + size, size),
+            "crab"
+          )
+        );
       }
       function spawnJellyfish() {
         const size = getRandom(30, 80);
         fishList.push(
-          new Jellyfish(getRandom(0, WIDTH - size), HEIGHT + size, size)
+          tagEntity(
+            new Jellyfish(getRandom(0, WIDTH - size), HEIGHT + size, size),
+            "jelly"
+          )
         );
       }
       function spawnElectricJellyfish() {
         const size = getRandom(40, 90);
         fishList.push(
-          new ElectricJellyfish(getRandom(0, WIDTH - size), HEIGHT + size, size)
+          tagEntity(
+            new ElectricJellyfish(
+              getRandom(0, WIDTH - size),
+              HEIGHT + size,
+              size
+            ),
+            "elecJelly"
+          )
         );
       }
       function spawnSushi() {
-        const size = 30,
-          fromLeft = Math.random() < 0.5,
-          x = fromLeft ? -size : WIDTH,
-          y = getRandom(0, HEIGHT - size),
-          spd = (fromLeft ? 1 : -1) * 1.5;
-        fishList.push(new Sushi(x, y, spd));
+        const size = 30;
+        const fromLeft = Math.random() < 0.5;
+        const x = fromLeft ? -size : WIDTH;
+        const y = getRandom(0, HEIGHT - size);
+        const spd = (fromLeft ? 1 : -1) * 1.5;
+        fishList.push(tagEntity(new Sushi(x, y, spd), "sushi"));
       }
       function spawnPufferfish() {
-        const baseSize = getRandom(30, 60),
-          fromLeft = Math.random() < 0.5,
-          x = fromLeft ? -baseSize : WIDTH,
-          y = getRandom(0, HEIGHT - baseSize),
-          spd = getRandom(0.2, 1.2) * (fromLeft ? 1 : -1);
-        fishList.push(new Pufferfish(x, y, spd, baseSize));
+        const baseSize = getRandom(30, 60);
+        const fromLeft = Math.random() < 0.5;
+        const x = fromLeft ? -baseSize : WIDTH;
+        const y = getRandom(0, HEIGHT - baseSize);
+        const spd = getRandom(0.2, 1.2) * (fromLeft ? 1 : -1);
+        fishList.push(tagEntity(new Pufferfish(x, y, spd, baseSize), "puffer"));
       }
 
-      /* ---------------- MOD: dynamic max enemies ---------------- */
-      function currentMaxEnemies() {
-        return score < 1000 ? 20 : 30;
-      }
-      /* ---------------------------------------------------------- */
-
-      /* bubble groups */
+      /* Bubble helper */
       function spawnBubbleGroup() {
-        const n = Math.floor(getRandom(3, 6)),
-          baseX = getRandom(50, WIDTH - 50);
+        const n = Math.floor(getRandom(3, 6));
+        const baseX = getRandom(50, WIDTH - 50);
         for (let i = 0; i < n; i++) bubbles.push(new Bubble(baseX));
       }
       let bubbleTimer = 0;
       const BUBBLE_INTERVAL = 20;
 
-      /*********************     ROUND RESET     ****************************/
+      /*********************     RESET ROUND (size)     *********************/
       function resetRound() {
         fishList = [];
         bubbles = [];
@@ -1326,12 +1249,12 @@
         bubbleTimer = 0;
       }
 
-      /*********************      GAME LOGIC      ***************************/
+      /*********************      GAME LOOP LOGIC      *********************/
       function checkCollisionOval(a, b) {
-        const A = a.getBounds(),
-          B = b.getBounds(),
-          dx = A.centerX - B.centerX,
-          dy = A.centerY - B.centerY;
+        const A = a.getBounds();
+        const B = b.getBounds();
+        const dx = A.centerX - B.centerX;
+        const dy = A.centerY - B.centerY;
         return (
           (dx * dx) / (A.radiusX + B.radiusX) ** 2 +
             (dy * dy) / (A.radiusY + B.radiusY) ** 2 <=
@@ -1349,8 +1272,12 @@
         }
         if (gameState !== "playing") return;
         if (isGameOver && !explosion) return;
-        gameTime += dt;
 
+        /* time */
+        gameTime += dt;
+        gameTimeMs = Math.round(gameTime * 1000);
+
+        /* power‑up / status decrement */
         if (playerPowerUpTime > 0) {
           playerPowerUpTime -= dt;
           if (playerPowerUpTime <= 0) {
@@ -1358,13 +1285,12 @@
             playerIsPoweredUp = false;
           }
         }
-
         if (playerParalyzeTime > 0) {
           playerParalyzeTime -= dt;
           if (playerParalyzeTime < 0) playerParalyzeTime = 0;
         }
 
-        /* ----- bubbles ----- */
+        /* bubbles */
         for (let i = bubbles.length - 1; i >= 0; i--) {
           bubbles[i].update(dt);
           if (bubbles[i].y < -20) bubbles.splice(i, 1);
@@ -1375,13 +1301,13 @@
           bubbleTimer = 0;
         }
 
-        /* ----- water trails ----- */
+        /* water trails */
         for (let i = waterTrails.length - 1; i >= 0; i--) {
           waterTrails[i].update(dt);
           if (waterTrails[i].life <= 0) waterTrails.splice(i, 1);
         }
 
-        /* ----- player input ----- */
+        /* player input */
         const canMove = playerParalyzeTime <= 0;
         const a = player.accel * dt * 60;
         if (canMove) {
@@ -1389,23 +1315,18 @@
           if (keys.right) player.vx += a;
           if (keys.up) player.vy -= a;
           if (keys.down) player.vy += a;
-
           if (touchTarget && player.width && player.height) {
-            const px = player.x + player.width / 2,
-              py = player.y + player.height / 2,
-              dx = touchTarget.x - px,
-              dy = touchTarget.y - py,
-              dist = Math.hypot(dx, dy);
+            const px = player.x + player.width / 2;
+            const py = player.y + player.height / 2;
+            const dx = touchTarget.x - px;
+            const dy = touchTarget.y - py;
+            const dist = Math.hypot(dx, dy);
             if (dist > 1) {
-              const ax = (dx / dist) * a,
-                ay = (dy / dist) * a;
-              player.vx += ax;
-              player.vy += ay;
+              player.vx += (dx / dist) * a;
+              player.vy += (dy / dist) * a;
             }
           }
         }
-        // If paralyzed, no new input is applied; the fish just glides and slows via friction.
-
         const spd = Math.hypot(player.vx, player.vy);
         if (spd > player.maxSpd) {
           const r = player.maxSpd / spd;
@@ -1413,10 +1334,11 @@
           player.vy *= r;
         }
 
+        /* update entities */
         player.update(dt);
         player.createWaterTrail();
 
-        /* ----- enemies & collisions ----- */
+        /* enemies */
         for (let i = fishList.length - 1; i >= 0; i--) {
           const e = fishList[i];
           if (e instanceof ElectricJellyfish) e.update(dt);
@@ -1435,37 +1357,45 @@
             continue;
           }
 
+          /* collision with player */
           if (checkCollisionOval(player, e)) {
-            /* sushi == power-up */
+            /* --- sushi (always edible) --- */
             if (e.isSushi) {
               score += 50;
               playerPowerUpTime = POWER_UP_DURATION;
               playerIsPoweredUp = true;
               playPowerUpSound();
-              eatenEvents.push({ t: gameTime, size: e.maxSide });
+              eatenEvents.push({
+                t: gameTimeMs,
+                idx: e.spawnIdx,
+                type: e.spawnType,
+                size: e.maxSide,
+              });
               fishList.splice(i, 1);
               continue;
             }
 
-            /* ---------- Player IS powered-up ---------- */
+            /* --- player is powered‑up --- */
             if (playerIsPoweredUp) {
               score += calculateFishScore(e.maxSide);
-              eatenEvents.push({ t: gameTime, size: e.maxSide });
+              eatenEvents.push({
+                t: gameTimeMs,
+                idx: e.spawnIdx,
+                type: e.spawnType,
+                size: e.maxSide,
+              });
 
               if (e.isJellyfish && !e.isElectric) {
-                /* regular jellyfish → shrink */
                 player.maxSide = Math.max(
                   player.maxSide * JELLY_SHRINK_FACTOR,
                   MIN_PLAYER_SIZE
                 );
                 playShrinkSound();
               } else {
-                /* any other fish (including electric jelly) → grow */
                 player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
                 playEatSound();
               }
 
-              /* Special case: electric jellyfish causes paralysis when eaten */
               if (e.isElectric) {
                 playerParalyzeTime = PARALYZE_DURATION;
                 playShockSound();
@@ -1481,29 +1411,30 @@
               continue;
             }
 
-            /* ---------- Player is NOT powered-up ---------- */
-
-            const pR = player.getBounds().radiusX,
-              eR = e.getBounds().radiusX;
+            /* --- no power‑up, check size --- */
+            const pR = player.getBounds().radiusX;
+            const eR = e.getBounds().radiusX;
             if (pR * EATING_LEEWAY > eR) {
-              /* player eats the fish */
+              /* player eats */
               score += calculateFishScore(e.maxSide);
-              eatenEvents.push({ t: gameTime, size: e.maxSide });
+              eatenEvents.push({
+                t: gameTimeMs,
+                idx: e.spawnIdx,
+                type: e.spawnType,
+                size: e.maxSide,
+              });
 
               if (e.isJellyfish && !e.isElectric) {
-                /* regular jellyfish → shrink */
                 player.maxSide = Math.max(
                   player.maxSide * JELLY_SHRINK_FACTOR,
                   MIN_PLAYER_SIZE
                 );
                 playShrinkSound();
               } else {
-                /* other fish (including electric) → grow */
                 player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
                 playEatSound();
               }
 
-              /* electric jellyfish paralyses the player */
               if (e.isElectric) {
                 playerParalyzeTime = PARALYZE_DURATION;
                 playShockSound();
@@ -1518,10 +1449,10 @@
               fishList.splice(i, 1);
               continue;
             } else {
-              /* player gets eaten */
+              /* player is eaten */
               isGameOver = true;
               gameState = "over";
-              sendScoreToAPI(score, eatenEvents, currentSessionId);
+              sendScoreToAPI(score, eatenEvents, currentSessionId, gameTimeMs);
               explosion = new Explosion(
                 player.x + (player.width ?? player.maxSide) / 2,
                 player.y + (player.height ?? player.maxSide) / 2,
@@ -1533,12 +1464,12 @@
           }
         }
 
-        /* -------------------- SPAWNING -------------------- */
-        const maxEnemies = currentMaxEnemies(); // MOD: dynamic limit
+        /* spawning */
+        const maxEnemies = score < 1000 ? 20 : 30;
         if (Math.random() < 0.03 * dt * 60 && fishList.length < maxEnemies)
           spawnFish();
         if (
-          score >= 2000 /* MOD: crabs only after 2000 points */ &&
+          score >= 2000 &&
           Math.random() < 0.00005 * dt * 60 &&
           fishList.length < maxEnemies
         )
@@ -1551,7 +1482,6 @@
           spawnSushi();
         if (Math.random() < 0.002 * dt * 60 && fishList.length < maxEnemies)
           spawnPufferfish();
-        /* --------------------------------------------------- */
 
         if (score >= nextMilestone) {
           playAchvSound();
@@ -1560,7 +1490,7 @@
         }
       }
 
-      /*********************      RENDERING       ***************************/
+      /*********************   RENDER LOOP   *****************************/
       function renderGame() {
         ctx.clearRect(0, 0, WIDTH, HEIGHT);
         bubbles.forEach((b) => b.draw(ctx));
@@ -1568,9 +1498,11 @@
         if (player && !(isGameOver && explosion)) player.draw(ctx);
         fishList.forEach((f) => f.draw(ctx));
         if (explosion) explosion.draw(ctx);
+
         ctx.fillStyle = playerParalyzeTime > 0 ? "#ffea00" : "#fff";
-        ctx.font = "20px 'Londrina Solid',sans-serif";
+        ctx.font = "20px 'Londrina Solid', sans-serif";
         ctx.fillText("Score: " + score, 20, 30);
+
         if (touchTarget) {
           ctx.beginPath();
           ctx.arc(touchTarget.x, touchTarget.y, 15, 0, Math.PI * 2);
@@ -1579,17 +1511,16 @@
           ctx.stroke();
         }
         if (playerParalyzeTime > 0) {
-          ctx.font = "16px 'Poppins',sans-serif";
+          ctx.font = "16px 'Poppins', sans-serif";
           ctx.fillStyle = "#ffea00";
           ctx.fillText(`Paralyzed: ${playerParalyzeTime.toFixed(1)}s`, 20, 55);
         }
       }
 
-      /*********************   GAME & SIM LOOPS    **************************/
-      /* ---- SIMULATION LOOP ---- */
+      /* ---- GAME & SIM LOOPS ---- */
       let lastSimTime = performance.now();
       const MAX_DT = 0.1,
-        SIM_STEP_MS = 16; // cap & 60 Hz
+        SIM_STEP_MS = 16;
       function simLoop() {
         const now = performance.now();
         let dt = (now - lastSimTime) / 1000;
@@ -1598,21 +1529,19 @@
         updateGame(dt);
       }
       setInterval(simLoop, SIM_STEP_MS);
-
-      /* ---- RENDER LOOP ---- */
       function gameLoop() {
         renderGame();
         requestAnimationFrame(gameLoop);
       }
 
-      /*********************        INIT          ***************************/
+      /*********************        INIT          *************************/
       function initGame() {
         resizeCanvas();
-        lastSimTime = performance.now(); // reset sim-timer for fresh round
+        lastSimTime = performance.now();
         score = 0;
         nextMilestone = 100000;
         gameTime = 0;
-        gameStartTime = performance.now();
+        gameTimeMs = 0;
         isGameOver = false;
         fishList = [];
         bubbles = [];
@@ -1631,7 +1560,7 @@
         updateSfxButtons();
       }
 
-      /*********************      UI EVENTS       ***************************/
+      /*********************      UI EVENTS       *************************/
       const showOrHideArrowKeys = (show) => {
         controlsContainer.style.display = show ? "flex" : "none";
         const txt = show ? "🎮 Arrow Keys On" : "🎮 Arrow Keys Off";
@@ -1645,11 +1574,13 @@
         updateSfxButtons();
       };
 
-      startBtn.onclick = async () => {
+      /* ---- Start Game ---- */
+      async function startNewRun() {
         hideStartScreen();
+        hideGameOverScreen();
         showOrHideArrowKeys(arrowKeysBtn.textContent.includes("On"));
 
-        /* 1️⃣ Create a fresh session on the server */
+        /* 1️⃣ new session */
         let sessionInfo;
         try {
           const resp = await fetch("/api/session", {
@@ -1667,48 +1598,22 @@
           return;
         }
 
-        /* 2️⃣ Replace Math.random with deterministic RNG */
-        const rng = Math.seedrandom(sessionInfo.seed);
-        Math.random = rng;
+        /* 2️⃣ deterministic RNG */
+        Math.random = Math.seedrandom(sessionInfo.seed);
 
-        currentSessionId = sessionInfo.sessionId;
-        eatenEvents.length = 0; // clear any previous run
-
-        gameState = "playing";
-        initGame();
-      };
-
-      playAgainBtn.onclick = async () => {
-        hideGameOverScreen();
-        showOrHideArrowKeys(arrowKeysBtnGameOver.textContent.includes("On"));
-
-        /* Same session initialisation as the first run */
-        let sessionInfo;
-        try {
-          const resp = await fetch("/api/session", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `tma ${initDataRaw}`,
-              "x-api-password": getApiPassword(),
-            },
-          });
-          sessionInfo = await resp.json();
-        } catch (e) {
-          alert("Cannot start game – session failed.");
-          window.location.reload();
-          return;
-        }
-
-        const rng = Math.seedrandom(sessionInfo.seed);
-        Math.random = rng;
-
+        /* 3️⃣ clear state */
         currentSessionId = sessionInfo.sessionId;
         eatenEvents.length = 0;
+        spawnCounter = 0;
 
+        /* 4️⃣ go */
         gameState = "playing";
         initGame();
-      };
+      }
+
+      startBtn.onclick = startNewRun;
+      playAgainBtn.onclick = startNewRun;
+
       musicBtn.onclick = toggleMusic;
       musicBtnGameOver.onclick = toggleMusic;
       sfxBtn.onclick = toggleSFX;
@@ -1718,13 +1623,9 @@
       arrowKeysBtnGameOver.onclick = () =>
         showOrHideArrowKeys(controlsContainer.style.display === "none");
 
-      /* ----------   NEW: pointer-based on-screen controls   ---------- */
-      setupArrowButton(arrowUp, "up");
-      setupArrowButton(arrowDown, "down");
-      setupArrowButton(arrowLeft, "left");
-      setupArrowButton(arrowRight, "right");
+      /* pointer‑controls already set up above */
 
-      /* ----------   HARDWARE KEYBOARD   ---------- */
+      /* hardware keyboard */
       window.addEventListener("keydown", (e) => {
         if (e.key === "ArrowLeft" || e.key === "a") keys.left = true;
         if (e.key === "ArrowRight" || e.key === "d") keys.right = true;
@@ -1738,7 +1639,7 @@
         if (e.key === "ArrowDown" || e.key === "s") keys.down = false;
       });
 
-      /* ----------   TOUCH / MOUSE AIMING   ---------- */
+      /* touch / mouse aiming */
       canvas.addEventListener("touchstart", (e) => {
         const t = e.touches[0];
         if (t) {
@@ -1753,9 +1654,7 @@
           touchTarget = { x: t.clientX - r.left, y: t.clientY - r.top };
         }
       });
-      canvas.addEventListener("touchend", () => {
-        touchTarget = null;
-      });
+      canvas.addEventListener("touchend", () => (touchTarget = null));
       canvas.addEventListener("mousedown", (e) => {
         const r = canvas.getBoundingClientRect();
         touchTarget = { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -1766,11 +1665,9 @@
           touchTarget = { x: e.clientX - r.left, y: e.clientY - r.top };
         }
       });
-      canvas.addEventListener("mouseup", () => {
-        touchTarget = null;
-      });
+      canvas.addEventListener("mouseup", () => (touchTarget = null));
 
-      /*********************    SAFETY: CLEAR KEYS ON BLUR   **************************/
+      /* safety: clear keys on blur */
       window.addEventListener("blur", clearKeys);
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) clearKeys();
@@ -1782,7 +1679,7 @@
         ...fishTypes.map(({ image }) => new Promise((r) => (image.onload = r))),
         new Promise((r) => (crabImg.onload = r)),
         new Promise((r) => (jellyfishImg.onload = r)),
-        new Promise((r) => (electricJellyfishImg.onload = r)) /* NEW */,
+        new Promise((r) => (electricJellyfishImg.onload = r)),
         new Promise((r) => (sushiImg.onload = r)),
         new Promise((r) => (pufferImg.onload = r)),
       ]).then(() => {
@@ -1797,7 +1694,7 @@
           startAudio();
           document.removeEventListener("mousemove", first);
         });
-        requestAnimationFrame(gameLoop); /* kick-off renderer */
+        requestAnimationFrame(gameLoop);
       });
     </script>
   </body>
