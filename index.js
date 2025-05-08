@@ -23,8 +23,9 @@ const {
 const {
   createSession,
   fetchSession,
-  verifyReplay,
+  // verifyReplay,
 } = require("./repositories/sessionRepository");
+const verifyReplay = require("./helpers/verify-replay");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -55,14 +56,14 @@ app.use(
   })
 );
 
-app.use(
-  rateLimit({
-    windowMs: 5 * 60 * 1000, // 5 min
-    max: 100,
-    standardHeaders: true,
-    legacyHeaders: false,
-  })
-);
+// app.use(
+//   rateLimit({
+//     windowMs: 5 * 60 * 1000, // 5 min
+//     max: 100,
+//     standardHeaders: true,
+//     legacyHeaders: false,
+//   })
+// );
 
 /* ───────────────────────── Telegram bot (optional) ───────────────────── */
 
@@ -213,6 +214,7 @@ app.post(
   verifyApiPassword,
   async (req, res) => {
     try {
+      const currentTime = new Date();
       console.log("Received score submission request:", req.body);
 
       const { score, gameTime, event, sessionId, eaten } = req.body;
@@ -236,22 +238,49 @@ app.post(
 
       const { id: userId, username } = req.telegramUser;
 
+      let isFlagged = false;
+      let flaggedFor = [];
+
       // 🔒 validate session & replay
       const sess = await fetchSession(sessionId, userId);
       if (!sess) {
+        console.warn("Invalid or expired session", { userId, sessionId });
+        isFlagged = true;
+        flaggedFor.push("Invalid or expired session");
         return res.status(400).json({ error: "Invalid or expired session" });
+      }
+
+      // check the start time of the session with the current time
+      const sessionStartTime = new Date(sess.createdAt);
+      // --- sanity‑check duration and report latency ------------------------------
+      const sessionEndTime = new Date(
+        sessionStartTime.getTime() + gameTime * 1000
+      );
+      const msSinceGameEnded = currentTime - sessionEndTime; // >0 ⇒ game already ended
+      const MAX_REPORT_LAG_MS = 60_000; // one minute
+
+      if (sessionEndTime > currentTime) {
+        // Claimed duration pushes the end of the game into the future
+        isFlagged = true;
+        flaggedFor.push("Impossible game duration: too long");
+      } else if (msSinceGameEnded > MAX_REPORT_LAG_MS) {
+        // Score was sent more than a minute after the game finished
+        isFlagged = true;
+        flaggedFor.push("Took longer than 1 minute to report score");
       }
 
       const ok = verifyReplay({
         seed: sess.seed,
-        eatenEvents: eaten,
+        eaten: eaten,
         finalScore: score,
         gameTime,
       });
 
       if (!ok) {
         console.warn("Replay verification failed", { userId, sessionId });
-        return res.status(400).json({ error: "Replay check failed" });
+        // return res.status(400).json({ error: "Replay check failed" });
+        isFlagged = true;
+        flaggedFor.push("Replay verification failed");
       }
 
       const updated = await updateScore(
@@ -260,7 +289,9 @@ app.post(
         score,
         gameTime,
         event,
-        sessionId // optional extra
+        sessionId,
+        isFlagged,
+        flaggedFor
       );
       res.json(updated);
     } catch (err) {

@@ -78,99 +78,154 @@ async function fetchSession(sessionId, userId) {
 // ──────────────────────────────────────────────────────────────────────
 
 /**
- * Minimalistic, *fast* verification of the replay payload.
+ * Re‑simulate a finished “Nomu: Eat or Get Eaten” run and decide
+ * whether the submitted score could be produced by an honest game
+ * client.  Returns true ⇢ accept, false ⇢ reject.
  *
- * The client records only the *eaten* fish events (timestamp + fish size).
- * Given the shared RNG seed we can regenerate the deterministic fish spawn
- * order **very** quickly and check if the claimed events could have
- * occurred.  This does **not** prove the player did *not* cheat, but it
- * makes naive replay attacks (resending an old score JSON) impossible.
- *
- * @param {object} opts
- * @param {string}   opts.seed         – RNG seed (from session)
- * @param {Array}    opts.eatenEvents  – [{t, size}, ...]
- * @param {number}   opts.finalScore   – claimed end-of-round score
- * @param {number}   opts.gameTime     – duration in ms reported by client
- * @returns {boolean} – `true` if plausible, `false` if rejected
+ * @param {Object}  param0
+ * @param {string}  param0.seed       – RNG seed returned by /api/session
+ * @param {Array}   param0.eatenEvents – chronological list of eaten prey
+ * @param {number}  param0.finalScore – client‑reported score
+ * @param {number}  param0.gameTime   – client‑reported total runtime (ms)
  */
 function verifyReplay({ seed, eatenEvents, finalScore, gameTime }) {
-  /* 0 ─ quick rejects */
-  if (!Array.isArray(eatenEvents) || eatenEvents.length === 0) return false;
+  try {
+    /* ──────────────────────────────────────────────────────────────────
+     * 0 │ quick rejects & superficial sanity checks
+     * ────────────────────────────────────────────────────────────────── */
+    if (!Array.isArray(eatenEvents)) return false;
+    if (
+      typeof finalScore !== "number" ||
+      !Number.isFinite(finalScore) ||
+      finalScore < 0 ||
+      typeof gameTime !== "number" ||
+      !Number.isFinite(gameTime) ||
+      gameTime < 0
+    )
+      return false;
 
-  // 1 ─ structural checks --------------------------------------------------
-  let prevIdx = -1,
-    prevT = -1;
-  const usedIdx = new Set();
-  for (const { idx, t } of eatenEvents) {
-    if (typeof idx !== "number" || typeof t !== "number") return false;
-    if (idx <= prevIdx || usedIdx.has(idx)) return false;
-    if (t < prevT) return false;
-    prevIdx = idx;
-    prevT = t;
-    usedIdx.add(idx);
-  }
-  if (gameTime < prevT || gameTime > MAX_EXPECTED_DURATION_MS) return false;
+    if (eatenEvents.length === 0) return finalScore === 0;
 
-  // 2 ─ constants mirror those in client ----------------------------------
-  const EATING_LEEWAY = 1.15;
-  const POWER_UP_DURATION = 10; // seconds
-  const JELLY_SHRINK = 0.6;
-  const MIN_PLAYER_SIZE = 25;
+    /* ──────────────────────────────────────────────────────────────────
+     * 1 │ structural Checks: ordering, uniqueness, monotonicity
+     * ────────────────────────────────────────────────────────────────── */
+    let prevIdx = -1,
+      prevT = -1;
+    const usedIdx = new Set();
 
-  // Legal size ranges per spawnType (keep in sync with spawn functions)
-  const SIZE_RULES = {
-    fish: { min: 10, max: 500 },
-    crab: { min: 50, max: 120 },
-    jelly: { min: 30, max: 80 },
-    elecJelly: { min: 40, max: 90 },
-    sushi: { min: 30, max: 30 }, // fixed sprite
-    puffer: { min: 30, max: 180 }, // may inflate ×3
-  };
+    for (const ev of eatenEvents) {
+      if (
+        ev == null ||
+        typeof ev !== "object" ||
+        typeof ev.idx !== "number" ||
+        typeof ev.t !== "number"
+      )
+        return false;
 
-  // 3 ─ simulate the run ---------------------------------------------------
-  let score = 0;
-  let size = 25; // starting side length
-  let poweredUpUntil = -1; // in seconds
+      const { idx, t } = ev;
 
-  for (const ev of eatenEvents) {
-    const { type, size: prey, t } = ev;
-    const rule = SIZE_RULES[type];
-    if (!rule || prey < rule.min - 0.1 || prey > rule.max + 0.1) return false;
+      if (!Number.isInteger(idx) || idx <= prevIdx || usedIdx.has(idx))
+        return false;
+      if (t < prevT || t < 0) return false;
 
-    const nowSec = t / 1000;
-    const powered = nowSec <= poweredUpUntil;
-    const pRadius = size * 0.6 * 0.5; // same maths as client
-    const preyRad = prey * 0.6 * 0.5;
-
-    if (!powered && pRadius * EATING_LEEWAY < preyRad) return false;
-
-    /* scoring & growth – exact copy of client logic */
-    switch (type) {
-      case "sushi":
-        score += 50;
-        poweredUpUntil = nowSec + POWER_UP_DURATION;
-        break;
-      case "jelly":
-        score += Math.floor(prey);
-        size = Math.max(size * JELLY_SHRINK, MIN_PLAYER_SIZE);
-        break;
-      case "elecJelly":
-        score += Math.floor(prey);
-        /* size unchanged, paralysis ignored in this coarse model */
-        break;
-      default: // fish, crab, puffer, etc.
-        score += Math.floor(prey);
-        size += Math.min(Math.sqrt(prey) * 0.05, 1.5);
-        break;
+      prevIdx = idx;
+      prevT = t;
+      usedIdx.add(idx);
     }
-  }
 
-  // 4 ─ final score must match exactly (or within generous ±3)
-  return Math.abs(score - finalScore) <= 3;
+    /* any run longer than an hour is suspicious */
+    const MAX_EXPECTED_DURATION_MS = 60 * 60 * 1000;
+    if (gameTime < prevT || gameTime > MAX_EXPECTED_DURATION_MS) return false;
+
+    /* ──────────────────────────────────────────────────────────────────
+     * 2 │ mirror constants from the front‑end
+     * ────────────────────────────────────────────────────────────────── */
+    const EATING_LEEWAY = 1.15;
+    const POWER_UP_DURATION = 10; // seconds
+    const JELLY_SHRINK = 0.6;
+    const MIN_PLAYER_SIZE = 25;
+
+    /** Allowed prey size ranges per spawn function */
+    const SIZE_RULES = {
+      fish: { min: 10, max: 500 },
+      crab: { min: 50, max: 120 },
+      jelly: { min: 30, max: 80 },
+      elecJelly: { min: 40, max: 90 },
+      sushi: { min: 30, max: 30 }, // fixed sprite
+      puffer: { min: 30, max: 240 }, // may inflate ×3
+    };
+
+    /* ──────────────────────────────────────────────────────────────────
+     * 3 │ re‑simulate the full run, event by event
+     * ────────────────────────────────────────────────────────────────── */
+    let score = 0;
+    let size = 25; // starting side length (pixels)
+    let poweredUpUntil = -1; // wall‑clock seconds
+
+    for (const ev of eatenEvents) {
+      const { type, size: preySize, t } = ev;
+      const isUltra = !!ev.ultra;
+
+      /* 3‑a │ basic per‑event validation */
+      const rule = SIZE_RULES[type];
+      if (
+        !rule ||
+        typeof preySize !== "number" ||
+        preySize < rule.min - 0.1 ||
+        preySize > rule.max + 0.1
+      )
+        return false;
+
+      const nowSec = t / 1000;
+      const powered = nowSec <= poweredUpUntil;
+
+      /* 3‑b │ size comparison logic mirrors the client */
+      const pRadius = size * 0.6 * 0.5; // player bounding ellipse x‑radius
+      const preyRadius = preySize * 0.6 * 0.5;
+
+      if (!powered && pRadius * EATING_LEEWAY < preyRadius) return false;
+
+      /* 3‑c │ scoring & growth mirrors the front‑end exactly */
+      switch (type) {
+        case "sushi":
+          score += 50;
+          poweredUpUntil = nowSec + POWER_UP_DURATION;
+          break;
+
+        case "jelly":
+          score += Math.floor(preySize);
+          size = Math.max(size * JELLY_SHRINK, MIN_PLAYER_SIZE);
+          break;
+
+        case "elecJelly":
+          score += Math.floor(preySize);
+          /* Paralysis has no effect on the coarse simulation */
+          break;
+
+        default: // fish, crab, puffer, etc.
+          score += Math.floor(preySize);
+          size += Math.min(Math.sqrt(preySize) * 0.05, 1.5);
+          break;
+      }
+
+      /* Ultra‑fast prey refreshes the 10 s power‑up timer */
+      if (isUltra) poweredUpUntil = nowSec + POWER_UP_DURATION;
+    }
+
+    /* ──────────────────────────────────────────────────────────────────
+     * 4 │ final comparison – allow tiny rounding drift (±3 pts)
+     * ────────────────────────────────────────────────────────────────── */
+    return Math.abs(score - finalScore) <= 3;
+  } catch {
+    /* Any runtime error ⇒ reject the replay */
+    return false;
+  }
 }
 
-// Helper replicating the client's spawnFish() size calculation – keep in
-// sync with the front-end `fishTypeDefinitions` list.
+/* -------------------------------------------------------------------- */
+/* Optional helper kept around in case back‑end wants stricter checks   */
+/* than the size‑range gate above.  Currently unused by verifyReplay.   */
+/* -------------------------------------------------------------------- */
 function generateNextFishSize(rng) {
   const defs = [
     { min: 10, max: 40, w: 0.432 },
@@ -182,15 +237,8 @@ function generateNextFishSize(rng) {
   ];
   const total = defs.reduce((s, d) => s + d.w, 0);
   let r = rng() * total;
-  let def = defs[0];
-  for (const d of defs) {
-    if (r < d.w) {
-      def = d;
-      break;
-    }
-    r -= d.w;
-  }
-  return rng() * (def.max - def.min) + def.min;
+  const chosen = defs.find((d) => (r -= d.w) < 0) || defs.at(-1);
+  return rng() * (chosen.max - chosen.min) + chosen.min;
 }
 
 module.exports = { createSession, fetchSession, verifyReplay };

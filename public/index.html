@@ -12,7 +12,7 @@
       name="viewport"
       content="width=device-width, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Nomu: Eat or Get Eaten</title>
+    <title>Nomu: Eat or Get Eaten (Season 3)</title>
 
     <!-- ----------------------------------------------------------------- -->
     <!--                       FONTS & AUDIO ASSETS                         -->
@@ -188,7 +188,7 @@
           >
             SEASON 3
           </p>
-          <p style="font-size: 12px; color: #fff; opacity: 0.5">v3.0</p>
+          <p style="font-size: 12px; color: #fff; opacity: 0.5">v3.5</p>
 
           <div
             id="telegramStatus"
@@ -307,6 +307,81 @@
         statusDiv.style.color = "red";
       }
 
+      /* ----------------   DETERMINISTIC RANDOM  ---------------- */
+      // rng – graphics/FX/anything *except* spawning
+      let rng = Math.random; // will be replaced with seed‑rng after session starts
+      const Rand = () => rng();
+
+      // --- NEW deterministic RNG streams ---
+      let spawnSpecRng = null; // generates the ordered list of spawn specs
+      let spawnTimingRng = null; // governs WHEN the next spawn occurs
+      const specRand = () => (spawnSpecRng ? spawnSpecRng() : Math.random());
+      const timingRand = () =>
+        spawnTimingRng ? spawnTimingRng() : Math.random();
+
+      /* 🔧  MISSING HELPERS RE‑ADDED  🔧 */
+      const getRandom = (min, max) => Rand() * (max - min) + min;
+      const getSpecRandom = (min, max) => specRand() * (max - min) + min;
+      const getSpawnRandom = getSpecRandom; // legacy alias
+
+      // Spawn schedule (server‑verifiable)
+      const spawnSchedule = []; // { idx, spawnTime (s), spec }
+      let nextScheduleIdx = 0;
+      let scheduleCursorTime = 0; // seconds
+
+      /* Generate exponential delay matching 0.03/frame (≈1.8 spawns/s) */
+      function getNextSpawnDelay() {
+        const u = timingRand();
+        const lambda = 1.8; // per second
+        return -Math.log(1 - u) / lambda;
+      }
+
+      function scheduleNextEntry() {
+        const spec = nextSpawnSpec();
+        const delay = getNextSpawnDelay();
+        scheduleCursorTime += delay;
+        spawnSchedule.push({
+          idx: spawnSchedule.length,
+          spawnTime: scheduleCursorTime,
+          spec,
+        });
+      }
+
+      function ensureScheduleAhead(bufferSeconds = 60) {
+        while (
+          spawnSchedule.length === 0 ||
+          spawnSchedule[spawnSchedule.length - 1].spawnTime <
+            gameTime + bufferSeconds
+        ) {
+          scheduleNextEntry();
+        }
+      }
+
+      /*********************   ASSET HELPERS   ****************************/
+      function loadImage(src) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.addEventListener("load", () => resolve(img));
+          img.addEventListener("error", () => {
+            console.warn(`Image failed to load: ${src}`);
+            resolve(img); // resolve anyway – game can continue
+          });
+          img.src = src;
+        });
+      }
+
+      function loadAudio(id) {
+        return new Promise((resolve) => {
+          const el = document.getElementById(id);
+          if (!el) return resolve();
+          const finalize = () => resolve(el);
+          el.addEventListener("canplaythrough", finalize, { once: true });
+          el.addEventListener("error", finalize, { once: true });
+          // in case the media is cached and immediate
+          if (el.readyState >= 3) finalize();
+        });
+      }
+
       /* Keyboard state */
       const keys = { left: false, right: false, up: false, down: false };
       const clearKeys = () => {
@@ -336,9 +411,6 @@
         }
         btn.addEventListener("pointerup", release);
         btn.addEventListener("pointercancel", release);
-        btn.addEventListener("pointerleave", (e) => {
-          if (e.buttons === 0) release(e);
-        });
       }
       ["Up", "Left", "Down", "Right"].forEach((dir) =>
         setupArrowButton(
@@ -347,7 +419,7 @@
         )
       );
 
-      /* -------- Score submission -------- */
+      /* -------- Score submission (networking/security skipped per brief) -------- */
       const getApiSeed = (() => {
         const codes = [68, 111, 115, 107, 100, 82, 112, 104, 106, 100];
         let cached = null;
@@ -411,8 +483,11 @@
         }
         [...fishList, ...bubbles].forEach((ent) => {
           if (ent.width && ent.height) {
-            ent.x = Math.min(Math.max(0, ent.x), WIDTH - ent.width);
-            ent.y = Math.min(Math.max(0, ent.y), HEIGHT - ent.height);
+            const maxX = Math.max(0, WIDTH - ent.width);
+            const maxY = Math.max(0, HEIGHT - ent.height);
+
+            ent.x = Math.min(Math.max(0, ent.x), maxX);
+            ent.y = Math.min(Math.max(0, ent.y), maxY);
           }
         });
       }
@@ -451,10 +526,10 @@
       /* Game‑state flags */
       let gameState = "start"; // "start" | "playing" | "over"
       let isGameOver = false;
+      let pendingGameOver = false; // wait until explosions finish
 
       /* Anti‑cheat tracking */
       let eatenEvents = [];
-      let spawnCounter = 0;
       let currentSessionId = null;
 
       /*********************   IMAGES & SPRITES   ***************************/
@@ -508,7 +583,7 @@
         shockSound,
         isSfxEnabled = true,
         isMusicEnabled = true,
-        explosion = null;
+        explosions = [];
       let gameTime = 0, // seconds
         gameTimeMs = 0; // milliseconds
 
@@ -537,10 +612,10 @@
           gameOverSound.volume =
           powerUpSound.volume =
           achievementSound.volume =
-          electricSound.volume =
           shockSound.volume =
             0.5;
         shrinkSound.volume = 0.3;
+        electricSound.volume = 0.3;
       }
       const startAudio = () => {
         if (backgroundMusic && isMusicEnabled)
@@ -577,10 +652,10 @@
           gameOverSound.volume =
           powerUpSound.volume =
           achievementSound.volume =
-          electricSound.volume =
           shockSound.volume =
             v;
         shrinkSound.volume = isSfxEnabled ? 0.3 : 0;
+        electricSound.volume = isSfxEnabled ? 0.3 : 0;
         updateSfxButtons();
       };
 
@@ -607,21 +682,210 @@
         ((shockSound.currentTime = 0), shockSound.play().catch(() => {}));
 
       /*********************   HELPERS   *****************************/
-      const getRandom = (min, max) => Math.random() * (max - min) + min;
       const calculateFishScore = (sz) => Math.floor(sz);
       const totalFishWeight = fishTypes.reduce((s, f) => s + f.weight, 0);
-      function getRandomWeightedFishType(arr) {
-        let r = Math.random() * totalFishWeight;
+
+      function getRandomWeightedFishType(arr, randFn = Rand) {
+        let r = randFn() * totalFishWeight;
         for (const ft of arr) {
           if (r < ft.weight) return ft;
           r -= ft.weight;
         }
         return arr[arr.length - 1];
       }
-      function tagEntity(ent, type) {
-        ent.spawnIdx = spawnCounter++;
+
+      function tagEntity(ent, type, manualIdx = null) {
+        ent.spawnIdx =
+          manualIdx !== null ? manualIdx : spawnSchedule.length + 1000000; // fallback
         ent.spawnType = type;
         return ent;
+      }
+
+      /********************* NEW  — SPAWN SPEC GENERATOR ********************/
+      const SPAWN_SPEC_WEIGHTS = [
+        { kind: "fish", weight: 0.881 },
+        { kind: "crab", weight: 0.00147 },
+        { kind: "jelly", weight: 0.0294 },
+        { kind: "electricJelly", weight: 0.0147 },
+        { kind: "sushi", weight: 0.0147 },
+        { kind: "puffer", weight: 0.0587 },
+      ];
+      const TOTAL_SPEC_WEIGHT = SPAWN_SPEC_WEIGHTS.reduce(
+        (s, w) => s + w.weight,
+        0
+      );
+
+      function nextSpawnSpec() {
+        let r = specRand() * TOTAL_SPEC_WEIGHT;
+        for (const w of SPAWN_SPEC_WEIGHTS) {
+          if (r < w.weight) return generateSpecByKind(w.kind);
+          r -= w.weight;
+        }
+        return generateSpecByKind("fish");
+      }
+
+      function generateSpecByKind(kind) {
+        switch (kind) {
+          case "fish":
+            return generateFishSpec();
+          case "crab":
+            return { kind: "crab", size: getSpecRandom(50, 120) };
+          case "jelly":
+            return { kind: "jelly", size: getSpecRandom(30, 80) };
+          case "electricJelly":
+            return { kind: "electricJelly", size: getSpecRandom(40, 90) };
+          case "sushi": {
+            // Only one RNG draw – side‑selection.  No size roll needed.
+            return { kind: "sushi", fromLeft: specRand() < 0.5 };
+          }
+          case "puffer": {
+            const baseSize = getSpecRandom(30, 60);
+            const fromLeft = specRand() < 0.5;
+            return { kind: "puffer", baseSize, fromLeft };
+          }
+        }
+      }
+
+      function generateFishSpec() {
+        const t = getRandomWeightedFishType(fishTypes, specRand);
+        const size = getSpecRandom(t.minSize, t.maxSize);
+        const fromLeft = specRand() < 0.5;
+        const ultras = specRand();
+        const ultra = ultras < 0.01;
+        const fast = !ultra && ultras < 0.04;
+        // deterministic base speed (independent of score)
+        const sizeFactor = 1 - size / 500;
+        const minSpd = 0.3 + 0.5 * sizeFactor;
+        const maxSpd = 1.5 + 0.3 * sizeFactor;
+        const baseSpeed = getSpecRandom(minSpd, maxSpd);
+        return {
+          kind: "fish",
+          fishTypeIndex: fishTypes.indexOf(t),
+          size,
+          fromLeft,
+          ultra,
+          fast,
+          baseSpeed,
+        };
+      }
+
+      function spawnEntityFromSpec(spec, idx) {
+        switch (spec.kind) {
+          case "fish": {
+            const t = fishTypes[spec.fishTypeIndex];
+            const size = spec.size;
+            const fromLeft = spec.fromLeft;
+            const x = fromLeft ? -size : WIDTH;
+            const y = getSpecRandom(0, Math.max(0, HEIGHT - size));
+            let spd =
+              spec.baseSpeed *
+              (0.4 + 0.6 * Math.min(score / 1000, 1)); /* difficulty */
+            if (spec.ultra) spd *= 5;
+            else if (spec.fast) spd *= 3;
+            spd = fromLeft ? spd : -spd;
+
+            const fish = tagEntity(
+              new Fish(x, y, spd, 0, t.image, size, false),
+              "fish",
+              idx
+            );
+            fish.isUltraFast = spec.ultra;
+            fish.isFast = spec.fast;
+            fishList.push(fish);
+            break;
+          }
+          case "crab": {
+            const size = spec.size;
+            fishList.push(
+              tagEntity(
+                new Crab(getSpecRandom(0, WIDTH - size), HEIGHT + size, size),
+                "crab",
+                idx
+              )
+            );
+            break;
+          }
+          case "jelly": {
+            const size = spec.size;
+            fishList.push(
+              tagEntity(
+                new Jellyfish(
+                  getSpecRandom(0, WIDTH - size),
+                  HEIGHT + size,
+                  size
+                ),
+                "jelly",
+                idx
+              )
+            );
+            break;
+          }
+          case "electricJelly": {
+            const size = spec.size;
+            fishList.push(
+              tagEntity(
+                new ElectricJellyfish(
+                  getSpecRandom(0, WIDTH - size),
+                  HEIGHT + size,
+                  size
+                ),
+                "elecJelly",
+                idx
+              )
+            );
+            break;
+          }
+          case "sushi": {
+            const size = 30;
+            const fromLeft = spec.fromLeft;
+            const x = fromLeft ? -size : WIDTH;
+            const y = getSpecRandom(0, HEIGHT - size);
+            const spd = (fromLeft ? 1 : -1) * 1.5;
+            fishList.push(tagEntity(new Sushi(x, y, spd), "sushi", idx));
+            break;
+          }
+          case "puffer": {
+            const baseSize = spec.baseSize;
+            const fromLeft = spec.fromLeft;
+            const x = fromLeft ? -baseSize : WIDTH;
+            const y = getSpecRandom(0, HEIGHT - baseSize);
+            const spd = getSpecRandom(0.2, 1.2) * (fromLeft ? 1 : -1);
+            fishList.push(
+              tagEntity(new Pufferfish(x, y, spd, baseSize), "puffer", idx)
+            );
+            break;
+          }
+        }
+      }
+
+      /*********************   SCHEDULED SPAWN PROCESSOR   *********************/
+      function processScheduledSpawns() {
+        ensureScheduleAhead();
+        while (
+          nextScheduleIdx < spawnSchedule.length &&
+          spawnSchedule[nextScheduleIdx].spawnTime <= gameTime
+        ) {
+          const entry = spawnSchedule[nextScheduleIdx];
+          const spec = entry.spec;
+
+          /* Difficulty / cap rule checks */
+          const maxEnemies = score < 1000 ? 20 : 30;
+          const isEnemy =
+            spec.kind !== "sushi" && spec.kind !== "crab"
+              ? true
+              : spec.kind !== "sushi"; // sushi still counts towards cap
+          if (isEnemy && fishList.length >= maxEnemies) {
+            nextScheduleIdx++;
+            continue; // skip – cap reached
+          }
+          if (spec.kind === "crab" && score < 2000) {
+            nextScheduleIdx++;
+            continue; // crab locked until 2 000 pts
+          }
+
+          spawnEntityFromSpec(spec, entry.idx);
+          nextScheduleIdx++;
+        }
       }
 
       /*********************    CLASS DEFINITIONS  *************************/
@@ -641,7 +905,7 @@
           this.offsetY = getRandom(-3, 3);
           this.isUltra = isUltra;
           this.colorRGB = colorRGB;
-          this.hue = Math.random() * 360;
+          this.hue = Rand() * 360;
           this.hueSpeed = getRandom(2, 4);
         }
         update(dt) {
@@ -837,7 +1101,7 @@
           if (speed > 0.5) {
             const ultra =
               this.isUltraFast || (this.isPlayer && playerIsPoweredUp);
-            const count = ultra ? 3 : Math.random() < 0.3 ? 2 : 1;
+            const count = ultra ? 2 : Rand() < 0.3 ? 1 : 0;
             for (let i = 0; i < count; i++)
               waterTrails.push(
                 new WaterTrail(
@@ -859,8 +1123,10 @@
           this.isCrab = true;
           this.entered = false;
           this.timeAlive = 0;
+          this.remove = false;
         }
         update(dt, player) {
+          if (this.remove) return; // early exit if flagged dead
           const df = dt * 60;
           if (!this.entered) {
             this.y -= 2 * df;
@@ -870,7 +1136,7 @@
           this.timeAlive += dt;
           if (this.timeAlive > 15) {
             spawnExplosion(this);
-            this.maxSide = 0;
+            this.remove = true;
             return;
           }
           const c = this.getBounds(),
@@ -900,7 +1166,7 @@
           this.isJellyfish = true;
           this.oscS = getRandom(0.0008, 0.0015);
           this.oscA = getRandom(10, 15);
-          this.oscO = Math.random() * Math.PI * 2;
+          this.oscO = Rand() * Math.PI * 2;
           this.baseX = x;
           this.vSpeed = getRandom(0.5, 1.2);
         }
@@ -953,12 +1219,13 @@
           this.pulseCooldown -= dt;
           if (this.pulseCooldown <= 0) {
             this.performPulse();
-            return;
+            return; // pulse handles pause
           }
           super.update(dt);
         }
         performPulse() {
-          this.pauseTimeRemaining = 1;
+          this.pauseTimeRemaining = 1; // freeze for 1s while pulsing
+          this.pulseCooldown = getRandom(5, 12);
           playElectricSound();
           const p = player.getBounds();
           const b = this.getBounds();
@@ -979,6 +1246,7 @@
             const maxLen = this.pulseRadius * (1 - alpha * 0.25);
             const bolts = 10;
             const segmentsPerBolt = 3;
+            c.save();
             for (let i = 0; i < bolts; i++) {
               const baseAngle = (i / bolts) * Math.PI * 2;
               let prevX = cx,
@@ -991,7 +1259,6 @@
                   cx + Math.cos(angle) * segLen + getRandom(-jitter, jitter);
                 const y =
                   cy + Math.sin(angle) * segLen + getRandom(-jitter, jitter);
-                c.save();
                 c.beginPath();
                 c.moveTo(prevX, prevY);
                 c.lineTo(x, y);
@@ -1000,11 +1267,11 @@
                 c.shadowBlur = 8;
                 c.shadowColor = `rgba(255,255,0,${alpha})`;
                 c.stroke();
-                c.restore();
                 prevX = x;
                 prevY = y;
               }
             }
+            c.restore();
           }
         }
         createWaterTrail() {
@@ -1046,7 +1313,7 @@
         update(dt) {
           super.update(dt);
           if (!this.inflating && this.maxSide < this.baseSize * 2.9) {
-            if (Math.random() < 0.0003 * dt * 60) {
+            if (Rand() < 0.0003 * dt * 60) {
               this.inflating = true;
               this.inflateStart = performance.now();
             }
@@ -1077,7 +1344,7 @@
           this.opacity = getRandom(0.2, 0.4);
           this.wobbleAmount = getRandom(0.1, 0.3);
           this.wobbleSpeed = getRandom(0.02, 0.05);
-          this.wobbleOffset = getRandom(0, Math.PI * 2);
+          this.wobbleOffset = Rand() * Math.PI * 2;
         }
         update(dt) {
           this.y -= this.speed * dt * 60;
@@ -1103,7 +1370,6 @@
           this.particles = [];
           this.life = 1;
           this.fadeSpeed = 0.02;
-          this.isComplete = false;
           const n = Math.floor(size * 0.5);
           for (let i = 0; i < n; i++) {
             const angle = (i / n) * Math.PI * 2,
@@ -1120,17 +1386,18 @@
           }
         }
         update(dt) {
-          if (this.isComplete) return;
           this.life -= this.fadeSpeed * dt * 60;
           for (const p of this.particles) {
             p.x += p.sx * dt * 60;
             p.y += p.sy * dt * 60;
             p.life -= p.fadeSpeed * dt * 60;
           }
-          if (this.life <= 0) this.isComplete = true;
+        }
+        isComplete() {
+          return this.life <= 0;
         }
         draw(c) {
-          if (this.life <= 0) return;
+          if (this.isComplete()) return;
           for (const p of this.particles) {
             if (p.life <= 0) continue;
             c.beginPath();
@@ -1144,81 +1411,9 @@
       /*********************      SPAWNERS      *****************************/
       function spawnExplosion(f) {
         if (f.width && f.height)
-          explosion = new Explosion(
-            f.x + f.width / 2,
-            f.y + f.height / 2,
-            f.maxSide
+          explosions.push(
+            new Explosion(f.x + f.width / 2, f.y + f.height / 2, f.maxSide)
           );
-      }
-      function spawnFish() {
-        const t = getRandomWeightedFishType(fishTypes);
-        const size = getRandom(t.minSize, t.maxSize);
-        const fromLeft = Math.random() < 0.5;
-        const x = fromLeft ? -size : WIDTH;
-        const y = getRandom(0, HEIGHT - size);
-        const sizeFactor = 1 - size / 500;
-        const minSpd = 0.3 + 0.5 * sizeFactor;
-        const maxSpd = 1.5 + 0.3 * sizeFactor;
-        const difficulty = Math.min(score / 1000, 1);
-        let spd = getRandom(minSpd, maxSpd) * (0.4 + 0.6 * difficulty);
-        const ultra = Math.random() < 0.01;
-        const fast = !ultra && Math.random() < 0.03;
-        if (ultra) spd *= 5;
-        else if (fast) spd *= 3;
-        const fish = tagEntity(
-          new Fish(x, y, fromLeft ? spd : -spd, 0, t.image, size),
-          "fish"
-        );
-        fish.isFast = fast;
-        fish.isUltraFast = ultra;
-        fishList.push(fish);
-      }
-      function spawnCrab() {
-        const size = getRandom(50, 120);
-        fishList.push(
-          tagEntity(
-            new Crab(getRandom(0, WIDTH - size), HEIGHT + size, size),
-            "crab"
-          )
-        );
-      }
-      function spawnJellyfish() {
-        const size = getRandom(30, 80);
-        fishList.push(
-          tagEntity(
-            new Jellyfish(getRandom(0, WIDTH - size), HEIGHT + size, size),
-            "jelly"
-          )
-        );
-      }
-      function spawnElectricJellyfish() {
-        const size = getRandom(40, 90);
-        fishList.push(
-          tagEntity(
-            new ElectricJellyfish(
-              getRandom(0, WIDTH - size),
-              HEIGHT + size,
-              size
-            ),
-            "elecJelly"
-          )
-        );
-      }
-      function spawnSushi() {
-        const size = 30;
-        const fromLeft = Math.random() < 0.5;
-        const x = fromLeft ? -size : WIDTH;
-        const y = getRandom(0, HEIGHT - size);
-        const spd = (fromLeft ? 1 : -1) * 1.5;
-        fishList.push(tagEntity(new Sushi(x, y, spd), "sushi"));
-      }
-      function spawnPufferfish() {
-        const baseSize = getRandom(30, 60);
-        const fromLeft = Math.random() < 0.5;
-        const x = fromLeft ? -baseSize : WIDTH;
-        const y = getRandom(0, HEIGHT - baseSize);
-        const spd = getRandom(0.2, 1.2) * (fromLeft ? 1 : -1);
-        fishList.push(tagEntity(new Pufferfish(x, y, spd, baseSize), "puffer"));
       }
 
       /* Bubble helper */
@@ -1235,7 +1430,7 @@
         fishList = [];
         bubbles = [];
         waterTrails = [];
-        explosion = null;
+        explosions = [];
         player.maxSide = 25;
         player.width = player.height = null;
         player.x = WIDTH / 2;
@@ -1244,7 +1439,6 @@
         playerPowerUpTime = 0;
         playerIsPoweredUp = false;
         playerParalyzeTime = 0;
-        for (let i = 0; i < 3; i++) spawnFish();
         spawnBubbleGroup();
         bubbleTimer = 0;
       }
@@ -1253,6 +1447,13 @@
       function checkCollisionOval(a, b) {
         const A = a.getBounds();
         const B = b.getBounds();
+        if (
+          A.radiusX === 0 ||
+          A.radiusY === 0 ||
+          B.radiusX === 0 ||
+          B.radiusY === 0
+        )
+          return false;
         const dx = A.centerX - B.centerX;
         const dy = A.centerY - B.centerY;
         return (
@@ -1263,19 +1464,24 @@
       }
 
       function updateGame(dt) {
-        if (explosion) {
-          explosion.update(dt);
-          if (explosion.isComplete) {
-            explosion = null;
-            if (isGameOver) showGameOverScreen(score);
-          }
+        /* explosions */
+        for (let i = explosions.length - 1; i >= 0; i--) {
+          explosions[i].update(dt);
+          if (explosions[i].isComplete()) explosions.splice(i, 1);
+        }
+        if (pendingGameOver && explosions.length === 0) {
+          showGameOverScreen(score);
+          pendingGameOver = false;
         }
         if (gameState !== "playing") return;
-        if (isGameOver && !explosion) return;
+        if (isGameOver) return;
 
         /* time */
         gameTime += dt;
         gameTimeMs = Math.round(gameTime * 1000);
+
+        /* spawn processing */
+        processScheduledSpawns();
 
         /* power‑up / status decrement */
         if (playerPowerUpTime > 0) {
@@ -1341,6 +1547,10 @@
         /* enemies */
         for (let i = fishList.length - 1; i >= 0; i--) {
           const e = fishList[i];
+          if (e.remove) {
+            fishList.splice(i, 1);
+            continue;
+          }
           if (e instanceof ElectricJellyfish) e.update(dt);
           else if (e.isCrab) e.update(dt, player);
           else e.update(dt);
@@ -1370,6 +1580,7 @@
                 idx: e.spawnIdx,
                 type: e.spawnType,
                 size: e.maxSide,
+                ultra: !!e.isUltraFast,
               });
               fishList.splice(i, 1);
               continue;
@@ -1383,6 +1594,7 @@
                 idx: e.spawnIdx,
                 type: e.spawnType,
                 size: e.maxSide,
+                ultra: !!e.isUltraFast,
               });
 
               if (e.isJellyfish && !e.isElectric) {
@@ -1422,6 +1634,7 @@
                 idx: e.spawnIdx,
                 type: e.spawnType,
                 size: e.maxSide,
+                ultra: !!e.isUltraFast,
               });
 
               if (e.isJellyfish && !e.isElectric) {
@@ -1453,55 +1666,39 @@
               isGameOver = true;
               gameState = "over";
               sendScoreToAPI(score, eatenEvents, currentSessionId, gameTimeMs);
-              explosion = new Explosion(
-                player.x + (player.width ?? player.maxSide) / 2,
-                player.y + (player.height ?? player.maxSide) / 2,
-                player.maxSide
-              );
+              spawnExplosion(player);
+              pendingGameOver = true;
               touchTarget = null;
               return;
             }
           }
         }
 
-        /* spawning */
-        const maxEnemies = score < 1000 ? 20 : 30;
-        if (Math.random() < 0.03 * dt * 60 && fishList.length < maxEnemies)
-          spawnFish();
-        if (
-          score >= 2000 &&
-          Math.random() < 0.00005 * dt * 60 &&
-          fishList.length < maxEnemies
-        )
-          spawnCrab();
-        if (Math.random() < 0.001 * dt * 60 && fishList.length < maxEnemies)
-          spawnJellyfish();
-        if (Math.random() < 0.0005 * dt * 60 && fishList.length < maxEnemies)
-          spawnElectricJellyfish();
-        if (Math.random() < 0.0005 * dt * 60 && fishList.length < maxEnemies)
-          spawnSushi();
-        if (Math.random() < 0.002 * dt * 60 && fishList.length < maxEnemies)
-          spawnPufferfish();
-
         if (score >= nextMilestone) {
           playAchvSound();
           resetRound();
-          while (score >= nextMilestone) nextMilestone += 100000;
+          const diff = Math.floor((score - nextMilestone) / 100000) + 1;
+          nextMilestone += diff * 100000;
         }
       }
 
-      /*********************   RENDER LOOP   *****************************/
+      /*********************   RENDER LOOP & MASTER LOOP  *****************************/
+      let cachedScoreText = "";
       function renderGame() {
         ctx.clearRect(0, 0, WIDTH, HEIGHT);
         bubbles.forEach((b) => b.draw(ctx));
         waterTrails.forEach((t) => t.draw(ctx));
-        if (player && !(isGameOver && explosion)) player.draw(ctx);
+        if (player && !(isGameOver && pendingGameOver)) player.draw(ctx);
         fishList.forEach((f) => f.draw(ctx));
-        if (explosion) explosion.draw(ctx);
+        explosions.forEach((ex) => ex.draw(ctx));
 
+        const scoreText = `Score: ${score}`;
+        if (cachedScoreText !== scoreText) {
+          cachedScoreText = scoreText;
+        }
         ctx.fillStyle = playerParalyzeTime > 0 ? "#ffea00" : "#fff";
         ctx.font = "20px 'Londrina Solid', sans-serif";
-        ctx.fillText("Score: " + score, 20, 30);
+        ctx.fillText(cachedScoreText, 20, 30);
 
         if (touchTarget) {
           ctx.beginPath();
@@ -1517,43 +1714,48 @@
         }
       }
 
-      /* ---- GAME & SIM LOOPS ---- */
-      let lastSimTime = performance.now();
-      const MAX_DT = 0.1,
-        SIM_STEP_MS = 16;
-      function simLoop() {
+      /* ---- MASTER LOOP (update + render) ---- */
+      let lastFrameTime = performance.now();
+      let accumulator = 0;
+      const FIXED_STEP = 1 / 60; // 60 FPS physics
+
+      function masterLoop() {
         const now = performance.now();
-        let dt = (now - lastSimTime) / 1000;
-        if (dt > MAX_DT) dt = MAX_DT;
-        lastSimTime = now;
-        updateGame(dt);
-      }
-      setInterval(simLoop, SIM_STEP_MS);
-      function gameLoop() {
+        let dt = (now - lastFrameTime) / 1000;
+        if (dt > 0.25) dt = 0.25; // avoid spiral of death
+        lastFrameTime = now;
+        accumulator += dt;
+        if (accumulator > FIXED_STEP * 5) {
+          // drop excess accumulated time to avoid long catch‑up
+          accumulator = FIXED_STEP * 5;
+        }
+        while (accumulator >= FIXED_STEP) {
+          updateGame(FIXED_STEP);
+          accumulator -= FIXED_STEP;
+        }
         renderGame();
-        requestAnimationFrame(gameLoop);
+        requestAnimationFrame(masterLoop);
       }
 
       /*********************        INIT          *************************/
       function initGame() {
         resizeCanvas();
-        lastSimTime = performance.now();
         score = 0;
         nextMilestone = 100000;
         gameTime = 0;
         gameTimeMs = 0;
         isGameOver = false;
+        pendingGameOver = false;
         fishList = [];
+        explosions = [];
         bubbles = [];
         waterTrails = [];
-        explosion = null;
         player = new Fish(WIDTH / 2, HEIGHT / 2, 0, 0, playerImg, 25, true);
         playerPowerUpTime = 0;
         playerIsPoweredUp = false;
         playerParalyzeTime = 0;
         clearKeys();
         initAudio();
-        for (let i = 0; i < 3; i++) spawnFish();
         spawnBubbleGroup();
         bubbleTimer = 0;
         updateMusicButtons();
@@ -1574,7 +1776,7 @@
         updateSfxButtons();
       };
 
-      /* ---- Start Game ---- */
+      /* ---- Start Game (modified to seed spawn RNGs) ---- */
       async function startNewRun() {
         hideStartScreen();
         hideGameOverScreen();
@@ -1598,15 +1800,22 @@
           return;
         }
 
-        /* 2️⃣ deterministic RNG */
-        Math.random = Math.seedrandom(sessionInfo.seed);
+        /* 2️⃣ deterministic RNG – break out three separate streams */
+        rng = new Math.seedrandom(sessionInfo.seed); // graphics / misc
+        spawnSpecRng = new Math.seedrandom(sessionInfo.seed + ":spec"); // ordered spawn specs
+        spawnTimingRng = new Math.seedrandom(sessionInfo.seed + ":timing"); // spawn timing
 
-        /* 3️⃣ clear state */
+        /* 3️⃣ clear schedule & build ahead */
+        spawnSchedule.length = 0;
+        nextScheduleIdx = 0;
+        scheduleCursorTime = 0;
+        ensureScheduleAhead(120); // build 2 min ahead
+
+        /* 4️⃣ clear state */
         currentSessionId = sessionInfo.sessionId;
         eatenEvents.length = 0;
-        spawnCounter = 0;
 
-        /* 4️⃣ go */
+        /* 5️⃣ go */
         gameState = "playing";
         initGame();
       }
@@ -1622,8 +1831,6 @@
         showOrHideArrowKeys(controlsContainer.style.display === "none");
       arrowKeysBtnGameOver.onclick = () =>
         showOrHideArrowKeys(controlsContainer.style.display === "none");
-
-      /* pointer‑controls already set up above */
 
       /* hardware keyboard */
       window.addEventListener("keydown", (e) => {
@@ -1675,26 +1882,42 @@
 
       /*********************    PRELOAD & BOOT     **************************/
       Promise.all([
-        new Promise((r) => (playerImg.onload = r)),
-        ...fishTypes.map(({ image }) => new Promise((r) => (image.onload = r))),
-        new Promise((r) => (crabImg.onload = r)),
-        new Promise((r) => (jellyfishImg.onload = r)),
-        new Promise((r) => (electricJellyfishImg.onload = r)),
-        new Promise((r) => (sushiImg.onload = r)),
-        new Promise((r) => (pufferImg.onload = r)),
+        loadImage("img/player_fish.png"),
+        ...fishTypes.map(
+          ({ image }) =>
+            new Promise((resolve) => {
+              if (image.complete) return resolve();
+              image.addEventListener("load", resolve, { once: true });
+              image.addEventListener("error", resolve, { once: true });
+            })
+        ),
+        loadImage("img/crab.png"),
+        loadImage("img/jellyfish-3.png"),
+        loadImage("img/electric-jellyfish-c.png"),
+        loadImage("img/sushi.png"),
+        loadImage("img/pufferfish-3.png"),
+        loadAudio("backgroundMusic"),
+        loadAudio("eatSound"),
+        loadAudio("gameOverSound"),
+        loadAudio("powerUpSound"),
+        loadAudio("achievementSound"),
+        loadAudio("shrinkSound"),
+        loadAudio("electricSound"),
+        loadAudio("shockSound"),
       ]).then(() => {
         resizeCanvas();
         showStartScreen();
         initAudio();
-        startScreen.addEventListener("click", function first() {
-          startAudio();
-          startScreen.removeEventListener("click", first);
-        });
-        document.addEventListener("mousemove", function first() {
-          startAudio();
-          document.removeEventListener("mousemove", first);
-        });
-        requestAnimationFrame(gameLoop);
+        let audioStarted = false;
+        function kickAudio() {
+          if (!audioStarted) {
+            startAudio();
+            audioStarted = true;
+          }
+        }
+        startScreen.addEventListener("click", kickAudio, { once: true });
+        document.addEventListener("mousemove", kickAudio, { once: true });
+        requestAnimationFrame(masterLoop);
       });
     </script>
   </body>

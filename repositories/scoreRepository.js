@@ -68,7 +68,10 @@ async function updateScore(
   username,
   score,
   gameTime,
-  event = activeEvent
+  event = activeEvent,
+  sessionId,
+  isFlagged = false,
+  flaggedFor = []
 ) {
   await initDB();
 
@@ -90,6 +93,9 @@ async function updateScore(
       gameTime,
       date: now,
       event: resolvedEvent,
+      sessionId,
+      isFlagged,
+      flaggedFor,
     });
   } catch (e) {
     console.error("Error creating game document:", e);
