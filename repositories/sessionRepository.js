@@ -12,7 +12,7 @@ const crypto = require("crypto");
 
 // After this period (in minutes) the session is considered invalid and
 // must be recreated by the client.
-const SESSION_TTL_MINUTES = 90;
+const SESSION_TTL_MINUTES = 1440;
 
 // Hard cap on a single run – a 20-minute game is already **extremely**
 // long.  Used when validating the replay payload from the client.

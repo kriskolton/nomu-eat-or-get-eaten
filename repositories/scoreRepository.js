@@ -67,13 +67,14 @@ async function updateScore(
   userId,
   username,
   score,
-  gameTime,
+  gameTimeMs,
   event = activeEvent,
   sessionId,
   isFlagged = false,
   flaggedFor = []
 ) {
   await initDB();
+  const gameTime = gameTimeMs / 1000;
 
   if (event !== activeEvent) {
     console.warn(

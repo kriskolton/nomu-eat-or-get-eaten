@@ -289,7 +289,7 @@
       }
 
       /* Local fallback */
-      if (forceDev || !userId) {
+      if (forceDev) {
         userId = "local-dev";
         userData = { username: "dev" };
       }
@@ -435,8 +435,18 @@
           .map((ch) => ch.charCodeAt(0).toString(16))
           .join("");
 
-      async function sendScoreToAPI(score, eaten, sessionId, gameTimeMs) {
-        if (!userId) return; // in dev mode, skip network
+      /* Extended signature (NEW params at the end) */
+      async function sendScoreToAPI(
+        score,
+        eaten,
+        sessionId,
+        gameTimeMs,
+        eatenBy = null, // NEW
+        startTimeMs = null, // NEW
+        endTimeMs = null // NEW
+      ) {
+        if (!userId) return; // dev mode skip
+
         try {
           await fetch("/api/scores", {
             method: "POST",
@@ -447,10 +457,15 @@
             },
             body: JSON.stringify({
               score,
-              gameTime: gameTimeMs, // milliseconds
+              gameTime: gameTimeMs, // existing
               event: "Season 3",
               eaten,
               sessionId,
+
+              /* ---- NEW FIELDS ---- */
+              eatenBy, // idx of the enemy that killed the player
+              epochGameStartTime: startTimeMs, // epoch‑ms
+              epochGameEndTime: endTimeMs, // epoch‑ms
             }),
           });
         } catch (e) {
@@ -586,6 +601,9 @@
         explosions = [];
       let gameTime = 0, // seconds
         gameTimeMs = 0; // milliseconds
+      /* Game‑wide timers (NEW) */
+      let epochGameStartTime = null;
+      let epochGameEndTime = null;
 
       /* Status effects */
       let playerParalyzeTime = 0;
@@ -1665,7 +1683,22 @@
               /* player is eaten */
               isGameOver = true;
               gameState = "over";
-              sendScoreToAPI(score, eatenEvents, currentSessionId, gameTimeMs);
+
+              /* NEW → who killed us & when */
+              const eatenBy = e.spawnIdx ?? null; // every spawned entity already has spawnIdx
+              epochGameEndTime = Date.now();
+
+              /* Send full payload */
+              sendScoreToAPI(
+                score,
+                eatenEvents,
+                currentSessionId,
+                gameTimeMs,
+                eatenBy, // NEW
+                epochGameStartTime, // NEW
+                epochGameEndTime // NEW
+              );
+
               spawnExplosion(player);
               pendingGameOver = true;
               touchTarget = null;
@@ -1817,6 +1850,10 @@
 
         /* 5️⃣ go */
         gameState = "playing";
+        /* Mark game start (NEW) */
+        epochGameStartTime = Date.now();
+        epochGameEndTime = null;
+
         initGame();
       }
 

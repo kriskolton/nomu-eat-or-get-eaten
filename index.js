@@ -217,14 +217,26 @@ app.post(
       const currentTime = new Date();
       console.log("Received score submission request:", req.body);
 
-      const { score, gameTime, event, sessionId, eaten } = req.body;
+      const {
+        score,
+        gameTime,
+        event,
+        sessionId,
+        eaten,
+        eatenBy,
+        localGameStartTime,
+        localGameEndTime,
+      } = req.body;
 
       if (
         typeof score !== "number" ||
         typeof gameTime !== "number" ||
         typeof event !== "string" ||
         typeof sessionId !== "string" ||
-        !Array.isArray(eaten)
+        !Array.isArray(eaten) ||
+        typeof eatenBy !== "number" ||
+        typeof localGameStartTime !== "number" ||
+        typeof localGameEndTime !== "number"
       ) {
         console.error("Invalid or missing required fields:", {
           score,
@@ -232,6 +244,9 @@ app.post(
           event,
           sessionId,
           eaten,
+          eatenBy,
+          localGameStartTime,
+          localGameEndTime,
         });
         return res.status(400).json({ error: "Invalid or missing fields" });
       }
@@ -253,12 +268,19 @@ app.post(
       // check the start time of the session with the current time
       const sessionStartTime = new Date(sess.createdAt);
       // --- sanity‑check duration and report latency ------------------------------
-      const sessionEndTime = new Date(
-        sessionStartTime.getTime() + gameTime * 1000
-      );
+      const sessionEndTime = new Date(sessionStartTime.getTime() + gameTime);
       const msSinceGameEnded = currentTime - sessionEndTime; // >0 ⇒ game already ended
       const MAX_REPORT_LAG_MS = 60_000; // one minute
 
+      // todo: check that the times are all in the same timezone
+      if (sessionStartTime > localGameStartTime) {
+        isFlagged = true;
+        flaggedFor.push("Session start time is after game start time");
+      }
+      if (localGameEndTime > currentTime) {
+        isFlagged = true;
+        flaggedFor.push("Game end time is in the future");
+      }
       if (sessionEndTime > currentTime) {
         // Claimed duration pushes the end of the game into the future
         isFlagged = true;
@@ -269,18 +291,21 @@ app.post(
         flaggedFor.push("Took longer than 1 minute to report score");
       }
 
-      const ok = verifyReplay({
+      const { ok, failedDueTo } = verifyReplay({
         seed: sess.seed,
         eaten: eaten,
         finalScore: score,
         gameTime,
+        eatenBy,
+        startTime: localGameStartTime,
+        endTime: localGameEndTime,
       });
 
       if (!ok) {
         console.warn("Replay verification failed", { userId, sessionId });
         // return res.status(400).json({ error: "Replay check failed" });
         isFlagged = true;
-        flaggedFor.push("Replay verification failed");
+        flaggedFor.push(failedDueTo);
       }
 
       const updated = await updateScore(
