@@ -224,8 +224,8 @@ app.post(
         sessionId,
         eaten,
         eatenBy,
-        localGameStartTime,
-        localGameEndTime,
+        epochGameStartTime,
+        epochGameEndTime,
       } = req.body;
 
       if (
@@ -235,8 +235,8 @@ app.post(
         typeof sessionId !== "string" ||
         !Array.isArray(eaten) ||
         typeof eatenBy !== "number" ||
-        typeof localGameStartTime !== "number" ||
-        typeof localGameEndTime !== "number"
+        typeof epochGameStartTime !== "number" ||
+        typeof epochGameEndTime !== "number"
       ) {
         console.error("Invalid or missing required fields:", {
           score,
@@ -245,8 +245,8 @@ app.post(
           sessionId,
           eaten,
           eatenBy,
-          localGameStartTime,
-          localGameEndTime,
+          epochGameStartTime,
+          epochGameEndTime,
         });
         return res.status(400).json({ error: "Invalid or missing fields" });
       }
@@ -273,11 +273,11 @@ app.post(
       const MAX_REPORT_LAG_MS = 60_000; // one minute
 
       // todo: check that the times are all in the same timezone
-      if (sessionStartTime > localGameStartTime) {
+      if (sessionStartTime > epochGameStartTime) {
         isFlagged = true;
         flaggedFor.push("Session start time is after game start time");
       }
-      if (localGameEndTime > currentTime) {
+      if (epochGameEndTime > currentTime) {
         isFlagged = true;
         flaggedFor.push("Game end time is in the future");
       }
@@ -297,8 +297,8 @@ app.post(
         finalScore: score,
         gameTime,
         eatenBy,
-        startTime: localGameStartTime,
-        endTime: localGameEndTime,
+        startTime: epochGameStartTime,
+        endTime: epochGameEndTime,
       });
 
       if (!ok) {

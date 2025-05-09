@@ -320,9 +320,14 @@
         spawnTimingRng ? spawnTimingRng() : Math.random();
 
       /* 🔧  MISSING HELPERS RE‑ADDED  🔧 */
-      const getRandom = (min, max) => Rand() * (max - min) + min;
+      const getRandom = (min, max) => Rand() * (max - min) + min; // FIXED
       const getSpecRandom = (min, max) => specRand() * (max - min) + min;
       const getSpawnRandom = getSpecRandom; // legacy alias
+
+      /* ---------------------- NEW LIMITING CONSTANTS --------------------- */
+      const MAX_WATER_TRAILS = 1500;
+      const MAX_EXPLOSIONS = 100;
+      const RETAIN_SCHEDULE_ENTRIES = 1000;
 
       // Spawn schedule (server‑verifiable)
       const spawnSchedule = []; // { idx, spawnTime (s), spec }
@@ -331,7 +336,9 @@
 
       /* Generate exponential delay matching 0.03/frame (≈1.8 spawns/s) */
       function getNextSpawnDelay() {
-        const u = timingRand();
+        let u = timingRand();
+        // Guard for u === 1 to avoid Infinity delays
+        if (u === 1) u = 1 - Number.EPSILON;
         const lambda = 1.8; // per second
         return -Math.log(1 - u) / lambda;
       }
@@ -497,6 +504,11 @@
           player.y = Math.min(Math.max(0, player.y), HEIGHT - player.height);
         }
         [...fishList, ...bubbles].forEach((ent) => {
+          if (ent.width == null || ent.height == null) {
+            if (typeof ent.calculateDimensions === "function") {
+              ent.calculateDimensions();
+            }
+          }
           if (ent.width && ent.height) {
             const maxX = Math.max(0, WIDTH - ent.width);
             const maxY = Math.max(0, HEIGHT - ent.height);
@@ -528,13 +540,27 @@
       const arrowLeft = document.getElementById("arrowLeft");
       const arrowRight = document.getElementById("arrowRight");
 
-      const showStartScreen = () => startScreen.classList.remove("hidden");
+      const showStartScreen = () => {
+        startScreen.classList.remove("hidden");
+        // ensure buttons are enabled after a previous run
+        startBtn.disabled = false;
+        // sync UI with current settings
+        // sync UI with current settings
+        // ⬇️  Make the virtual arrow keys _hidden_ the first time the start‑screen opens
+        showOrHideArrowKeys(false);
+        updateMusicButtons();
+        updateSfxButtons();
+      };
       const hideStartScreen = () => startScreen.classList.add("hidden");
       const showGameOverScreen = (scoreVal) => {
         finalScoreElem.textContent = `Your Score: ${scoreVal}`;
         gameOverScreen.classList.remove("hidden");
         playGameOverSound();
         syncGameOverUI();
+        // re‑enable buttons for a new run
+        startInProgress = false;
+        startBtn.disabled = false;
+        playAgainBtn.disabled = false;
       };
       const hideGameOverScreen = () => gameOverScreen.classList.add("hidden");
 
@@ -601,6 +627,7 @@
         explosions = [];
       let gameTime = 0, // seconds
         gameTimeMs = 0; // milliseconds
+
       /* Game‑wide timers (NEW) */
       let epochGameStartTime = null;
       let epochGameEndTime = null;
@@ -614,6 +641,9 @@
       let playerPowerUpTime = 0,
         playerIsPoweredUp = false;
       const POWER_UP_DURATION = 10;
+
+      /* --------------- NEW: Debounce state flag ---------------- */
+      let startInProgress = false;
 
       /*********************   AUDIO HELPERS   *****************************/
       function initAudio() {
@@ -904,6 +934,13 @@
           spawnEntityFromSpec(spec, entry.idx);
           nextScheduleIdx++;
         }
+
+        /* ------------ NEW: Recycle old schedule entries --------------- */
+        if (nextScheduleIdx > RETAIN_SCHEDULE_ENTRIES) {
+          const removeCount = nextScheduleIdx - RETAIN_SCHEDULE_ENTRIES;
+          spawnSchedule.splice(0, removeCount);
+          nextScheduleIdx -= removeCount;
+        }
       }
 
       /*********************    CLASS DEFINITIONS  *************************/
@@ -1120,7 +1157,7 @@
             const ultra =
               this.isUltraFast || (this.isPlayer && playerIsPoweredUp);
             const count = ultra ? 2 : Rand() < 0.3 ? 1 : 0;
-            for (let i = 0; i < count; i++)
+            for (let i = 0; i < count; i++) {
               waterTrails.push(
                 new WaterTrail(
                   this.x + (movingLeft ? this.width : 0),
@@ -1130,6 +1167,11 @@
                   ultra
                 )
               );
+              // cap waterTrails length – remove excess in one go (O(1))
+              if (waterTrails.length > MAX_WATER_TRAILS) {
+                waterTrails.splice(0, waterTrails.length - MAX_WATER_TRAILS);
+              }
+            }
           }
         }
       }
@@ -1211,6 +1253,8 @@
               { r: 120, g: 0, b: 0 }
             )
           );
+          if (waterTrails.length > MAX_WATER_TRAILS)
+            waterTrails.splice(0, waterTrails.length - MAX_WATER_TRAILS);
         }
       }
 
@@ -1228,6 +1272,7 @@
           if (this.pauseTimeRemaining > 0) {
             this.pauseTimeRemaining -= dt;
             if (this.pauseTimeRemaining <= 0) {
+              this.pauseTimeRemaining = 0; // ⬅️ clamp
               const phase = Math.sin(performance.now() * this.oscS + this.oscO);
               this.baseX = this.x - phase * this.oscA;
               this.pulseCooldown = getRandom(5, 12);
@@ -1307,6 +1352,8 @@
               { r: 255, g: 255, b: 0 }
             )
           );
+          if (waterTrails.length > MAX_WATER_TRAILS)
+            waterTrails.splice(0, waterTrails.length - MAX_WATER_TRAILS);
         }
       }
 
@@ -1428,10 +1475,13 @@
 
       /*********************      SPAWNERS      *****************************/
       function spawnExplosion(f) {
-        if (f.width && f.height)
+        if (f.width && f.height) {
           explosions.push(
             new Explosion(f.x + f.width / 2, f.y + f.height / 2, f.maxSide)
           );
+          if (explosions.length > MAX_EXPLOSIONS)
+            explosions.splice(0, explosions.length - MAX_EXPLOSIONS);
+        }
       }
 
       /* Bubble helper */
@@ -1512,6 +1562,9 @@
         if (playerParalyzeTime > 0) {
           playerParalyzeTime -= dt;
           if (playerParalyzeTime < 0) playerParalyzeTime = 0;
+          // Inputs stay disabled while paralyzed, but the fish should
+          // glide to a halt under its normal friction.  (We therefore
+          // no longer zero‑out its velocity here.)
         }
 
         /* bubbles */
@@ -1529,6 +1582,9 @@
         for (let i = waterTrails.length - 1; i >= 0; i--) {
           waterTrails[i].update(dt);
           if (waterTrails[i].life <= 0) waterTrails.splice(i, 1);
+        }
+        if (waterTrails.length > MAX_WATER_TRAILS) {
+          waterTrails.splice(0, waterTrails.length - MAX_WATER_TRAILS);
         }
 
         /* player input */
@@ -1682,6 +1738,7 @@
             } else {
               /* player is eaten */
               isGameOver = true;
+              touchTarget = null; // ⬅️ now *before* we explode/draw again
               gameState = "over";
 
               /* NEW → who killed us & when */
@@ -1788,7 +1845,6 @@
         playerIsPoweredUp = false;
         playerParalyzeTime = 0;
         clearKeys();
-        initAudio();
         spawnBubbleGroup();
         bubbleTimer = 0;
         updateMusicButtons();
@@ -1809,11 +1865,20 @@
         updateSfxButtons();
       };
 
-      /* ---- Start Game (modified to seed spawn RNGs) ---- */
+      /* ---- Start Game (modified to seed spawn RNGs & debounce) ---- */
       async function startNewRun() {
+        if (startInProgress) return; // Debounce multiple clicks
+        startInProgress = true;
+        startBtn.disabled = true;
+        playAgainBtn.disabled = true;
+
         hideStartScreen();
         hideGameOverScreen();
         showOrHideArrowKeys(arrowKeysBtn.textContent.includes("On"));
+
+        /* 🚀 Kick the music immediately – this call now happens inside the same
+       user‑gesture that pressed “Start Game”, so browsers will allow playback */
+        startAudio();
 
         /* 1️⃣ new session */
         let sessionInfo;
@@ -1829,6 +1894,9 @@
           sessionInfo = await resp.json(); // {sessionId, seed}
         } catch (e) {
           alert("Cannot start game – session failed.");
+          startInProgress = false;
+          startBtn.disabled = false;
+          playAgainBtn.disabled = false;
           window.location.reload();
           return;
         }
@@ -1855,6 +1923,8 @@
         epochGameEndTime = null;
 
         initGame();
+        // allow another click even if the player abandons this run
+        startInProgress = false;
       }
 
       startBtn.onclick = startNewRun;
@@ -1944,7 +2014,7 @@
       ]).then(() => {
         resizeCanvas();
         showStartScreen();
-        initAudio();
+        initAudio(); /* ← now only called here once */
         let audioStarted = false;
         function kickAudio() {
           if (!audioStarted) {
