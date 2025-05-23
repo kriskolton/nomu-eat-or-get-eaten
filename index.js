@@ -180,12 +180,7 @@ app.use(express.json());
 
 // Serve index.html *as is* – no credentials leaked to the client
 app.get("/", (req, res) => {
-  const obfPath = path.join(__dirname, "public", "index.obf.html");
-  if (fs.existsSync(obfPath)) {
-    res.sendFile(obfPath);
-  } else {
-    res.sendFile(path.join(__dirname, "public", "index.html"));
-  }
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 /* ───────────────────────── Start-game session ──────────────────────── */

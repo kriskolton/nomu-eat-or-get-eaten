@@ -1,0 +1,2088 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Telegram Mini-App bridge -->
+    <script src="https://telegram.org/js/telegram-web-app.js?57"></script>
+
+    <!-- Deterministic RNG (client & server share the same seed) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
+
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Nomu: Eat or Get Eaten (Season 3)</title>
+
+    <!-- ----------------------------------------------------------------- -->
+    <!--                       FONTS & AUDIO ASSETS                         -->
+    <!-- ----------------------------------------------------------------- -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Londrina+Solid&display=swap"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <audio id="backgroundMusic" loop>
+      <source src="sounds/background4.mp3" type="audio/mpeg" />
+    </audio>
+    <audio id="eatSound">
+      <source src="sounds/eat.mp3" type="audio/mpeg" />
+    </audio>
+    <audio id="gameOverSound">
+      <source src="sounds/gameover.mp3" type="audio/mpeg" />
+    </audio>
+    <audio id="powerUpSound">
+      <source src="sounds/powerup.mp3" type="audio/mpeg" />
+    </audio>
+    <audio id="borgyPowerUpSound">
+      <source src="sounds/borgy-powerup.mp3" type="audio/mpeg" />
+    </audio>
+    <audio id="achievementSound">
+      <source src="sounds/achievement.mp3" type="audio/mpeg" />
+    </audio>
+    <audio id="shrinkSound">
+      <source src="sounds/shrink.mp3" type="audio/mpeg" />
+    </audio>
+    <audio id="electricSound">
+      <source src="sounds/electric.mp3" type="audio/mpeg" />
+    </audio>
+    <audio id="shockSound">
+      <source src="sounds/shock.mp3" type="audio/mpeg" />
+    </audio>
+
+    <!-- ----------------------------------------------------------------- -->
+    <!--                              STYLES                               -->
+    <!-- ----------------------------------------------------------------- -->
+    <style>
+      /* --- layout basics --- */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: #222;
+        font-family: "Poppins", sans-serif;
+      }
+      #gameWrapper {
+        flex: 1;
+        width: 100%;
+        position: relative;
+        overflow: hidden;
+        background: #222 url("img/bg4.png") center/cover no-repeat;
+        display: flex;
+        margin: 0 auto;
+        max-width: 430px;
+        max-height: 935px;
+      }
+      #gameCanvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        touch-action: none;
+      }
+
+      /* --- on-screen arrow keys --- */
+      #controlsContainer {
+        width: 100%;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        background: #222;
+      }
+      .controlsRow {
+        display: flex;
+        width: 100%;
+        max-width: 450px;
+        margin: 0 auto;
+      }
+      .arrowBtn {
+        flex: 1;
+        background: #f78719;
+        border: none;
+        color: #fff;
+        font-family: "Londrina Solid", sans-serif;
+        font-size: 20px;
+        margin: 1px;
+        border-radius: 4px;
+        height: 60px;
+        user-select: none;
+        touch-action: none;
+      }
+      .arrowBtn:active {
+        transform: scale(0.95);
+      }
+
+      /* --- overlay screens --- */
+      .overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+      }
+      .hidden {
+        display: none;
+      }
+      .overlay h1,
+      .overlay button,
+      .overlay p {
+        color: #fff;
+        margin: 8px;
+      }
+      .overlay button {
+        font-size: 16px;
+        font-weight: bold;
+        padding: 8px 10px;
+        cursor: pointer;
+        border-radius: 40px;
+        background: #f78719;
+        font-family: "Londrina Solid", sans-serif;
+        margin: 4px;
+      }
+      .overlay p {
+        font-size: 14px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- ----------------------------------------------------------------- -->
+    <!--                            MARK-UP                                -->
+    <!-- ----------------------------------------------------------------- -->
+    <div id="gameWrapper">
+      <canvas id="gameCanvas"></canvas>
+
+      <!-- ---------- Start overlay ---------- -->
+      <div id="startScreen" class="overlay">
+        <div style="max-width: 90%; margin: 0 auto; text-align: center">
+          <img
+            src="img/title.png"
+            alt="Eat or Get Eaten"
+            style="
+              max-width: 50%;
+              height: auto;
+              padding: 12px;
+              padding-bottom: 0;
+              margin-bottom: -8px;
+              max-height: 30vh;
+            "
+          />
+          <p
+            style="
+              font-size: 28px;
+              -webkit-background-clip: text;
+              background-clip: text;
+              color: #fff;
+              font-family: 'Londrina Solid', sans-serif;
+              letter-spacing: 2px;
+            "
+          >
+            SEASON 4 🇨🇭
+          </p>
+          <p style="font-size: 12px; color: #fff; opacity: 0.5">v3.7</p>
+
+          <div
+            id="telegramStatus"
+            style="
+              color: white;
+              font-family: 'Poppins', sans-serif;
+              margin-bottom: 24px;
+            "
+          ></div>
+
+          <p style="font-size: 24px; font-weight: bold; letter-spacing: 1px">
+            Rules
+          </p>
+          <p>
+            Use the touch screen or arrow keys (↑→↓←) to control Nomu. Eat the
+            smaller fish to grow. Don't let the bigger fish eat you!
+          </p>
+          <p>The larger the fish, the more points you get.</p>
+
+          <div
+            style="
+              display: flex;
+              gap: 0px;
+              margin-bottom: 0px;
+              justify-content: center;
+            "
+          >
+            <button id="musicBtn">🎵 Music On</button>
+            <button id="sfxBtn">🔊 SFX On</button>
+            <button id="arrowKeysBtn">🎮 Arrow Keys Off</button>
+          </div>
+
+          <button id="startBtn" style="font-size: 24px; padding: 12px 24px">
+            Start Game
+          </button>
+        </div>
+      </div>
+
+      <!-- ---------- Game-over overlay ---------- -->
+      <div id="gameOverScreen" class="overlay hidden">
+        <div style="max-width: 90%; margin: 0 auto; text-align: center">
+          <h1
+            style="font-family: 'Londrina Solid', sans-serif; font-size: 44px"
+          >
+            GAME OVER!
+          </h1>
+          <p id="finalScore"></p>
+          <div style="display: flex; gap: 0; justify-content: center">
+            <button id="musicBtnGameOver">🎵 Music On</button>
+            <button id="sfxBtnGameOver">🔊 SFX On</button>
+            <button id="arrowKeysBtnGameOver">🎮 Arrow Keys Off</button>
+          </div>
+          <button
+            id="playAgainBtn"
+            style="font-size: 24px; padding: 12px 24px; margin-top: 12px"
+          >
+            Play Again
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- Bottom: on-screen arrow keys ---------- -->
+    <div id="controlsContainer">
+      <div class="controlsRow">
+        <button class="arrowBtn" id="arrowUp">↑</button>
+      </div>
+      <div class="controlsRow">
+        <button class="arrowBtn" id="arrowLeft">←</button>
+        <button class="arrowBtn" id="arrowDown">↓</button>
+        <button class="arrowBtn" id="arrowRight">→</button>
+      </div>
+    </div>
+
+    <!-- ----------------------------------------------------------------- -->
+    <!--                          GAME SCRIPT                               -->
+    <!-- ----------------------------------------------------------------- -->
+    <script>
+      /********************* CONSTANTS & GLOBALS ***************************/
+
+      /* Dev helper – ?dev in the URL skips Telegram auth */
+      const urlParams = new URLSearchParams(window.location.search);
+      const forceDev = urlParams.has("dev");
+
+      let tg, userData, userId, initDataRaw;
+      try {
+        tg = window.Telegram.WebApp;
+        if (!forceDev) {
+          initDataRaw = tg.initData;
+          userData = tg.initDataUnsafe?.user;
+          userId = userData?.id;
+          tg.expand();
+          tg.ready();
+          tg.disableVerticalSwipes();
+        }
+      } catch (e) {
+        console.error("Telegram init error:", e);
+      }
+
+      /* Local fallback */
+      if (forceDev) {
+        userId = "local-dev";
+        userData = { username: "dev" };
+      }
+
+      /* Status banner */
+      const statusDiv = document.getElementById("telegramStatus");
+      if (userId) {
+        statusDiv.textContent = `Telegram connected ✓ (User: ${
+          userData?.username || userData?.first_name || "Anonymous"
+        })`;
+        statusDiv.style.color = "lightgreen";
+      } else {
+        statusDiv.textContent =
+          "⚠️ Not tracking scores – open via Telegram bot";
+        statusDiv.style.color = "red";
+      }
+
+      /* ----------------   DETERMINISTIC RANDOM  ---------------- */
+      // rng – graphics/FX/anything *except* spawning
+      let rng = Math.random; // will be replaced with seed-rng after session starts
+      const Rand = () => rng();
+
+      // --- NEW deterministic RNG streams ---
+      let spawnSpecRng = null; // generates the ordered list of spawn specs
+      let spawnTimingRng = null; // governs WHEN the next spawn occurs
+      const specRand = () => (spawnSpecRng ? spawnSpecRng() : Math.random());
+      const timingRand = () =>
+        spawnTimingRng ? spawnTimingRng() : Math.random();
+
+      /* 🔧  MISSING HELPERS RE-ADDED  🔧 */
+      const getRandom = (min, max) => Rand() * (max - min) + min; // FIXED
+      const getSpecRandom = (min, max) => specRand() * (max - min) + min;
+      const getSpawnRandom = getSpecRandom; // legacy alias
+
+      /* ---------------------- NEW LIMITING CONSTANTS --------------------- */
+      const MAX_WATER_TRAILS = 1500;
+      const MAX_EXPLOSIONS = 100;
+      const RETAIN_SCHEDULE_ENTRIES = 1000;
+
+      // Power-up constants
+      const SUSHI_DURATION = 10;
+      const BORGY_DURATION = 15;
+      const BORGY_SPEED_MULT = 3;
+
+      // Spawn schedule (server-verifiable)
+      const spawnSchedule = []; // { idx, spawnTime (s), spec }
+      let nextScheduleIdx = 0;
+      let scheduleCursorTime = 0; // seconds
+
+      /* Generate exponential delay matching 0.03/frame (≈1.8 spawns/s) */
+      function getNextSpawnDelay() {
+        let u = timingRand();
+        // Guard for u === 1 to avoid Infinity delays
+        if (u === 1) u = 1 - Number.EPSILON;
+        const lambda = 1.8; // per second
+        return -Math.log(1 - u) / lambda;
+      }
+
+      function scheduleNextEntry() {
+        const spec = nextSpawnSpec();
+        const delay = getNextSpawnDelay();
+        scheduleCursorTime += delay;
+        spawnSchedule.push({
+          idx: spawnSchedule.length,
+          spawnTime: scheduleCursorTime,
+          spec,
+        });
+      }
+
+      function ensureScheduleAhead(bufferSeconds = 60) {
+        while (
+          spawnSchedule.length === 0 ||
+          spawnSchedule[spawnSchedule.length - 1].spawnTime <
+            gameTime + bufferSeconds
+        ) {
+          scheduleNextEntry();
+        }
+      }
+
+      /*********************   ASSET HELPERS   ****************************/
+      function loadImage(src) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.addEventListener("load", () => resolve(img));
+          img.addEventListener("error", () => {
+            console.warn(`Image failed to load: ${src}`);
+            resolve(img); // resolve anyway – game can continue
+          });
+          img.src = src;
+        });
+      }
+
+      function loadAudio(id) {
+        return new Promise((resolve) => {
+          const el = document.getElementById(id);
+          if (!el) return resolve();
+          const finalize = () => resolve(el);
+          el.addEventListener("canplaythrough", finalize, { once: true });
+          el.addEventListener("error", finalize, { once: true });
+          // in case the media is cached and immediate
+          if (el.readyState >= 3) finalize();
+        });
+      }
+
+      /* Keyboard state */
+      const keys = { left: false, right: false, up: false, down: false };
+      const clearKeys = () => {
+        keys.left = keys.right = keys.up = keys.down = false;
+      };
+
+      /* Pointer-aware button helper */
+      const pointerDirMap = Object.create(null);
+      function pressKey(dir, down) {
+        keys[dir] = down;
+      }
+      function setupArrowButton(btn, dir) {
+        btn.addEventListener(
+          "pointerdown",
+          (e) => {
+            pressKey(dir, true);
+            btn.setPointerCapture(e.pointerId);
+            pointerDirMap[e.pointerId] = dir;
+            e.preventDefault();
+          },
+          { passive: false }
+        );
+        function release(e) {
+          const d = pointerDirMap[e.pointerId] ?? dir;
+          pressKey(d, false);
+          delete pointerDirMap[e.pointerId];
+        }
+        btn.addEventListener("pointerup", release);
+        btn.addEventListener("pointercancel", release);
+      }
+      ["Up", "Left", "Down", "Right"].forEach((dir) =>
+        setupArrowButton(
+          document.getElementById(`arrow${dir}`),
+          dir.toLowerCase()
+        )
+      );
+
+      /* -------- Score submission (networking/security skipped per brief) -------- */
+      const getApiSeed = (() => {
+        const codes = [68, 111, 115, 107, 100, 82, 112, 104, 106, 100];
+        let cached = null;
+        return () => {
+          if (cached) return cached;
+          cached = codes.map((c) => String.fromCharCode(c - 3)).join("");
+          return cached;
+        };
+      })();
+      const getApiPassword = () =>
+        getApiSeed()
+          .split("")
+          .map((ch) => ch.charCodeAt(0).toString(16))
+          .join("");
+
+      /* Extended signature (NEW params at the end) */
+      async function sendScoreToAPI(
+        score,
+        eaten,
+        sessionId,
+        gameTimeMs,
+        eatenBy = null, // NEW
+        startTimeMs = null, // NEW
+        endTimeMs = null // NEW
+      ) {
+        if (!userId) return; // dev mode skip
+
+        try {
+          await fetch("/api/scores", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `tma ${initDataRaw}`,
+              "x-api-password": getApiPassword(),
+            },
+            body: JSON.stringify({
+              score,
+              gameTime: gameTimeMs, // existing
+              event: "Season 3",
+              eaten,
+              sessionId,
+
+              /* ---- NEW FIELDS ---- */
+              eatenBy, // idx of the enemy that killed the player
+              epochGameStartTime: startTimeMs, // epoch-ms
+              epochGameEndTime: endTimeMs, // epoch-ms
+            }),
+          });
+        } catch (e) {
+          console.error("Score send error:", e);
+        }
+      }
+
+      /* Canvas */
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      let WIDTH = 800,
+        HEIGHT = 600;
+
+      function resizeCanvas() {
+        const dpr = window.devicePixelRatio || 1;
+        const cssW = canvas.clientWidth;
+        const cssH = canvas.clientHeight;
+        canvas.width = cssW * dpr;
+        canvas.height = cssH * dpr;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+        WIDTH = cssW;
+        HEIGHT = cssH;
+
+        if (player && player.width && player.height) {
+          player.x = Math.min(Math.max(0, player.x), WIDTH - player.width);
+          player.y = Math.min(Math.max(0, player.y), HEIGHT - player.height);
+        }
+        [...fishList, ...bubbles].forEach((ent) => {
+          if (ent.width == null || ent.height == null) {
+            if (typeof ent.calculateDimensions === "function") {
+              ent.calculateDimensions();
+            }
+          }
+          if (ent.width && ent.height) {
+            const maxX = Math.max(0, WIDTH - ent.width);
+            const maxY = Math.max(0, HEIGHT - ent.height);
+
+            ent.x = Math.min(Math.max(0, ent.x), maxX);
+            ent.y = Math.min(Math.max(0, ent.y), maxY);
+          }
+        });
+      }
+      window.addEventListener("resize", resizeCanvas);
+
+      /* Overlay/DOM refs */
+      const startScreen = document.getElementById("startScreen");
+      const gameOverScreen = document.getElementById("gameOverScreen");
+      const startBtn = document.getElementById("startBtn");
+      const playAgainBtn = document.getElementById("playAgainBtn");
+      const finalScoreElem = document.getElementById("finalScore");
+      const musicBtn = document.getElementById("musicBtn");
+      const sfxBtn = document.getElementById("sfxBtn");
+      const arrowKeysBtn = document.getElementById("arrowKeysBtn");
+      const musicBtnGameOver = document.getElementById("musicBtnGameOver");
+      const sfxBtnGameOver = document.getElementById("sfxBtnGameOver");
+      const arrowKeysBtnGameOver = document.getElementById(
+        "arrowKeysBtnGameOver"
+      );
+      const controlsContainer = document.getElementById("controlsContainer");
+      const arrowUp = document.getElementById("arrowUp");
+      const arrowDown = document.getElementById("arrowDown");
+      const arrowLeft = document.getElementById("arrowLeft");
+      const arrowRight = document.getElementById("arrowRight");
+
+      const showStartScreen = () => {
+        startScreen.classList.remove("hidden");
+        // ensure buttons are enabled after a previous run
+        startBtn.disabled = false;
+        // sync UI with current settings
+        showOrHideArrowKeys(false);
+        updateMusicButtons();
+        updateSfxButtons();
+      };
+      const hideStartScreen = () => startScreen.classList.add("hidden");
+      const showGameOverScreen = (scoreVal) => {
+        finalScoreElem.textContent = `Your Score: ${scoreVal}`;
+        gameOverScreen.classList.remove("hidden");
+        playGameOverSound();
+        syncGameOverUI();
+        // re-enable buttons for a new run
+        startInProgress = false;
+        startBtn.disabled = false;
+        playAgainBtn.disabled = false;
+      };
+      const hideGameOverScreen = () => gameOverScreen.classList.add("hidden");
+
+      /* Game-state flags */
+      let gameState = "start"; // "start" | "playing" | "over"
+      let isGameOver = false;
+      let pendingGameOver = false; // wait until explosions finish
+
+      /* Anti-cheat tracking */
+      let eatenEvents = [];
+      let currentSessionId = null;
+
+      /*********************   IMAGES & SPRITES   ***************************/
+      const fishTypeDefinitions = [
+        { src: "img/fish1-4.png", minSize: 10, maxSize: 40, weight: 0.432 },
+        { src: "img/fish2-4.png", minSize: 20, maxSize: 60, weight: 0.252 },
+        { src: "img/fish3-4.png", minSize: 25, maxSize: 80, weight: 0.2 },
+        { src: "img/fish4-4.png", minSize: 35, maxSize: 100, weight: 0.1 },
+        { src: "img/fish5-4.png", minSize: 200, maxSize: 300, weight: 0.013 },
+        { src: "img/fish6-4.png", minSize: 400, maxSize: 500, weight: 0.003 },
+      ];
+      const fishTypes = fishTypeDefinitions.map((def) => {
+        const image = new Image();
+        image.src = def.src;
+        return {
+          image,
+          minSize: def.minSize,
+          maxSize: def.maxSize,
+          weight: def.weight,
+        };
+      });
+
+      const playerImg = new Image();
+      playerImg.src = "img/player_fish.png";
+      const crabImg = new Image();
+      crabImg.src = "img/crab.png";
+      const jellyfishImg = new Image();
+      jellyfishImg.src = "img/jellyfish-4.png";
+      const electricJellyfishImg = new Image();
+      electricJellyfishImg.src = "img/electric-jellyfish-c.png";
+      const sushiImg = new Image();
+      sushiImg.src = "img/sushi-4.png";
+      const pufferImg = new Image();
+      pufferImg.src = "img/pufferfish-4.png";
+      const borgyImg = new Image();
+      borgyImg.src = "img/borgy.png";
+
+      /*********************   GAME VARIABLES   ****************************/
+      let fishList = [],
+        score = 0,
+        nextMilestone = 100000,
+        player,
+        touchTarget = null;
+      let bubbles = [],
+        waterTrails = [],
+        backgroundMusic,
+        eatSound,
+        gameOverSound,
+        powerUpSound,
+        borgyPowerUpSound,
+        achievementSound,
+        shrinkSound,
+        electricSound,
+        shockSound,
+        isSfxEnabled = true,
+        isMusicEnabled = true,
+        explosions = [];
+      let gameTime = 0, // seconds
+        gameTimeMs = 0; // milliseconds
+
+      /* Game-wide timers (NEW) */
+      let epochGameStartTime = null;
+      let epochGameEndTime = null;
+
+      /* Status effects */
+      let playerParalyzeTime = 0;
+      const PARALYZE_DURATION = 3;
+      const EATING_LEEWAY = 1.15;
+      const JELLY_SHRINK_FACTOR = 0.6;
+      const MIN_PLAYER_SIZE = 25;
+      let sushiPowerUpTime = 0;
+      let borgyPowerUpTime = 0;
+      let playerIsPoweredUp = false;
+
+      /* --------------- NEW: Debounce state flag ---------------- */
+      let startInProgress = false;
+
+      /*********************   AUDIO HELPERS   *****************************/
+      function initAudio() {
+        backgroundMusic = document.getElementById("backgroundMusic");
+        eatSound = document.getElementById("eatSound");
+        gameOverSound = document.getElementById("gameOverSound");
+        powerUpSound = document.getElementById("powerUpSound");
+        borgyPowerUpSound = document.getElementById("borgyPowerUpSound");
+        achievementSound = document.getElementById("achievementSound");
+        shrinkSound = document.getElementById("shrinkSound");
+        electricSound = document.getElementById("electricSound");
+        shockSound = document.getElementById("shockSound");
+        backgroundMusic.volume = 0.2;
+        const v = 0.5;
+        [
+          eatSound,
+          gameOverSound,
+          powerUpSound,
+          borgyPowerUpSound,
+          achievementSound,
+          shockSound,
+        ].forEach((s) => (s.volume = v));
+        shrinkSound.volume = 0.3;
+        electricSound.volume = 0.3;
+      }
+      const startAudio = () => {
+        if (backgroundMusic && isMusicEnabled)
+          backgroundMusic.play().catch(() => {});
+      };
+
+      const updateMusicButtons = () => {
+        const txt = isMusicEnabled ? "🎵 Music On" : "🎵 Music Off";
+        musicBtn.textContent = txt;
+        musicBtnGameOver.textContent = txt;
+      };
+      const updateSfxButtons = () => {
+        const txt = isSfxEnabled ? "🔊 SFX On" : "🔈 SFX Off";
+        sfxBtn.textContent = txt;
+        sfxBtnGameOver.textContent = txt;
+      };
+      const toggleMusic = () => {
+        isMusicEnabled = !isMusicEnabled;
+        if (backgroundMusic) {
+          if (isMusicEnabled) {
+            startAudio();
+            backgroundMusic.volume = 0.2;
+          } else {
+            backgroundMusic.pause();
+            backgroundMusic.volume = 0;
+          }
+        }
+        updateMusicButtons();
+      };
+      const toggleSFX = () => {
+        isSfxEnabled = !isSfxEnabled;
+        const v = isSfxEnabled ? 0.5 : 0;
+        [
+          eatSound,
+          gameOverSound,
+          powerUpSound,
+          borgyPowerUpSound,
+          achievementSound,
+          shockSound,
+        ].forEach((s) => (s.volume = v));
+        shrinkSound.volume = electricSound.volume = isSfxEnabled ? 0.3 : 0;
+        updateSfxButtons();
+      };
+
+      const playEatSound = () =>
+        isSfxEnabled && eatSound.play().catch(() => {});
+      const playGameOverSound = () =>
+        isSfxEnabled &&
+        ((gameOverSound.currentTime = 0), gameOverSound.play().catch(() => {}));
+      const playPowerUpSound = () =>
+        isSfxEnabled &&
+        ((powerUpSound.currentTime = 0), powerUpSound.play().catch(() => {}));
+      const playBorgyPowerUpSound = () =>
+        isSfxEnabled &&
+        ((borgyPowerUpSound.currentTime = 0),
+        borgyPowerUpSound.play().catch(() => {}));
+      const playAchvSound = () =>
+        isSfxEnabled &&
+        ((achievementSound.currentTime = 0),
+        achievementSound.play().catch(() => {}));
+      const playShrinkSound = () =>
+        isSfxEnabled &&
+        ((shrinkSound.currentTime = 0), shrinkSound.play().catch(() => {}));
+      const playElectricSound = () =>
+        isSfxEnabled &&
+        ((electricSound.currentTime = 0), electricSound.play().catch(() => {}));
+      const playShockSound = () =>
+        isSfxEnabled &&
+        ((shockSound.currentTime = 0), shockSound.play().catch(() => {}));
+
+      /*********************   HELPERS   *****************************/
+      const calculateFishScore = (sz) => Math.floor(sz);
+      const totalFishWeight = fishTypes.reduce((s, f) => s + f.weight, 0);
+
+      function getRandomWeightedFishType(arr, randFn = Rand) {
+        let r = randFn() * totalFishWeight;
+        for (const ft of arr) {
+          if (r < ft.weight) return ft;
+          r -= ft.weight;
+        }
+        return arr[arr.length - 1];
+      }
+
+      function tagEntity(ent, type, manualIdx = null) {
+        ent.spawnIdx =
+          manualIdx !== null ? manualIdx : spawnSchedule.length + 1000000; // fallback
+        ent.spawnType = type;
+        return ent;
+      }
+
+      /********************* NEW  — SPAWN SPEC GENERATOR ********************/
+      const SPAWN_SPEC_WEIGHTS = [
+        { kind: "fish", weight: 0.881 },
+        { kind: "crab", weight: 0.00147 },
+        { kind: "jelly", weight: 0.0294 },
+        { kind: "electricJelly", weight: 0.0147 },
+        { kind: "sushi", weight: 0.0147 },
+        { kind: "borgy", weight: 0.00735 },
+        { kind: "puffer", weight: 0.0587 },
+      ];
+      const TOTAL_SPEC_WEIGHT = SPAWN_SPEC_WEIGHTS.reduce(
+        (s, w) => s + w.weight,
+        0
+      );
+
+      function nextSpawnSpec() {
+        let r = specRand() * TOTAL_SPEC_WEIGHT;
+        for (const w of SPAWN_SPEC_WEIGHTS) {
+          if (r < w.weight) return generateSpecByKind(w.kind);
+          r -= w.weight;
+        }
+        return generateSpecByKind("fish");
+      }
+
+      function generateSpecByKind(kind) {
+        switch (kind) {
+          case "fish":
+            return generateFishSpec();
+          case "crab":
+            return { kind: "crab", size: getSpecRandom(50, 120) };
+          case "jelly":
+            return { kind: "jelly", size: getSpecRandom(30, 80) };
+          case "electricJelly":
+            return { kind: "electricJelly", size: getSpecRandom(40, 90) };
+          case "sushi":
+            return { kind: "sushi", fromLeft: specRand() < 0.5 };
+          case "borgy":
+            return { kind: "borgy", fromLeft: specRand() < 0.5 };
+          case "puffer": {
+            const baseSize = getSpecRandom(30, 60);
+            const fromLeft = specRand() < 0.5;
+            return { kind: "puffer", baseSize, fromLeft };
+          }
+        }
+      }
+
+      function generateFishSpec() {
+        const t = getRandomWeightedFishType(fishTypes, specRand);
+        const size = getSpecRandom(t.minSize, t.maxSize);
+        const fromLeft = specRand() < 0.5;
+        const ultras = specRand();
+        const ultra = ultras < 0.01;
+        const fast = !ultra && ultras < 0.04;
+        const sizeFactor = 1 - size / 500;
+        const minSpd = 0.3 + 0.5 * sizeFactor;
+        const maxSpd = 1.5 + 0.3 * sizeFactor;
+        const baseSpeed = getSpecRandom(minSpd, maxSpd);
+        return {
+          kind: "fish",
+          fishTypeIndex: fishTypes.indexOf(t),
+          size,
+          fromLeft,
+          ultra,
+          fast,
+          baseSpeed,
+        };
+      }
+
+      function spawnEntityFromSpec(spec, idx) {
+        switch (spec.kind) {
+          case "fish": {
+            const t = fishTypes[spec.fishTypeIndex];
+            const size = spec.size;
+            const fromLeft = spec.fromLeft;
+            const x = fromLeft ? -size : WIDTH;
+            const y = getSpecRandom(0, Math.max(0, HEIGHT - size));
+            let spd = spec.baseSpeed * (0.4 + 0.6 * Math.min(score / 1000, 1));
+            if (spec.ultra) spd *= 5;
+            else if (spec.fast) spd *= 3;
+            spd = fromLeft ? spd : -spd;
+
+            const fish = tagEntity(
+              new Fish(x, y, spd, 0, t.image, size, false),
+              "fish",
+              idx
+            );
+            fish.isUltraFast = spec.ultra;
+            fish.isFast = spec.fast;
+            fishList.push(fish);
+            break;
+          }
+          case "crab": {
+            const size = spec.size;
+            fishList.push(
+              tagEntity(
+                new Crab(getSpecRandom(0, WIDTH - size), HEIGHT + size, size),
+                "crab",
+                idx
+              )
+            );
+            break;
+          }
+          case "jelly": {
+            const size = spec.size;
+            fishList.push(
+              tagEntity(
+                new Jellyfish(
+                  getSpecRandom(0, WIDTH - size),
+                  HEIGHT + size,
+                  size
+                ),
+                "jelly",
+                idx
+              )
+            );
+            break;
+          }
+          case "electricJelly": {
+            const size = spec.size;
+            fishList.push(
+              tagEntity(
+                new ElectricJellyfish(
+                  getSpecRandom(0, WIDTH - size),
+                  HEIGHT + size,
+                  size
+                ),
+                "elecJelly",
+                idx
+              )
+            );
+            break;
+          }
+          case "sushi": {
+            const size = 30;
+            const fromLeft = spec.fromLeft;
+            const x = fromLeft ? -size : WIDTH;
+            const y = getSpecRandom(0, HEIGHT - size);
+            const spd = (fromLeft ? 1 : -1) * 1.5;
+            fishList.push(tagEntity(new Sushi(x, y, spd), "sushi", idx));
+            break;
+          }
+          case "borgy": {
+            const size = 30;
+            const fromLeft = spec.fromLeft;
+            const x = fromLeft ? -size : WIDTH;
+            const y = getSpecRandom(0, HEIGHT - size);
+            const spd = (fromLeft ? 1 : -1) * 1.2;
+            fishList.push(tagEntity(new Borgy(x, y, spd), "borgy", idx));
+            break;
+          }
+          case "puffer": {
+            const baseSize = spec.baseSize;
+            const fromLeft = spec.fromLeft;
+            const x = fromLeft ? -baseSize : WIDTH;
+            const y = getSpecRandom(0, HEIGHT - baseSize);
+            const spd = getSpecRandom(0.2, 1.2) * (fromLeft ? 1 : -1);
+            fishList.push(
+              tagEntity(new Pufferfish(x, y, spd, baseSize), "puffer", idx)
+            );
+            break;
+          }
+        }
+      }
+
+      /*********************   SCHEDULED SPAWN PROCESSOR   *********************/
+      function processScheduledSpawns() {
+        ensureScheduleAhead();
+        while (
+          nextScheduleIdx < spawnSchedule.length &&
+          spawnSchedule[nextScheduleIdx].spawnTime <= gameTime
+        ) {
+          const entry = spawnSchedule[nextScheduleIdx];
+          const spec = entry.spec;
+
+          /* Difficulty / cap rule checks */
+          const maxEnemies = score < 1000 ? 20 : 30;
+          const isEnemy =
+            spec.kind !== "sushi" &&
+            spec.kind !== "borgy" &&
+            spec.kind !== "crab";
+          if (isEnemy && fishList.length >= maxEnemies) {
+            nextScheduleIdx++;
+            continue;
+          }
+          if (spec.kind === "crab" && score < 2000) {
+            nextScheduleIdx++;
+            continue;
+          }
+
+          spawnEntityFromSpec(spec, entry.idx);
+          nextScheduleIdx++;
+        }
+
+        /* Recycle old schedule entries */
+        if (nextScheduleIdx > RETAIN_SCHEDULE_ENTRIES) {
+          const removeCount = nextScheduleIdx - RETAIN_SCHEDULE_ENTRIES;
+          spawnSchedule.splice(0, removeCount);
+          nextScheduleIdx -= removeCount;
+        }
+      }
+
+      /*********************    CLASS DEFINITIONS  *************************/
+      /* ---- WaterTrail ---- */
+      class WaterTrail {
+        constructor(x, y, dir, fishSize, isUltra = false, colorRGB = null) {
+          this.x = x;
+          this.y = y;
+          this.size = getRandom(
+            Math.min(8, Math.max(2, fishSize * 0.1)) * 0.8,
+            Math.min(8, Math.max(2, fishSize * 0.1)) * 1.2
+          );
+          this.life = 1;
+          this.fadeSpeed = getRandom(0.02, 0.04);
+          this.dir = dir;
+          this.offsetX = getRandom(-3, 3);
+          this.offsetY = getRandom(-3, 3);
+          this.isUltra = isUltra;
+          this.colorRGB = colorRGB;
+          this.hue = Rand() * 360;
+          this.hueSpeed = getRandom(2, 4);
+        }
+        update(dt) {
+          this.life -= this.fadeSpeed * dt * 60;
+          this.x += this.dir * 0.5 * dt * 60;
+          if (this.isUltra) this.hue = (this.hue + this.hueSpeed) % 360;
+        }
+        draw(c) {
+          if (this.life <= 0) return;
+          c.beginPath();
+          c.arc(
+            this.x + this.offsetX,
+            this.y + this.offsetY,
+            this.size,
+            0,
+            Math.PI * 2
+          );
+
+          if (this.isUltra) {
+            c.fillStyle = `hsla(${this.hue},100%,50%,${this.life * 0.3})`;
+            c.shadowBlur = 10;
+            c.shadowColor = `hsla(${this.hue},100%,50%,${this.life * 0.3})`;
+          } else if (this.colorRGB) {
+            const { r, g, b } = this.colorRGB;
+            c.fillStyle = `rgba(${r},${g},${b},${this.life * 0.3})`;
+            c.shadowBlur = 6;
+            c.shadowColor = `rgba(${r},${g},${b},${this.life * 0.3})`;
+          } else {
+            c.fillStyle = `rgba(255,255,255,${this.life * 0.05})`;
+            c.shadowBlur = 0;
+          }
+          c.fill();
+          c.shadowBlur = 0;
+        }
+      }
+
+      /* ---- Fish (base + player) ---- */
+      class Fish {
+        constructor(x, y, sx, sy, img, maxSide, isPlayer = false) {
+          this.x = x;
+          this.y = y;
+          this.speedX = sx;
+          this.speedY = sy;
+          this.sprite = img;
+          this.maxSide = maxSide;
+          this.isPlayer = isPlayer;
+          this.lastTrailTime = 0;
+          this.isFast =
+            this.isUltraFast =
+            this.isCrab =
+            this.isJellyfish =
+            this.isSushi =
+            this.isBorgy =
+            this.isPuffer =
+              false;
+          if (!isPlayer) {
+            this.oscSpd = getRandom(0.005, 0.01);
+            this.oscAmt = getRandom(0.05, 0.1);
+            this.oscOff = getRandom(0, Math.PI * 2);
+            this.accel = 0.05;
+            this.maxSpd = Math.abs(sx) * 1.2;
+          } else {
+            this.vx = this.vy = 0;
+            this.accel = 0.055;
+            this.friction = 0.99;
+            this.baseMaxSpd = 10;
+            this.maxSpd = this.baseMaxSpd;
+            this.facingLeft = false;
+          }
+          this.width = this.height = null;
+        }
+        calculateDimensions() {
+          const w = this.sprite.naturalWidth,
+            h = this.sprite.naturalHeight;
+          if (!w || !h) {
+            this.width = this.height = this.maxSide;
+            return;
+          }
+          const asp = w / h;
+          if (asp > 1) {
+            this.width = this.maxSide;
+            this.height = this.maxSide / asp;
+          } else {
+            this.height = this.maxSide;
+            this.width = this.maxSide * asp;
+          }
+        }
+        draw(c) {
+          if (!this.sprite.complete) return;
+          if (this.width === null || this.height === null)
+            this.calculateDimensions();
+
+          if (this.isPlayer) {
+            if (Math.abs(this.vx) > 0.1) this.facingLeft = this.vx < 0;
+          }
+          const movingLeft = this.isPlayer ? this.facingLeft : this.speedX < 0;
+
+          const ultra =
+            this.isUltraFast || (this.isPlayer && playerIsPoweredUp);
+          const boostRemaining =
+            borgyPowerUpTime > 0 ? borgyPowerUpTime : sushiPowerUpTime;
+          const flickerActive =
+            this.isPlayer && playerIsPoweredUp && boostRemaining <= 3;
+
+          c.save();
+          if (movingLeft) {
+            c.translate(this.x + this.width / 2, this.y + this.height / 2);
+            c.scale(-1, 1);
+            c.translate(-this.width / 2, -this.height / 2);
+          } else c.translate(this.x, this.y);
+
+          if (this.isPlayer && playerParalyzeTime > 0) {
+            c.filter = "hue-rotate(30deg) brightness(1.4) saturate(1.8)";
+          } else if (this.isPlayer && borgyPowerUpTime > 0) {
+            c.filter = "hue-rotate(100deg) brightness(2) saturate(3)";
+          } else if (ultra) {
+            c.filter = "hue-rotate(180deg) brightness(1.5) saturate(2)";
+          } else if (this.isFast) {
+            c.filter = "hue-rotate(45deg) brightness(1.2)";
+          }
+          if (flickerActive) {
+            c.globalAlpha = 0.5;
+            c.filter =
+              (c.filter ? c.filter + " " : "") +
+              "brightness(0.7) contrast(0.9)";
+          }
+
+          c.drawImage(this.sprite, 0, 0, this.width, this.height);
+          c.restore();
+        }
+        getBounds() {
+          if (this.width == null || this.height == null)
+            this.calculateDimensions();
+          const scale = 0.6,
+            rX = (this.width * scale) / 2,
+            rY = (this.height * scale) / 2;
+          let cX = this.x + this.width / 2,
+            cY = this.y + this.height / 2;
+          const shift = this.width * 0.07;
+          const movingLeft = this.isPlayer ? this.facingLeft : this.speedX < 0;
+          if (movingLeft) cX -= shift;
+          else cX += shift;
+          return { centerX: cX, centerY: cY, radiusX: rX, radiusY: rY };
+        }
+        update(dt) {
+          const df = dt * 60;
+          if (this.isPlayer) {
+            this.maxSpd =
+              this.baseMaxSpd * (borgyPowerUpTime > 0 ? BORGY_SPEED_MULT : 1);
+
+            const f = Math.pow(this.friction, df);
+            this.vx *= f;
+            this.vy *= f;
+            this.x += this.vx * df;
+            this.y += this.vy * df;
+            if (this.width && this.height) {
+              if (this.x < 0) {
+                this.x = 0;
+                this.vx = 0;
+              }
+              if (this.y < 0) {
+                this.y = 0;
+                this.vy = 0;
+              }
+              if (this.x + this.width > WIDTH) {
+                this.x = WIDTH - this.width;
+                this.vx = 0;
+              }
+              if (this.y + this.height > HEIGHT) {
+                this.y = HEIGHT - this.height;
+                this.vy = 0;
+              }
+            }
+          } else {
+            const osc =
+              Math.sin(performance.now() * this.oscSpd + this.oscOff) *
+              this.oscAmt;
+            if (!this.isJellyfish && !this.isCrab) {
+              this.speedX +=
+                this.accel *
+                Math.sign(this.speedX) *
+                df *
+                (Math.abs(this.speedX) < this.maxSpd ? 1 : 0);
+              if (Math.abs(this.speedX) > this.maxSpd)
+                this.speedX = Math.sign(this.speedX) * this.maxSpd;
+              this.x += this.speedX * df;
+              this.y += osc * df;
+            }
+          }
+        }
+        createWaterTrail() {
+          if (!this.width || !this.height) return;
+          const now = performance.now();
+          if (now - this.lastTrailTime < 50) return;
+          this.lastTrailTime = now;
+          const movingLeft = this.isPlayer ? this.facingLeft : this.speedX < 0;
+          const speed = this.isPlayer
+            ? Math.hypot(this.vx, this.vy)
+            : Math.abs(this.speedX);
+          if (speed > 0.5) {
+            const ultra =
+              this.isUltraFast || (this.isPlayer && playerIsPoweredUp);
+            const count = ultra ? 2 : Rand() < 0.3 ? 1 : 0;
+            for (let i = 0; i < count; i++) {
+              waterTrails.push(
+                new WaterTrail(
+                  this.x + (movingLeft ? this.width : 0),
+                  this.y + this.height * 0.5,
+                  movingLeft ? 1 : -1,
+                  this.maxSide,
+                  ultra
+                )
+              );
+              if (waterTrails.length > MAX_WATER_TRAILS) {
+                waterTrails.splice(0, waterTrails.length - MAX_WATER_TRAILS);
+              }
+            }
+          }
+        }
+      }
+
+      /* ---- Crab ---- */
+      class Crab extends Fish {
+        constructor(x, y, size) {
+          super(x, y, 0, 0, crabImg, size, false);
+          this.isCrab = true;
+          this.entered = false;
+          this.timeAlive = 0;
+          this.remove = false;
+        }
+        update(dt, player) {
+          if (this.remove) return;
+          const df = dt * 60;
+          if (!this.entered) {
+            this.y -= 2 * df;
+            if (this.y + this.height <= HEIGHT) this.entered = true;
+            return;
+          }
+          this.timeAlive += dt;
+          if (this.timeAlive > 15) {
+            spawnExplosion(this);
+            this.remove = true;
+            return;
+          }
+          const c = this.getBounds(),
+            p = player.getBounds();
+          const dx = p.centerX - c.centerX,
+            dy = p.centerY - c.centerY,
+            dist = Math.hypot(dx, dy) || 1;
+          const s = 1.5;
+          if (c.radiusX > p.radiusX) {
+            this.x += (dx / dist) * s * df;
+            this.y += (dy / dist) * s * df;
+          } else {
+            this.x -= (dx / dist) * s * df;
+            this.y -= (dy / dist) * s * df;
+          }
+          if (this.width && this.height) {
+            this.x = Math.min(Math.max(0, this.x), WIDTH - this.width);
+            this.y = Math.min(Math.max(0, this.y), HEIGHT - this.height);
+          }
+        }
+      }
+
+      /* ---- Jellyfish ---- */
+      class Jellyfish extends Fish {
+        constructor(x, y, size) {
+          super(x, y, 0, -1.2, jellyfishImg, size, false);
+          this.isJellyfish = true;
+          this.oscS = getRandom(0.0008, 0.0015);
+          this.oscA = getRandom(10, 15);
+          this.oscO = Rand() * Math.PI * 2;
+          this.baseX = x;
+          this.vSpeed = getRandom(0.5, 1.2);
+        }
+        update(dt) {
+          const df = dt * 60;
+          this.y -= this.vSpeed * df;
+          this.x =
+            this.baseX +
+            Math.sin(performance.now() * this.oscS + this.oscO) * this.oscA;
+          if (this.y + this.height < -50) this.maxSide = 0;
+        }
+        createWaterTrail() {
+          if (!this.width || !this.height) return;
+          const now = performance.now();
+          if (now - this.lastTrailTime < 80) return;
+          this.lastTrailTime = now;
+          waterTrails.push(
+            new WaterTrail(
+              this.x + this.width / 2,
+              this.y + this.height,
+              0,
+              this.maxSide * 0.4,
+              false,
+              { r: 120, g: 0, b: 0 }
+            )
+          );
+          if (waterTrails.length > MAX_WATER_TRAILS)
+            waterTrails.splice(0, waterTrails.length - MAX_WATER_TRAILS);
+        }
+      }
+
+      /* ---- Electric Jellyfish ---- */
+      class ElectricJellyfish extends Jellyfish {
+        constructor(x, y, size) {
+          super(x, y, size);
+          this.sprite = electricJellyfishImg;
+          this.isElectric = true;
+          this.pulseCooldown = getRandom(5, 12);
+          this.pauseTimeRemaining = 0;
+          this.pulseRadius = size * 2.3;
+        }
+        update(dt) {
+          if (this.pauseTimeRemaining > 0) {
+            this.pauseTimeRemaining -= dt;
+            if (this.pauseTimeRemaining <= 0) {
+              this.pauseTimeRemaining = 0;
+              const phase = Math.sin(performance.now() * this.oscS + this.oscO);
+              this.baseX = this.x - phase * this.oscA;
+              this.pulseCooldown = getRandom(5, 12);
+            }
+            return;
+          }
+          this.pulseCooldown -= dt;
+          if (this.pulseCooldown <= 0) {
+            this.performPulse();
+            return;
+          }
+          super.update(dt);
+        }
+        performPulse() {
+          this.pauseTimeRemaining = 1;
+          this.pulseCooldown = getRandom(5, 12);
+          playElectricSound();
+          const p = player.getBounds();
+          const b = this.getBounds();
+          const dx = p.centerX - b.centerX;
+          const dy = p.centerY - b.centerY;
+          const dist = Math.hypot(dx, dy);
+          if (dist <= this.pulseRadius && borgyPowerUpTime <= 0) {
+            playerParalyzeTime = PARALYZE_DURATION;
+            playShockSound();
+          }
+        }
+        draw(c) {
+          super.draw(c);
+          if (this.pauseTimeRemaining > 0 && this.width && this.height) {
+            const alpha = this.pauseTimeRemaining;
+            const cx = this.x + this.width / 2;
+            const cy = this.y + this.height / 2;
+            const maxLen = this.pulseRadius * (1 - alpha * 0.25);
+            const bolts = 10;
+            const segmentsPerBolt = 3;
+            c.save();
+            for (let i = 0; i < bolts; i++) {
+              const baseAngle = (i / bolts) * Math.PI * 2;
+              let prevX = cx,
+                prevY = cy;
+              for (let s = 1; s <= segmentsPerBolt; s++) {
+                const segLen = (maxLen / segmentsPerBolt) * s;
+                const jitter = segLen * 0.25;
+                const angle = baseAngle + getRandom(-0.2, 0.2);
+                const x =
+                  cx + Math.cos(angle) * segLen + getRandom(-jitter, jitter);
+                const y =
+                  cy + Math.sin(angle) * segLen + getRandom(-jitter, jitter);
+                c.beginPath();
+                c.moveTo(prevX, prevY);
+                c.lineTo(x, y);
+                c.strokeStyle = `rgba(255,255,0,${alpha})`;
+                c.lineWidth = 2;
+                c.shadowBlur = 8;
+                c.shadowColor = `rgba(255,255,0,${alpha})`;
+                c.stroke();
+                prevX = x;
+                prevY = y;
+              }
+            }
+            c.restore();
+          }
+        }
+        createWaterTrail() {
+          if (!this.width || !this.height) return;
+          const now = performance.now();
+          if (now - this.lastTrailTime < 80) return;
+          this.lastTrailTime = now;
+          waterTrails.push(
+            new WaterTrail(
+              this.x + this.width / 2,
+              this.y + this.height,
+              0,
+              this.maxSide * 0.4,
+              false,
+              { r: 255, g: 255, b: 0 }
+            )
+          );
+          if (waterTrails.length > MAX_WATER_TRAILS)
+            waterTrails.splice(0, waterTrails.length - MAX_WATER_TRAILS);
+        }
+      }
+
+      /* ---- Sushi ---- */
+      class Sushi extends Fish {
+        constructor(x, y, speedX) {
+          super(x, y, speedX, 0, sushiImg, 30, false);
+          this.isSushi = true;
+        }
+      }
+
+      /* ---- Borgy ---- */
+      class Borgy extends Fish {
+        constructor(x, y, speedX) {
+          super(x, y, speedX, 0, borgyImg, 30, false);
+          this.isBorgy = true;
+        }
+      }
+
+      /* ---- Pufferfish ---- */
+      class Pufferfish extends Fish {
+        constructor(x, y, speedX, baseSize) {
+          super(x, y, speedX, 0, pufferImg, baseSize, false);
+          this.isPuffer = true;
+          this.baseSize = baseSize;
+          this.inflating = false;
+          this.inflateStart = 0;
+          this.inflateDuration = 500;
+        }
+        update(dt) {
+          super.update(dt);
+          if (!this.inflating && this.maxSide < this.baseSize * 2.9) {
+            if (Rand() < 0.0003 * dt * 60) {
+              this.inflating = true;
+              this.inflateStart = performance.now();
+            }
+          }
+          if (this.inflating) {
+            const elapsed = performance.now() - this.inflateStart;
+            const p = Math.min(elapsed / this.inflateDuration, 1);
+            const centreX = this.x + (this.width ?? this.maxSide) / 2;
+            const centreY = this.y + (this.height ?? this.maxSide) / 2;
+            this.maxSide = this.baseSize * (1 + 3 * p);
+            this.width = this.height = null;
+            this.calculateDimensions();
+            this.x = centreX - this.width / 2;
+            this.y = centreY - this.height / 2;
+            if (p === 1) this.inflating = false;
+          }
+        }
+      }
+
+      /* ---- Bubble & Explosion ---- */
+      class Bubble {
+        constructor(baseX) {
+          this.baseX = baseX;
+          this.x = this.baseX + getRandom(-10, 10);
+          this.y = HEIGHT + 20;
+          this.size = getRandom(3, 8);
+          this.speed = getRandom(2, 3.5);
+          this.opacity = getRandom(0.2, 0.4);
+          this.wobbleAmount = getRandom(0.1, 0.3);
+          this.wobbleSpeed = getRandom(0.02, 0.05);
+          this.wobbleOffset = Rand() * Math.PI * 2;
+        }
+        update(dt) {
+          this.y -= this.speed * dt * 60;
+          this.x +=
+            Math.sin(this.wobbleOffset + performance.now() * this.wobbleSpeed) *
+            this.wobbleAmount *
+            dt *
+            60;
+        }
+        draw(c) {
+          c.beginPath();
+          c.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          c.fillStyle = `rgba(255,255,255,${this.opacity})`;
+          c.fill();
+        }
+      }
+
+      class Explosion {
+        constructor(x, y, size) {
+          this.x = x;
+          this.y = y;
+          this.size = size;
+          this.particles = [];
+          this.life = 1;
+          this.fadeSpeed = 0.02;
+          const n = Math.floor(size * 0.5);
+          for (let i = 0; i < n; i++) {
+            const angle = (i / n) * Math.PI * 2,
+              spd = getRandom(2, 4);
+            this.particles.push({
+              x: 0,
+              y: 0,
+              sx: Math.cos(angle) * spd,
+              sy: Math.sin(angle) * spd,
+              size: getRandom(3, 8),
+              life: 1,
+              fadeSpeed: getRandom(0.01, 0.03),
+            });
+          }
+        }
+        update(dt) {
+          this.life -= this.fadeSpeed * dt * 60;
+          for (const p of this.particles) {
+            p.x += p.sx * dt * 60;
+            p.y += p.sy * dt * 60;
+            p.life -= p.fadeSpeed * dt * 60;
+          }
+        }
+        isComplete() {
+          return this.life <= 0;
+        }
+        draw(c) {
+          if (this.isComplete()) return;
+          for (const p of this.particles) {
+            if (p.life <= 0) continue;
+            c.beginPath();
+            c.arc(this.x + p.x, this.y + p.y, p.size, 0, Math.PI * 2);
+            c.fillStyle = `rgba(255,255,255,${p.life * 0.8})`;
+            c.fill();
+          }
+        }
+      }
+
+      /*********************      SPAWNERS      *****************************/
+      function spawnExplosion(f) {
+        if (f.width && f.height) {
+          explosions.push(
+            new Explosion(f.x + f.width / 2, f.y + f.height / 2, f.maxSide)
+          );
+          if (explosions.length > MAX_EXPLOSIONS)
+            explosions.splice(0, explosions.length - MAX_EXPLOSIONS);
+        }
+      }
+
+      /* Bubble helper */
+      function spawnBubbleGroup() {
+        const n = Math.floor(getRandom(3, 6));
+        const baseX = getRandom(50, WIDTH - 50);
+        for (let i = 0; i < n; i++) bubbles.push(new Bubble(baseX));
+      }
+      let bubbleTimer = 0;
+      const BUBBLE_INTERVAL = 20;
+
+      /*********************     RESET ROUND (size)     *********************/
+      function resetRound() {
+        fishList = [];
+        bubbles = [];
+        waterTrails = [];
+        explosions = [];
+        player.maxSide = 25;
+        player.width = player.height = null;
+        player.x = WIDTH / 2;
+        player.y = HEIGHT / 2;
+        player.vx = player.vy = 0;
+        sushiPowerUpTime = 0;
+        borgyPowerUpTime = 0;
+        playerIsPoweredUp = false;
+        playerParalyzeTime = 0;
+        spawnBubbleGroup();
+        bubbleTimer = 0;
+      }
+
+      /*********************      GAME LOOP LOGIC      *********************/
+      function checkCollisionOval(a, b) {
+        const A = a.getBounds();
+        const B = b.getBounds();
+        if (
+          A.radiusX === 0 ||
+          A.radiusY === 0 ||
+          B.radiusX === 0 ||
+          B.radiusY === 0
+        )
+          return false;
+        const dx = A.centerX - B.centerX;
+        const dy = A.centerY - B.centerY;
+        return (
+          (dx * dx) / (A.radiusX + B.radiusX) ** 2 +
+            (dy * dy) / (A.radiusY + B.radiusY) ** 2 <=
+          1
+        );
+      }
+
+      function updateGame(dt) {
+        /* explosions */
+        for (let i = explosions.length - 1; i >= 0; i--) {
+          explosions[i].update(dt);
+          if (explosions[i].isComplete()) explosions.splice(i, 1);
+        }
+        if (pendingGameOver && explosions.length === 0) {
+          showGameOverScreen(score);
+          pendingGameOver = false;
+        }
+        if (gameState !== "playing") return;
+        if (isGameOver) return;
+
+        /* time */
+        gameTime += dt;
+        gameTimeMs = Math.round(gameTime * 1000);
+
+        /* power-up timers */
+        if (sushiPowerUpTime > 0) {
+          sushiPowerUpTime -= dt;
+          if (sushiPowerUpTime <= 0) sushiPowerUpTime = 0;
+        }
+        if (borgyPowerUpTime > 0) {
+          borgyPowerUpTime -= dt;
+          if (borgyPowerUpTime <= 0) borgyPowerUpTime = 0;
+        }
+        playerIsPoweredUp = sushiPowerUpTime > 0 || borgyPowerUpTime > 0;
+
+        /* status decrement */
+        if (playerParalyzeTime > 0) {
+          playerParalyzeTime -= dt;
+          if (playerParalyzeTime < 0) playerParalyzeTime = 0;
+        }
+
+        /* spawn processing */
+        processScheduledSpawns();
+
+        /* bubbles */
+        for (let i = bubbles.length - 1; i >= 0; i--) {
+          bubbles[i].update(dt);
+          if (bubbles[i].y < -20) bubbles.splice(i, 1);
+        }
+        bubbleTimer += dt;
+        if (bubbleTimer >= BUBBLE_INTERVAL) {
+          spawnBubbleGroup();
+          bubbleTimer = 0;
+        }
+
+        /* water trails */
+        for (let i = waterTrails.length - 1; i >= 0; i--) {
+          waterTrails[i].update(dt);
+          if (waterTrails[i].life <= 0) waterTrails.splice(i, 1);
+        }
+        if (waterTrails.length > MAX_WATER_TRAILS) {
+          waterTrails.splice(0, waterTrails.length - MAX_WATER_TRAILS);
+        }
+
+        /* player input */
+        const canMove = playerParalyzeTime <= 0;
+        const accelMult = borgyPowerUpTime > 0 ? BORGY_SPEED_MULT : 1;
+        const a = player.accel * accelMult * dt * 60;
+        if (canMove) {
+          if (keys.left) player.vx -= a;
+          if (keys.right) player.vx += a;
+          if (keys.up) player.vy -= a;
+          if (keys.down) player.vy += a;
+          if (touchTarget && player.width && player.height) {
+            const px = player.x + player.width / 2;
+            const py = player.y + player.height / 2;
+            const dx = touchTarget.x - px;
+            const dy = touchTarget.y - py;
+            const dist = Math.hypot(dx, dy);
+            if (dist > 1) {
+              player.vx += (dx / dist) * a;
+              player.vy += (dy / dist) * a;
+            }
+          }
+        }
+        const spd = Math.hypot(player.vx, player.vy);
+        if (spd > player.maxSpd) {
+          const r = player.maxSpd / spd;
+          player.vx *= r;
+          player.vy *= r;
+        }
+
+        /* update entities */
+        player.update(dt);
+        player.createWaterTrail();
+
+        /* enemies & pickups */
+        for (let i = fishList.length - 1; i >= 0; i--) {
+          const e = fishList[i];
+          if (e.remove) {
+            fishList.splice(i, 1);
+            continue;
+          }
+          if (e instanceof ElectricJellyfish) e.update(dt);
+          else if (e.isCrab) e.update(dt, player);
+          else e.update(dt);
+          e.createWaterTrail();
+
+          const b = e.getBounds();
+          if (
+            e.maxSide <= 0 ||
+            b.centerX + b.radiusX < -200 ||
+            b.centerX - b.radiusX > WIDTH + 200 ||
+            e.y > HEIGHT + 200
+          ) {
+            fishList.splice(i, 1);
+            continue;
+          }
+
+          /* collision with player */
+          if (checkCollisionOval(player, e)) {
+            /* --- sushi pickup --- */
+            if (e.isSushi) {
+              score += 50;
+              sushiPowerUpTime = SUSHI_DURATION;
+              playPowerUpSound();
+              eatenEvents.push({
+                t: gameTimeMs,
+                idx: e.spawnIdx,
+                type: e.spawnType,
+                size: e.maxSide,
+                ultra: !!e.isUltraFast,
+              });
+              fishList.splice(i, 1);
+              continue;
+            }
+
+            /* --- borgy pickup --- */
+            if (e.isBorgy) {
+              score += 75;
+              borgyPowerUpTime = BORGY_DURATION;
+              playBorgyPowerUpSound();
+              eatenEvents.push({
+                t: gameTimeMs,
+                idx: e.spawnIdx,
+                type: e.spawnType,
+                size: e.maxSide,
+                ultra: !!e.isUltraFast,
+              });
+              fishList.splice(i, 1);
+              continue;
+            }
+
+            /* --- player is powered-up --- */
+            if (playerIsPoweredUp) {
+              score += calculateFishScore(e.maxSide);
+              eatenEvents.push({
+                t: gameTimeMs,
+                idx: e.spawnIdx,
+                type: e.spawnType,
+                size: e.maxSide,
+                ultra: !!e.isUltraFast,
+              });
+
+              if (e.isJellyfish && !e.isElectric && borgyPowerUpTime <= 0) {
+                player.maxSide = Math.max(
+                  player.maxSide * JELLY_SHRINK_FACTOR,
+                  MIN_PLAYER_SIZE
+                );
+                playShrinkSound();
+              } else {
+                player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
+                playEatSound();
+              }
+
+              if (e.isElectric && borgyPowerUpTime <= 0) {
+                playerParalyzeTime = PARALYZE_DURATION;
+                playShockSound();
+              }
+
+              player.width = player.height = null;
+              if (e.isUltraFast) {
+                sushiPowerUpTime = SUSHI_DURATION;
+                playPowerUpSound();
+              }
+              fishList.splice(i, 1);
+              continue;
+            }
+
+            /* --- no power-up, check size --- */
+            const pR = player.getBounds().radiusX;
+            const eR = e.getBounds().radiusX;
+            if (pR * EATING_LEEWAY > eR) {
+              /* player eats */
+              score += calculateFishScore(e.maxSide);
+              eatenEvents.push({
+                t: gameTimeMs,
+                idx: e.spawnIdx,
+                type: e.spawnType,
+                size: e.maxSide,
+                ultra: !!e.isUltraFast,
+              });
+
+              if (e.isJellyfish && !e.isElectric) {
+                player.maxSide = Math.max(
+                  player.maxSide * JELLY_SHRINK_FACTOR,
+                  MIN_PLAYER_SIZE
+                );
+                playShrinkSound();
+              } else {
+                player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
+                playEatSound();
+              }
+
+              if (e.isElectric) {
+                playerParalyzeTime = PARALYZE_DURATION;
+                playShockSound();
+              }
+
+              player.width = player.height = null;
+              if (e.isUltraFast) {
+                sushiPowerUpTime = SUSHI_DURATION;
+                playPowerUpSound();
+              }
+              fishList.splice(i, 1);
+              continue;
+            } else {
+              /* player is eaten */
+              isGameOver = true;
+              touchTarget = null;
+              gameState = "over";
+
+              const eatenBy = e.spawnIdx ?? null;
+              epochGameEndTime = Date.now();
+
+              sendScoreToAPI(
+                score,
+                eatenEvents,
+                currentSessionId,
+                gameTimeMs,
+                eatenBy,
+                epochGameStartTime,
+                epochGameEndTime
+              );
+
+              spawnExplosion(player);
+              pendingGameOver = true;
+              touchTarget = null;
+              return;
+            }
+          }
+        }
+
+        if (score >= nextMilestone) {
+          playAchvSound();
+          resetRound();
+          const diff = Math.floor((score - nextMilestone) / 100000) + 1;
+          nextMilestone += diff * 100000;
+        }
+      }
+
+      /*********************   RENDER LOOP & MASTER LOOP  *****************************/
+      let cachedScoreText = "";
+      function renderGame() {
+        ctx.clearRect(0, 0, WIDTH, HEIGHT);
+        bubbles.forEach((b) => b.draw(ctx));
+        waterTrails.forEach((t) => t.draw(ctx));
+        if (player && !(isGameOver && pendingGameOver)) player.draw(ctx);
+        fishList.forEach((f) => f.draw(ctx));
+        explosions.forEach((ex) => ex.draw(ctx));
+
+        const scoreText = `Score: ${score}`;
+        if (cachedScoreText !== scoreText) {
+          cachedScoreText = scoreText;
+        }
+        ctx.fillStyle = playerParalyzeTime > 0 ? "#ffea00" : "#fff";
+        ctx.font = "20px 'Londrina Solid', sans-serif";
+        ctx.fillText(cachedScoreText, 20, 30);
+
+        let y = 55;
+        ctx.font = "16px 'Poppins', sans-serif";
+        if (playerParalyzeTime > 0) {
+          ctx.fillStyle = "#ffea00";
+          ctx.fillText(`Paralyzed: ${playerParalyzeTime.toFixed(1)}s`, 20, y);
+          y += 18;
+        }
+        if (borgyPowerUpTime > 0) {
+          ctx.fillStyle = "#00ff66";
+          ctx.fillText(`Borgy Boost: ${borgyPowerUpTime.toFixed(1)}s`, 20, y);
+          y += 18;
+        }
+        if (sushiPowerUpTime > 0) {
+          ctx.fillStyle = "#ffaaff";
+          ctx.fillText(`Sushi Boost: ${sushiPowerUpTime.toFixed(1)}s`, 20, y);
+        }
+
+        if (touchTarget) {
+          ctx.beginPath();
+          ctx.arc(touchTarget.x, touchTarget.y, 15, 0, Math.PI * 2);
+          ctx.strokeStyle = "#ffffff88";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      }
+
+      /* ---- MASTER LOOP (update + render) ---- */
+      let lastFrameTime = performance.now();
+      let accumulator = 0;
+      const FIXED_STEP = 1 / 60; // 60 FPS physics
+
+      function masterLoop() {
+        const now = performance.now();
+        let dt = (now - lastFrameTime) / 1000;
+        if (dt > 0.25) dt = 0.25;
+        lastFrameTime = now;
+        accumulator += dt;
+        if (accumulator > FIXED_STEP * 5) {
+          accumulator = FIXED_STEP * 5;
+        }
+        while (accumulator >= FIXED_STEP) {
+          updateGame(FIXED_STEP);
+          accumulator -= FIXED_STEP;
+        }
+        renderGame();
+        requestAnimationFrame(masterLoop);
+      }
+
+      /*********************        INIT          *************************/
+      function initGame() {
+        resizeCanvas();
+        score = 0;
+        nextMilestone = 100000;
+        gameTime = 0;
+        gameTimeMs = 0;
+        isGameOver = false;
+        pendingGameOver = false;
+        fishList = [];
+        explosions = [];
+        bubbles = [];
+        waterTrails = [];
+        player = new Fish(WIDTH / 2, HEIGHT / 2, 0, 0, playerImg, 25, true);
+        sushiPowerUpTime = 0;
+        borgyPowerUpTime = 0;
+        playerIsPoweredUp = false;
+        playerParalyzeTime = 0;
+        clearKeys();
+        spawnBubbleGroup();
+        bubbleTimer = 0;
+        updateMusicButtons();
+        updateSfxButtons();
+      }
+
+      /*********************      UI EVENTS       *************************/
+      const showOrHideArrowKeys = (show) => {
+        controlsContainer.style.display = show ? "flex" : "none";
+        const txt = show ? "🎮 Arrow Keys On" : "🎮 Arrow Keys Off";
+        arrowKeysBtn.textContent = txt;
+        arrowKeysBtnGameOver.textContent = txt;
+        if (!show) clearKeys();
+      };
+      const syncGameOverUI = () => {
+        showOrHideArrowKeys(controlsContainer.style.display !== "none");
+        updateMusicButtons();
+        updateSfxButtons();
+      };
+
+      /* ---- Start Game ---- */
+      async function startNewRun() {
+        if (startInProgress) return;
+        startInProgress = true;
+        startBtn.disabled = true;
+        playAgainBtn.disabled = true;
+
+        hideStartScreen();
+        hideGameOverScreen();
+        showOrHideArrowKeys(arrowKeysBtn.textContent.includes("On"));
+
+        startAudio();
+
+        let sessionInfo;
+        try {
+          const resp = await fetch("/api/session", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `tma ${initDataRaw}`,
+              "x-api-password": getApiPassword(),
+            },
+          });
+          sessionInfo = await resp.json();
+        } catch (e) {
+          alert("Cannot start game – session failed.");
+          startInProgress = false;
+          startBtn.disabled = false;
+          playAgainBtn.disabled = false;
+          window.location.reload();
+          return;
+        }
+
+        rng = new Math.seedrandom(sessionInfo.seed);
+        spawnSpecRng = new Math.seedrandom(sessionInfo.seed + ":spec");
+        spawnTimingRng = new Math.seedrandom(sessionInfo.seed + ":timing");
+
+        spawnSchedule.length = 0;
+        nextScheduleIdx = 0;
+        scheduleCursorTime = 0;
+        ensureScheduleAhead(120);
+
+        currentSessionId = sessionInfo.sessionId;
+        eatenEvents.length = 0;
+
+        gameState = "playing";
+        epochGameStartTime = Date.now();
+        epochGameEndTime = null;
+
+        initGame();
+        startInProgress = false;
+      }
+
+      startBtn.onclick = startNewRun;
+      playAgainBtn.onclick = startNewRun;
+
+      musicBtn.onclick = toggleMusic;
+      musicBtnGameOver.onclick = toggleMusic;
+      sfxBtn.onclick = toggleSFX;
+      sfxBtnGameOver.onclick = toggleSFX;
+      arrowKeysBtn.onclick = () =>
+        showOrHideArrowKeys(controlsContainer.style.display === "none");
+      arrowKeysBtnGameOver.onclick = () =>
+        showOrHideArrowKeys(controlsContainer.style.display === "none");
+
+      /* hardware keyboard */
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowLeft" || e.key === "a") keys.left = true;
+        if (e.key === "ArrowRight" || e.key === "d") keys.right = true;
+        if (e.key === "ArrowUp" || e.key === "w") keys.up = true;
+        if (e.key === "ArrowDown" || e.key === "s") keys.down = true;
+      });
+      window.addEventListener("keyup", (e) => {
+        if (e.key === "ArrowLeft" || e.key === "a") keys.left = false;
+        if (e.key === "ArrowRight" || e.key === "d") keys.right = false;
+        if (e.key === "ArrowUp" || e.key === "w") keys.up = false;
+        if (e.key === "ArrowDown" || e.key === "s") keys.down = false;
+      });
+
+      /* touch / mouse aiming */
+      canvas.addEventListener("touchstart", (e) => {
+        const t = e.touches[0];
+        if (t) {
+          const r = canvas.getBoundingClientRect();
+          touchTarget = { x: t.clientX - r.left, y: t.clientY - r.top };
+        }
+      });
+      canvas.addEventListener("touchmove", (e) => {
+        const t = e.touches[0];
+        if (t) {
+          const r = canvas.getBoundingClientRect();
+          touchTarget = { x: t.clientX - r.left, y: t.clientY - r.top };
+        }
+      });
+      canvas.addEventListener("touchend", () => (touchTarget = null));
+      canvas.addEventListener("mousedown", (e) => {
+        const r = canvas.getBoundingClientRect();
+        touchTarget = { x: e.clientX - r.left, y: e.clientY - r.top };
+      });
+      canvas.addEventListener("mousemove", (e) => {
+        if (e.buttons > 0) {
+          const r = canvas.getBoundingClientRect();
+          touchTarget = { x: e.clientX - r.left, y: e.clientY - r.top };
+        }
+      });
+      canvas.addEventListener("mouseup", () => (touchTarget = null));
+
+      /* safety: clear keys on blur */
+      window.addEventListener("blur", clearKeys);
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) clearKeys();
+      });
+
+      /*********************    PRELOAD & BOOT     **************************/
+      Promise.all([
+        loadImage("img/player_fish.png"),
+        ...fishTypes.map(
+          ({ image }) =>
+            new Promise((resolve) => {
+              if (image.complete) return resolve();
+              image.addEventListener("load", resolve, { once: true });
+              image.addEventListener("error", resolve, { once: true });
+            })
+        ),
+        loadImage("img/crab.png"),
+        loadImage("img/jellyfish-4.png"),
+        loadImage("img/electric-jellyfish-c.png"),
+        loadImage("img/sushi-4.png"),
+        loadImage("img/borgy.png"),
+        loadImage("img/pufferfish-4.png"),
+        loadAudio("backgroundMusic"),
+        loadAudio("eatSound"),
+        loadAudio("gameOverSound"),
+        loadAudio("powerUpSound"),
+        loadAudio("borgyPowerUpSound"),
+        loadAudio("achievementSound"),
+        loadAudio("shrinkSound"),
+        loadAudio("electricSound"),
+        loadAudio("shockSound"),
+      ]).then(() => {
+        resizeCanvas();
+        showStartScreen();
+        initAudio();
+        let audioStarted = false;
+        function kickAudio() {
+          if (!audioStarted) {
+            startAudio();
+            audioStarted = true;
+          }
+        }
+        startScreen.addEventListener("click", kickAudio, { once: true });
+        document.addEventListener("mousemove", kickAudio, { once: true });
+        requestAnimationFrame(masterLoop);
+      });
+    </script>
+  </body>
+</html>
