@@ -733,10 +733,25 @@
           backgroundMusic.play().catch(() => {});
       };
 
-      function playSfx(audioEl) {
+      function playSfx(baseEl) {
         if (!isSfxEnabled) return;
-        audioEl.currentTime = 0; // rewind so it can trigger every time
-        audioEl.play().catch(() => {}); // ignore autoplay / focus rejections
+
+        // If the base element is free, just reuse it (cheapest path)
+        if (baseEl.paused || baseEl.ended) {
+          baseEl.currentTime = 0;
+          baseEl.play().catch(() => {});
+          return;
+        }
+
+        /* Otherwise fire-and-forget a clone.  Cloning is cheap because
+     the browser reuses the already-decoded audio data internally */
+        const clone = baseEl.cloneNode(/* deep = */ false);
+        clone.volume = baseEl.volume;
+        // once it's done we remove it so we don’t leak DOM nodes
+        clone.addEventListener("ended", () => clone.remove());
+        // Safari occasionally needs a manual load() before play()
+        clone.load();
+        clone.play().catch(() => {});
       }
 
       const updateMusicButtons = () => {
