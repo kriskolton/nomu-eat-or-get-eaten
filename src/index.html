@@ -908,7 +908,7 @@
             break;
           }
           case "borgy": {
-            const size = 30;
+            const size = 45;
             const fromLeft = spec.fromLeft;
             const x = fromLeft ? -size : WIDTH;
             const y = getSpecRandom(0, HEIGHT - size);
@@ -1106,7 +1106,11 @@
             c.filter = "hue-rotate(45deg) brightness(1.2)";
           }
           if (flickerActive) {
-            c.globalAlpha = 0.5;
+            // Toggle every 100 ms → full opacity vs almost invisible
+            const blinkVisible =
+              (Math.floor(performance.now() / 100) & 1) === 0;
+            c.globalAlpha = blinkVisible ? 1 : 0.15; // 0.15 ≈ “off” frame
+            // keep the desaturate/brightness tweak so the colour shift remains
             c.filter =
               (c.filter ? c.filter + " " : "") +
               "brightness(0.7) contrast(0.9)";
@@ -1398,7 +1402,7 @@
       /* ---- Borgy ---- */
       class Borgy extends Fish {
         constructor(x, y, speedX) {
-          super(x, y, speedX, 0, borgyImg, 30, false);
+          super(x, y, speedX, 0, borgyImg, 45, false);
           this.isBorgy = true;
         }
       }

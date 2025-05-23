@@ -49,7 +49,7 @@ const TYPE_SIZE_BOUNDS = {
   jelly: () => ({ minSize: 30, maxSize: 80 }),
   electricJelly: () => ({ minSize: 40, maxSize: 90 }),
   sushi: () => ({ minSize: 30, maxSize: 30 }),
-  borgy: () => ({ minSize: 30, maxSize: 30 }), // NEW
+  borgy: () => ({ minSize: 45, maxSize: 45 }), // NEW
   puffer: () => ({ minSize: 30, maxSize: 240 }), // inflated
 };
 
