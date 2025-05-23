@@ -38,6 +38,9 @@
     <audio id="powerUpSound">
       <source src="sounds/powerup.mp3" type="audio/mpeg" />
     </audio>
+    <audio id="borgySpawnSound">
+      <source src="sounds/borgy-spawn.mp3" type="audio/mpeg" />
+    </audio>
     <audio id="borgyPowerUpSound">
       <source src="sounds/borgy-powerup.mp3" type="audio/mpeg" />
     </audio>
@@ -626,6 +629,7 @@
         gameOverSound,
         powerUpSound,
         borgyPowerUpSound,
+        borgySpawnSound,
         achievementSound,
         shrinkSound,
         electricSound,
@@ -646,7 +650,7 @@
       const EATING_LEEWAY = 1.18;
       const JELLY_SHRINK_FACTOR = 0.6;
       const MIN_PLAYER_SIZE = 25;
-      const GROWTH_FACTOR = 0.03; // ↓ smaller than the old 0.05 means slower growth
+      const GROWTH_FACTOR = 0.04; // ↓ smaller than the old 0.05 means slower growth
       const GROWTH_CAP = 1.5; // (optional) lower the absolute cap too
       let sushiPowerUpTime = 0;
       let borgyPowerUpTime = 0;
@@ -662,6 +666,7 @@
         gameOverSound = document.getElementById("gameOverSound");
         powerUpSound = document.getElementById("powerUpSound");
         borgyPowerUpSound = document.getElementById("borgyPowerUpSound");
+        borgySpawnSound = document.getElementById("borgySpawnSound");
         achievementSound = document.getElementById("achievementSound");
         shrinkSound = document.getElementById("shrinkSound");
         electricSound = document.getElementById("electricSound");
@@ -672,12 +677,13 @@
           eatSound,
           gameOverSound,
           powerUpSound,
-          borgyPowerUpSound,
+          borgySpawnSound,
           achievementSound,
           shockSound,
         ].forEach((s) => (s.volume = v));
         shrinkSound.volume = 0.3;
         electricSound.volume = 0.3;
+        borgyPowerUpSound.volume = 0.3;
       }
       const startAudio = () => {
         if (backgroundMusic && isMusicEnabled)
@@ -724,7 +730,10 @@
           achievementSound,
           shockSound,
         ].forEach((s) => (s.volume = v));
-        shrinkSound.volume = electricSound.volume = isSfxEnabled ? 0.3 : 0;
+        shrinkSound.volume =
+          electricSound.volume =
+          borgySpawnSound.volume =
+            isSfxEnabled ? 0.3 : 0;
         updateSfxButtons();
       };
 
@@ -732,6 +741,7 @@
       const playGameOverSound = () => playSfx(gameOverSound);
       const playPowerUpSound = () => playSfx(powerUpSound);
       const playBorgyPowerUpSound = () => playSfx(borgyPowerUpSound);
+      const playBorgySpawnSound = () => playSfx(borgySpawnSound);
       const playAchvSound = () => playSfx(achievementSound);
       const playShrinkSound = () => playSfx(shrinkSound);
       const playElectricSound = () => playSfx(electricSound);
@@ -1050,6 +1060,7 @@
             const y = getSpecRandom(0, HEIGHT - size);
             const spd = (fromLeft ? 1 : -1) * 1.2;
             fishList.push(tagEntity(new Borgy(x, y, spd), "borgy", idx));
+            playBorgySpawnSound();
             break;
           }
           case "puffer": {
@@ -2283,6 +2294,7 @@
         loadAudio("gameOverSound"),
         loadAudio("powerUpSound"),
         loadAudio("borgyPowerUpSound"),
+        loadAudio("borgySpawnSound"),
         loadAudio("achievementSound"),
         loadAudio("shrinkSound"),
         loadAudio("electricSound"),
