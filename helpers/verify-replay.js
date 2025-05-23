@@ -1,12 +1,12 @@
-/* verifyReplay.js — drop‑in validation helper for Nomu S3 replays */
+/* verifyReplay.js — drop-in validation helper for Nomu S3 replays (v3.7, Borgy-aware) */
 
 const seedrandom =
   typeof require === "function" ? require("seedrandom") : self.seedrandom;
 
 /* ------------------------------------------------------------------ */
-/* Constant tables – MUST stay bit‑for‑bit identical to the client    */
+/* Constant tables – MUST stay bit-for-bit identical to the client    */
 
-/* ---------- fish‑type table --------------------------------------- */
+/* ---------- fish-type table --------------------------------------- */
 const fishTypeDefinitions = [
   { minSize: 10, maxSize: 40, weight: 0.432 },
   { minSize: 20, maxSize: 60, weight: 0.252 },
@@ -27,16 +27,17 @@ function pickWeightedFishIndex(randFn) {
     if (r < fishTypeDefinitions[i].weight) return i;
     r -= fishTypeDefinitions[i].weight;
   }
-  return fishTypeDefinitions.length - 1; // fallback (shouldn’t happen)
+  return fishTypeDefinitions.length - 1; // fallback
 }
 
-/* ---------- spawn‑kind weights (identical to client) -------------- */
+/* ---------- spawn-kind weights (identical to client) -------------- */
 const SPAWN_SPEC_WEIGHTS = [
   { kind: "fish", weight: 0.881 },
   { kind: "crab", weight: 0.00147 },
   { kind: "jelly", weight: 0.0294 },
   { kind: "electricJelly", weight: 0.0147 },
   { kind: "sushi", weight: 0.0147 },
+  { kind: "borgy", weight: 0.00735 }, // NEW in v3.7
   { kind: "puffer", weight: 0.0587 },
 ];
 const TOTAL_SPEC_WEIGHT = SPAWN_SPEC_WEIGHTS.reduce((s, w) => s + w.weight, 0);
@@ -47,11 +48,19 @@ const TYPE_SIZE_BOUNDS = {
   crab: () => ({ minSize: 50, maxSize: 120 }),
   jelly: () => ({ minSize: 30, maxSize: 80 }),
   electricJelly: () => ({ minSize: 40, maxSize: 90 }),
-  sushi: () => ({ minSize: 30, maxSize: 30 }), // ← FIXED
-  puffer: () => ({ minSize: 30, maxSize: 240 }) /* inflated */,
+  sushi: () => ({ minSize: 30, maxSize: 30 }),
+  borgy: () => ({ minSize: 30, maxSize: 30 }), // NEW
+  puffer: () => ({ minSize: 30, maxSize: 240 }), // inflated
 };
 
 const calcFishScore = (sz) => Math.floor(sz);
+
+/* Helper to award points exactly like the client */
+function calcPickupPoints(type, size) {
+  if (type === "sushi") return 50;
+  if (type === "borgy") return 75;
+  return calcFishScore(size);
+}
 
 /* ------------------------------------------------------------------ */
 /* Main verifier                                                      */
@@ -109,13 +118,11 @@ function verifyReplay({
   const specRand = () => spawnSpecRng();
   const getSpecRandom = (a, b) => specRand() * (b - a) + a;
   const nextDelay = () => {
-    const u = spawnTimingRng(); // λ = 1.8 /s (client)
+    const u = spawnTimingRng(); // λ = 1.8 /s (client)
     return -Math.log(1 - u) / 1.8;
   };
 
   /* 2️⃣ build schedule up to needed index -------------------------- */
-  // const maxIdx = eaten.reduce((m, e) => Math.max(m, e.idx), -1);
-  /* longest index we must simulate (NEW ⧗) */
   const maxIdx = Math.max(
     eaten.reduce((m, e) => Math.max(m, e.idx), -1),
     typeof eatenBy === "number" ? eatenBy : -1
@@ -151,7 +158,6 @@ function verifyReplay({
     let spec;
     switch (kind) {
       case "fish": {
-        /* exact RNG call order must mirror client ------------------ */
         const tIdx = pickWeightedFishIndex(specRand); // 1) sprite
         const tDef = fishTypeDefinitions[tIdx];
         const size = getSpecRandom(tDef.minSize, tDef.maxSize); // 2) size
@@ -190,8 +196,11 @@ function verifyReplay({
         break;
 
       case "sushi":
-        // Sushi has a fixed size (30 px).  ONE RNG draw is enough.
-        spec = { kind, fromLeft: specRand() < 0.5 };
+        spec = { kind, fromLeft: specRand() < 0.5 }; // one RNG draw
+        break;
+
+      case "borgy": // NEW
+        spec = { kind, fromLeft: specRand() < 0.5 }; // one RNG draw
         break;
 
       case "puffer":
@@ -208,7 +217,7 @@ function verifyReplay({
     schedule[idx] = { spawnTimeMs: Math.round(cursorSec * 1000), spec };
   }
 
-  /* 3️⃣ validate the eatenBy timing window (NEW ⧗) ------------------ */
+  /* 3️⃣ validate the eatenBy timing window ------------------------- */
   if (typeof eatenBy !== "number" || eatenBy < 0) {
     console.error("❌ missing or invalid eatenBy idx");
     return {
@@ -239,11 +248,11 @@ function verifyReplay({
   }
 
   const runDurationMs = endTime - startTime; // how long the round lasted
-  const killerSpawnMs = killerEntry.spawnTimeMs; // when that enemy appeared
+  const killerSpawnMs = killerEntry.spawnTimeMs;
 
   if (killerSpawnMs > runDurationMs) {
     console.error(
-      `❌ eatenBy idx=${eatenBy} spawned AFTER reported endTime (spawn ${killerSpawnMs} ms > end ${runDurationMs} ms)`
+      `❌ eatenBy idx=${eatenBy} spawned AFTER reported endTime (spawn ${killerSpawnMs} ms > end ${runDurationMs} ms)`
     );
     return {
       ok: false,
@@ -253,12 +262,12 @@ function verifyReplay({
   }
   if (runDurationMs - killerSpawnMs > 120_000) {
     console.error(
-      `❌ eatenBy idx=${eatenBy} spawned more than 60 000 ms before endTime`
+      `❌ eatenBy idx=${eatenBy} spawned more than 60 000 ms before endTime`
     );
     return {
       ok: false,
       failedDueTo:
-        "Verification failed: eatenBy idx spawned more than 60 000 ms before endTime",
+        "Verification failed: eatenBy idx spawned more than 60 000 ms before endTime",
     };
   }
 
@@ -281,7 +290,7 @@ function verifyReplay({
     const dt = t - entry.spawnTimeMs;
     if (dt < 0 || dt > 60000) {
       console.error(
-        `❌ idx=${idx} eaten ${dt} ms outside allowed window (0–60 000)`
+        `❌ idx=${idx} eaten ${dt} ms outside allowed window (0–60 000)`
       );
       return {
         ok: false,
@@ -333,7 +342,7 @@ function verifyReplay({
     }
 
     /* score accumulation ------------------------------------------ */
-    const pts = type === "sushi" ? 50 : calcFishScore(size);
+    const pts = calcPickupPoints(type, size);
     computedScore += pts;
   }
 

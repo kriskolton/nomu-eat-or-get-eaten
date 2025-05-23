@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <!-- Telegram Mini‑App bridge -->
+    <!-- Telegram Mini-App bridge -->
     <script src="https://telegram.org/js/telegram-web-app.js?57"></script>
 
     <!-- Deterministic RNG (client & server share the same seed) -->
@@ -12,7 +12,7 @@
       name="viewport"
       content="width=device-width, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Nomu: Eat or Get Eaten (Season 3)</title>
+    <title>Nomu: Eat or Get Eaten (Season 3)</title>
 
     <!-- ----------------------------------------------------------------- -->
     <!--                       FONTS & AUDIO ASSETS                         -->
@@ -27,7 +27,7 @@
     />
 
     <audio id="backgroundMusic" loop>
-      <source src="sounds/background3.mp3" type="audio/mpeg" />
+      <source src="sounds/background4.mp3" type="audio/mpeg" />
     </audio>
     <audio id="eatSound">
       <source src="sounds/eat.mp3" type="audio/mpeg" />
@@ -37,6 +37,9 @@
     </audio>
     <audio id="powerUpSound">
       <source src="sounds/powerup.mp3" type="audio/mpeg" />
+    </audio>
+    <audio id="borgyPowerUpSound">
+      <source src="sounds/borgy-powerup.mp3" type="audio/mpeg" />
     </audio>
     <audio id="achievementSound">
       <source src="sounds/achievement.mp3" type="audio/mpeg" />
@@ -72,7 +75,7 @@
         width: 100%;
         position: relative;
         overflow: hidden;
-        background: #222 url("img/bg6.png") center / cover no-repeat;
+        background: #222 url("img/bg4.png") center/cover no-repeat;
         display: flex;
         margin: 0 auto;
         max-width: 430px;
@@ -85,7 +88,7 @@
         touch-action: none;
       }
 
-      /* --- on‑screen arrow keys --- */
+      /* --- on-screen arrow keys --- */
       #controlsContainer {
         width: 100%;
         display: none;
@@ -155,7 +158,7 @@
 
   <body>
     <!-- ----------------------------------------------------------------- -->
-    <!--                            MARK‑UP                                -->
+    <!--                            MARK-UP                                -->
     <!-- ----------------------------------------------------------------- -->
     <div id="gameWrapper">
       <canvas id="gameCanvas"></canvas>
@@ -188,7 +191,7 @@
           >
             SEASON 3
           </p>
-          <p style="font-size: 12px; color: #fff; opacity: 0.5">v3.5</p>
+          <p style="font-size: 12px; color: #fff; opacity: 0.5">v3.7</p>
 
           <div
             id="telegramStatus"
@@ -227,7 +230,7 @@
         </div>
       </div>
 
-      <!-- ---------- Game‑over overlay ---------- -->
+      <!-- ---------- Game-over overlay ---------- -->
       <div id="gameOverScreen" class="overlay hidden">
         <div style="max-width: 90%; margin: 0 auto; text-align: center">
           <h1
@@ -251,7 +254,7 @@
       </div>
     </div>
 
-    <!-- ---------- Bottom: on‑screen arrow keys ---------- -->
+    <!-- ---------- Bottom: on-screen arrow keys ---------- -->
     <div id="controlsContainer">
       <div class="controlsRow">
         <button class="arrowBtn" id="arrowUp">↑</button>
@@ -309,7 +312,7 @@
 
       /* ----------------   DETERMINISTIC RANDOM  ---------------- */
       // rng – graphics/FX/anything *except* spawning
-      let rng = Math.random; // will be replaced with seed‑rng after session starts
+      let rng = Math.random; // will be replaced with seed-rng after session starts
       const Rand = () => rng();
 
       // --- NEW deterministic RNG streams ---
@@ -319,7 +322,7 @@
       const timingRand = () =>
         spawnTimingRng ? spawnTimingRng() : Math.random();
 
-      /* 🔧  MISSING HELPERS RE‑ADDED  🔧 */
+      /* 🔧  MISSING HELPERS RE-ADDED  🔧 */
       const getRandom = (min, max) => Rand() * (max - min) + min; // FIXED
       const getSpecRandom = (min, max) => specRand() * (max - min) + min;
       const getSpawnRandom = getSpecRandom; // legacy alias
@@ -329,7 +332,12 @@
       const MAX_EXPLOSIONS = 100;
       const RETAIN_SCHEDULE_ENTRIES = 1000;
 
-      // Spawn schedule (server‑verifiable)
+      // Power-up constants
+      const SUSHI_DURATION = 10;
+      const BORGY_DURATION = 15;
+      const BORGY_SPEED_MULT = 3;
+
+      // Spawn schedule (server-verifiable)
       const spawnSchedule = []; // { idx, spawnTime (s), spec }
       let nextScheduleIdx = 0;
       let scheduleCursorTime = 0; // seconds
@@ -395,7 +403,7 @@
         keys.left = keys.right = keys.up = keys.down = false;
       };
 
-      /* Pointer‑aware button helper */
+      /* Pointer-aware button helper */
       const pointerDirMap = Object.create(null);
       function pressKey(dir, down) {
         keys[dir] = down;
@@ -471,8 +479,8 @@
 
               /* ---- NEW FIELDS ---- */
               eatenBy, // idx of the enemy that killed the player
-              epochGameStartTime: startTimeMs, // epoch‑ms
-              epochGameEndTime: endTimeMs, // epoch‑ms
+              epochGameStartTime: startTimeMs, // epoch-ms
+              epochGameEndTime: endTimeMs, // epoch-ms
             }),
           });
         } catch (e) {
@@ -545,8 +553,6 @@
         // ensure buttons are enabled after a previous run
         startBtn.disabled = false;
         // sync UI with current settings
-        // sync UI with current settings
-        // ⬇️  Make the virtual arrow keys _hidden_ the first time the start‑screen opens
         showOrHideArrowKeys(false);
         updateMusicButtons();
         updateSfxButtons();
@@ -557,30 +563,30 @@
         gameOverScreen.classList.remove("hidden");
         playGameOverSound();
         syncGameOverUI();
-        // re‑enable buttons for a new run
+        // re-enable buttons for a new run
         startInProgress = false;
         startBtn.disabled = false;
         playAgainBtn.disabled = false;
       };
       const hideGameOverScreen = () => gameOverScreen.classList.add("hidden");
 
-      /* Game‑state flags */
+      /* Game-state flags */
       let gameState = "start"; // "start" | "playing" | "over"
       let isGameOver = false;
       let pendingGameOver = false; // wait until explosions finish
 
-      /* Anti‑cheat tracking */
+      /* Anti-cheat tracking */
       let eatenEvents = [];
       let currentSessionId = null;
 
       /*********************   IMAGES & SPRITES   ***************************/
       const fishTypeDefinitions = [
-        { src: "img/fish1-3.png", minSize: 10, maxSize: 40, weight: 0.432 },
-        { src: "img/fish2-3.png", minSize: 20, maxSize: 60, weight: 0.252 },
-        { src: "img/fish3-3.png", minSize: 25, maxSize: 80, weight: 0.2 },
-        { src: "img/fish4-3.png", minSize: 35, maxSize: 100, weight: 0.1 },
-        { src: "img/fish5-3.png", minSize: 200, maxSize: 300, weight: 0.013 },
-        { src: "img/fish6-3.png", minSize: 400, maxSize: 500, weight: 0.003 },
+        { src: "img/fish1-4.png", minSize: 10, maxSize: 40, weight: 0.432 },
+        { src: "img/fish2-4.png", minSize: 20, maxSize: 60, weight: 0.252 },
+        { src: "img/fish3-4.png", minSize: 25, maxSize: 80, weight: 0.2 },
+        { src: "img/fish4-4.png", minSize: 35, maxSize: 100, weight: 0.1 },
+        { src: "img/fish5-4.png", minSize: 200, maxSize: 300, weight: 0.013 },
+        { src: "img/fish6-4.png", minSize: 400, maxSize: 500, weight: 0.003 },
       ];
       const fishTypes = fishTypeDefinitions.map((def) => {
         const image = new Image();
@@ -598,13 +604,15 @@
       const crabImg = new Image();
       crabImg.src = "img/crab.png";
       const jellyfishImg = new Image();
-      jellyfishImg.src = "img/jellyfish-3.png";
+      jellyfishImg.src = "img/jellyfish-4.png";
       const electricJellyfishImg = new Image();
       electricJellyfishImg.src = "img/electric-jellyfish-c.png";
       const sushiImg = new Image();
-      sushiImg.src = "img/sushi.png";
+      sushiImg.src = "img/sushi-4.png";
       const pufferImg = new Image();
-      pufferImg.src = "img/pufferfish-3.png";
+      pufferImg.src = "img/pufferfish-4.png";
+      const borgyImg = new Image();
+      borgyImg.src = "img/borgy.png";
 
       /*********************   GAME VARIABLES   ****************************/
       let fishList = [],
@@ -618,6 +626,7 @@
         eatSound,
         gameOverSound,
         powerUpSound,
+        borgyPowerUpSound,
         achievementSound,
         shrinkSound,
         electricSound,
@@ -628,7 +637,7 @@
       let gameTime = 0, // seconds
         gameTimeMs = 0; // milliseconds
 
-      /* Game‑wide timers (NEW) */
+      /* Game-wide timers (NEW) */
       let epochGameStartTime = null;
       let epochGameEndTime = null;
 
@@ -638,9 +647,9 @@
       const EATING_LEEWAY = 1.15;
       const JELLY_SHRINK_FACTOR = 0.6;
       const MIN_PLAYER_SIZE = 25;
-      let playerPowerUpTime = 0,
-        playerIsPoweredUp = false;
-      const POWER_UP_DURATION = 10;
+      let sushiPowerUpTime = 0;
+      let borgyPowerUpTime = 0;
+      let playerIsPoweredUp = false;
 
       /* --------------- NEW: Debounce state flag ---------------- */
       let startInProgress = false;
@@ -651,17 +660,21 @@
         eatSound = document.getElementById("eatSound");
         gameOverSound = document.getElementById("gameOverSound");
         powerUpSound = document.getElementById("powerUpSound");
+        borgyPowerUpSound = document.getElementById("borgyPowerUpSound");
         achievementSound = document.getElementById("achievementSound");
         shrinkSound = document.getElementById("shrinkSound");
         electricSound = document.getElementById("electricSound");
         shockSound = document.getElementById("shockSound");
         backgroundMusic.volume = 0.2;
-        eatSound.volume =
-          gameOverSound.volume =
-          powerUpSound.volume =
-          achievementSound.volume =
-          shockSound.volume =
-            0.5;
+        const v = 0.5;
+        [
+          eatSound,
+          gameOverSound,
+          powerUpSound,
+          borgyPowerUpSound,
+          achievementSound,
+          shockSound,
+        ].forEach((s) => (s.volume = v));
         shrinkSound.volume = 0.3;
         electricSound.volume = 0.3;
       }
@@ -696,14 +709,15 @@
       const toggleSFX = () => {
         isSfxEnabled = !isSfxEnabled;
         const v = isSfxEnabled ? 0.5 : 0;
-        eatSound.volume =
-          gameOverSound.volume =
-          powerUpSound.volume =
-          achievementSound.volume =
-          shockSound.volume =
-            v;
-        shrinkSound.volume = isSfxEnabled ? 0.3 : 0;
-        electricSound.volume = isSfxEnabled ? 0.3 : 0;
+        [
+          eatSound,
+          gameOverSound,
+          powerUpSound,
+          borgyPowerUpSound,
+          achievementSound,
+          shockSound,
+        ].forEach((s) => (s.volume = v));
+        shrinkSound.volume = electricSound.volume = isSfxEnabled ? 0.3 : 0;
         updateSfxButtons();
       };
 
@@ -715,6 +729,10 @@
       const playPowerUpSound = () =>
         isSfxEnabled &&
         ((powerUpSound.currentTime = 0), powerUpSound.play().catch(() => {}));
+      const playBorgyPowerUpSound = () =>
+        isSfxEnabled &&
+        ((borgyPowerUpSound.currentTime = 0),
+        borgyPowerUpSound.play().catch(() => {}));
       const playAchvSound = () =>
         isSfxEnabled &&
         ((achievementSound.currentTime = 0),
@@ -749,13 +767,14 @@
         return ent;
       }
 
-      /********************* NEW  — SPAWN SPEC GENERATOR ********************/
+      /********************* NEW  — SPAWN SPEC GENERATOR ********************/
       const SPAWN_SPEC_WEIGHTS = [
         { kind: "fish", weight: 0.881 },
         { kind: "crab", weight: 0.00147 },
         { kind: "jelly", weight: 0.0294 },
         { kind: "electricJelly", weight: 0.0147 },
         { kind: "sushi", weight: 0.0147 },
+        { kind: "borgy", weight: 0.00735 },
         { kind: "puffer", weight: 0.0587 },
       ];
       const TOTAL_SPEC_WEIGHT = SPAWN_SPEC_WEIGHTS.reduce(
@@ -782,10 +801,10 @@
             return { kind: "jelly", size: getSpecRandom(30, 80) };
           case "electricJelly":
             return { kind: "electricJelly", size: getSpecRandom(40, 90) };
-          case "sushi": {
-            // Only one RNG draw – side‑selection.  No size roll needed.
+          case "sushi":
             return { kind: "sushi", fromLeft: specRand() < 0.5 };
-          }
+          case "borgy":
+            return { kind: "borgy", fromLeft: specRand() < 0.5 };
           case "puffer": {
             const baseSize = getSpecRandom(30, 60);
             const fromLeft = specRand() < 0.5;
@@ -801,7 +820,6 @@
         const ultras = specRand();
         const ultra = ultras < 0.01;
         const fast = !ultra && ultras < 0.04;
-        // deterministic base speed (independent of score)
         const sizeFactor = 1 - size / 500;
         const minSpd = 0.3 + 0.5 * sizeFactor;
         const maxSpd = 1.5 + 0.3 * sizeFactor;
@@ -825,9 +843,7 @@
             const fromLeft = spec.fromLeft;
             const x = fromLeft ? -size : WIDTH;
             const y = getSpecRandom(0, Math.max(0, HEIGHT - size));
-            let spd =
-              spec.baseSpeed *
-              (0.4 + 0.6 * Math.min(score / 1000, 1)); /* difficulty */
+            let spd = spec.baseSpeed * (0.4 + 0.6 * Math.min(score / 1000, 1));
             if (spec.ultra) spd *= 5;
             else if (spec.fast) spd *= 3;
             spd = fromLeft ? spd : -spd;
@@ -892,6 +908,15 @@
             fishList.push(tagEntity(new Sushi(x, y, spd), "sushi", idx));
             break;
           }
+          case "borgy": {
+            const size = 30;
+            const fromLeft = spec.fromLeft;
+            const x = fromLeft ? -size : WIDTH;
+            const y = getSpecRandom(0, HEIGHT - size);
+            const spd = (fromLeft ? 1 : -1) * 1.2;
+            fishList.push(tagEntity(new Borgy(x, y, spd), "borgy", idx));
+            break;
+          }
           case "puffer": {
             const baseSize = spec.baseSize;
             const fromLeft = spec.fromLeft;
@@ -919,23 +944,23 @@
           /* Difficulty / cap rule checks */
           const maxEnemies = score < 1000 ? 20 : 30;
           const isEnemy =
-            spec.kind !== "sushi" && spec.kind !== "crab"
-              ? true
-              : spec.kind !== "sushi"; // sushi still counts towards cap
+            spec.kind !== "sushi" &&
+            spec.kind !== "borgy" &&
+            spec.kind !== "crab";
           if (isEnemy && fishList.length >= maxEnemies) {
             nextScheduleIdx++;
-            continue; // skip – cap reached
+            continue;
           }
           if (spec.kind === "crab" && score < 2000) {
             nextScheduleIdx++;
-            continue; // crab locked until 2 000 pts
+            continue;
           }
 
           spawnEntityFromSpec(spec, entry.idx);
           nextScheduleIdx++;
         }
 
-        /* ------------ NEW: Recycle old schedule entries --------------- */
+        /* Recycle old schedule entries */
         if (nextScheduleIdx > RETAIN_SCHEDULE_ENTRIES) {
           const removeCount = nextScheduleIdx - RETAIN_SCHEDULE_ENTRIES;
           spawnSchedule.splice(0, removeCount);
@@ -997,7 +1022,7 @@
         }
       }
 
-      /* ---- Fish (base) ---- */
+      /* ---- Fish (base + player) ---- */
       class Fish {
         constructor(x, y, sx, sy, img, maxSide, isPlayer = false) {
           this.x = x;
@@ -1013,6 +1038,7 @@
             this.isCrab =
             this.isJellyfish =
             this.isSushi =
+            this.isBorgy =
             this.isPuffer =
               false;
           if (!isPlayer) {
@@ -1025,7 +1051,8 @@
             this.vx = this.vy = 0;
             this.accel = 0.055;
             this.friction = 0.99;
-            this.maxSpd = 10;
+            this.baseMaxSpd = 10;
+            this.maxSpd = this.baseMaxSpd;
             this.facingLeft = false;
           }
           this.width = this.height = null;
@@ -1055,13 +1082,13 @@
             if (Math.abs(this.vx) > 0.1) this.facingLeft = this.vx < 0;
           }
           const movingLeft = this.isPlayer ? this.facingLeft : this.speedX < 0;
+
           const ultra =
             this.isUltraFast || (this.isPlayer && playerIsPoweredUp);
+          const boostRemaining =
+            borgyPowerUpTime > 0 ? borgyPowerUpTime : sushiPowerUpTime;
           const flickerActive =
-            this.isPlayer &&
-            playerIsPoweredUp &&
-            playerPowerUpTime <= 3 &&
-            Math.floor(performance.now() / 100) % 2 === 0;
+            this.isPlayer && playerIsPoweredUp && boostRemaining <= 3;
 
           c.save();
           if (movingLeft) {
@@ -1072,6 +1099,8 @@
 
           if (this.isPlayer && playerParalyzeTime > 0) {
             c.filter = "hue-rotate(30deg) brightness(1.4) saturate(1.8)";
+          } else if (this.isPlayer && borgyPowerUpTime > 0) {
+            c.filter = "hue-rotate(100deg) brightness(2) saturate(3)";
           } else if (ultra) {
             c.filter = "hue-rotate(180deg) brightness(1.5) saturate(2)";
           } else if (this.isFast) {
@@ -1104,6 +1133,9 @@
         update(dt) {
           const df = dt * 60;
           if (this.isPlayer) {
+            this.maxSpd =
+              this.baseMaxSpd * (borgyPowerUpTime > 0 ? BORGY_SPEED_MULT : 1);
+
             const f = Math.pow(this.friction, df);
             this.vx *= f;
             this.vy *= f;
@@ -1167,7 +1199,6 @@
                   ultra
                 )
               );
-              // cap waterTrails length – remove excess in one go (O(1))
               if (waterTrails.length > MAX_WATER_TRAILS) {
                 waterTrails.splice(0, waterTrails.length - MAX_WATER_TRAILS);
               }
@@ -1186,7 +1217,7 @@
           this.remove = false;
         }
         update(dt, player) {
-          if (this.remove) return; // early exit if flagged dead
+          if (this.remove) return;
           const df = dt * 60;
           if (!this.entered) {
             this.y -= 2 * df;
@@ -1264,7 +1295,7 @@
           super(x, y, size);
           this.sprite = electricJellyfishImg;
           this.isElectric = true;
-          this.pulseCooldown = getRandom(5, 12); // seconds
+          this.pulseCooldown = getRandom(5, 12);
           this.pauseTimeRemaining = 0;
           this.pulseRadius = size * 2.3;
         }
@@ -1272,7 +1303,7 @@
           if (this.pauseTimeRemaining > 0) {
             this.pauseTimeRemaining -= dt;
             if (this.pauseTimeRemaining <= 0) {
-              this.pauseTimeRemaining = 0; // ⬅️ clamp
+              this.pauseTimeRemaining = 0;
               const phase = Math.sin(performance.now() * this.oscS + this.oscO);
               this.baseX = this.x - phase * this.oscA;
               this.pulseCooldown = getRandom(5, 12);
@@ -1282,12 +1313,12 @@
           this.pulseCooldown -= dt;
           if (this.pulseCooldown <= 0) {
             this.performPulse();
-            return; // pulse handles pause
+            return;
           }
           super.update(dt);
         }
         performPulse() {
-          this.pauseTimeRemaining = 1; // freeze for 1s while pulsing
+          this.pauseTimeRemaining = 1;
           this.pulseCooldown = getRandom(5, 12);
           playElectricSound();
           const p = player.getBounds();
@@ -1295,7 +1326,7 @@
           const dx = p.centerX - b.centerX;
           const dy = p.centerY - b.centerY;
           const dist = Math.hypot(dx, dy);
-          if (dist <= this.pulseRadius) {
+          if (dist <= this.pulseRadius && borgyPowerUpTime <= 0) {
             playerParalyzeTime = PARALYZE_DURATION;
             playShockSound();
           }
@@ -1362,6 +1393,14 @@
         constructor(x, y, speedX) {
           super(x, y, speedX, 0, sushiImg, 30, false);
           this.isSushi = true;
+        }
+      }
+
+      /* ---- Borgy ---- */
+      class Borgy extends Fish {
+        constructor(x, y, speedX) {
+          super(x, y, speedX, 0, borgyImg, 30, false);
+          this.isBorgy = true;
         }
       }
 
@@ -1504,7 +1543,8 @@
         player.x = WIDTH / 2;
         player.y = HEIGHT / 2;
         player.vx = player.vy = 0;
-        playerPowerUpTime = 0;
+        sushiPowerUpTime = 0;
+        borgyPowerUpTime = 0;
         playerIsPoweredUp = false;
         playerParalyzeTime = 0;
         spawnBubbleGroup();
@@ -1548,24 +1588,25 @@
         gameTime += dt;
         gameTimeMs = Math.round(gameTime * 1000);
 
-        /* spawn processing */
-        processScheduledSpawns();
-
-        /* power‑up / status decrement */
-        if (playerPowerUpTime > 0) {
-          playerPowerUpTime -= dt;
-          if (playerPowerUpTime <= 0) {
-            playerPowerUpTime = 0;
-            playerIsPoweredUp = false;
-          }
+        /* power-up timers */
+        if (sushiPowerUpTime > 0) {
+          sushiPowerUpTime -= dt;
+          if (sushiPowerUpTime <= 0) sushiPowerUpTime = 0;
         }
+        if (borgyPowerUpTime > 0) {
+          borgyPowerUpTime -= dt;
+          if (borgyPowerUpTime <= 0) borgyPowerUpTime = 0;
+        }
+        playerIsPoweredUp = sushiPowerUpTime > 0 || borgyPowerUpTime > 0;
+
+        /* status decrement */
         if (playerParalyzeTime > 0) {
           playerParalyzeTime -= dt;
           if (playerParalyzeTime < 0) playerParalyzeTime = 0;
-          // Inputs stay disabled while paralyzed, but the fish should
-          // glide to a halt under its normal friction.  (We therefore
-          // no longer zero‑out its velocity here.)
         }
+
+        /* spawn processing */
+        processScheduledSpawns();
 
         /* bubbles */
         for (let i = bubbles.length - 1; i >= 0; i--) {
@@ -1589,7 +1630,8 @@
 
         /* player input */
         const canMove = playerParalyzeTime <= 0;
-        const a = player.accel * dt * 60;
+        const accelMult = borgyPowerUpTime > 0 ? BORGY_SPEED_MULT : 1;
+        const a = player.accel * accelMult * dt * 60;
         if (canMove) {
           if (keys.left) player.vx -= a;
           if (keys.right) player.vx += a;
@@ -1618,7 +1660,7 @@
         player.update(dt);
         player.createWaterTrail();
 
-        /* enemies */
+        /* enemies & pickups */
         for (let i = fishList.length - 1; i >= 0; i--) {
           const e = fishList[i];
           if (e.remove) {
@@ -1643,11 +1685,10 @@
 
           /* collision with player */
           if (checkCollisionOval(player, e)) {
-            /* --- sushi (always edible) --- */
+            /* --- sushi pickup --- */
             if (e.isSushi) {
               score += 50;
-              playerPowerUpTime = POWER_UP_DURATION;
-              playerIsPoweredUp = true;
+              sushiPowerUpTime = SUSHI_DURATION;
               playPowerUpSound();
               eatenEvents.push({
                 t: gameTimeMs,
@@ -1660,7 +1701,23 @@
               continue;
             }
 
-            /* --- player is powered‑up --- */
+            /* --- borgy pickup --- */
+            if (e.isBorgy) {
+              score += 75;
+              borgyPowerUpTime = BORGY_DURATION;
+              playBorgyPowerUpSound();
+              eatenEvents.push({
+                t: gameTimeMs,
+                idx: e.spawnIdx,
+                type: e.spawnType,
+                size: e.maxSide,
+                ultra: !!e.isUltraFast,
+              });
+              fishList.splice(i, 1);
+              continue;
+            }
+
+            /* --- player is powered-up --- */
             if (playerIsPoweredUp) {
               score += calculateFishScore(e.maxSide);
               eatenEvents.push({
@@ -1671,7 +1728,7 @@
                 ultra: !!e.isUltraFast,
               });
 
-              if (e.isJellyfish && !e.isElectric) {
+              if (e.isJellyfish && !e.isElectric && borgyPowerUpTime <= 0) {
                 player.maxSide = Math.max(
                   player.maxSide * JELLY_SHRINK_FACTOR,
                   MIN_PLAYER_SIZE
@@ -1682,22 +1739,21 @@
                 playEatSound();
               }
 
-              if (e.isElectric) {
+              if (e.isElectric && borgyPowerUpTime <= 0) {
                 playerParalyzeTime = PARALYZE_DURATION;
                 playShockSound();
               }
 
               player.width = player.height = null;
               if (e.isUltraFast) {
-                playerPowerUpTime = POWER_UP_DURATION;
-                playerIsPoweredUp = true;
+                sushiPowerUpTime = SUSHI_DURATION;
                 playPowerUpSound();
               }
               fishList.splice(i, 1);
               continue;
             }
 
-            /* --- no power‑up, check size --- */
+            /* --- no power-up, check size --- */
             const pR = player.getBounds().radiusX;
             const eR = e.getBounds().radiusX;
             if (pR * EATING_LEEWAY > eR) {
@@ -1729,8 +1785,7 @@
 
               player.width = player.height = null;
               if (e.isUltraFast) {
-                playerPowerUpTime = POWER_UP_DURATION;
-                playerIsPoweredUp = true;
+                sushiPowerUpTime = SUSHI_DURATION;
                 playPowerUpSound();
               }
               fishList.splice(i, 1);
@@ -1738,22 +1793,20 @@
             } else {
               /* player is eaten */
               isGameOver = true;
-              touchTarget = null; // ⬅️ now *before* we explode/draw again
+              touchTarget = null;
               gameState = "over";
 
-              /* NEW → who killed us & when */
-              const eatenBy = e.spawnIdx ?? null; // every spawned entity already has spawnIdx
+              const eatenBy = e.spawnIdx ?? null;
               epochGameEndTime = Date.now();
 
-              /* Send full payload */
               sendScoreToAPI(
                 score,
                 eatenEvents,
                 currentSessionId,
                 gameTimeMs,
-                eatenBy, // NEW
-                epochGameStartTime, // NEW
-                epochGameEndTime // NEW
+                eatenBy,
+                epochGameStartTime,
+                epochGameEndTime
               );
 
               spawnExplosion(player);
@@ -1790,6 +1843,23 @@
         ctx.font = "20px 'Londrina Solid', sans-serif";
         ctx.fillText(cachedScoreText, 20, 30);
 
+        let y = 55;
+        ctx.font = "16px 'Poppins', sans-serif";
+        if (playerParalyzeTime > 0) {
+          ctx.fillStyle = "#ffea00";
+          ctx.fillText(`Paralyzed: ${playerParalyzeTime.toFixed(1)}s`, 20, y);
+          y += 18;
+        }
+        if (borgyPowerUpTime > 0) {
+          ctx.fillStyle = "#00ff66";
+          ctx.fillText(`Borgy Boost: ${borgyPowerUpTime.toFixed(1)}s`, 20, y);
+          y += 18;
+        }
+        if (sushiPowerUpTime > 0) {
+          ctx.fillStyle = "#ffaaff";
+          ctx.fillText(`Sushi Boost: ${sushiPowerUpTime.toFixed(1)}s`, 20, y);
+        }
+
         if (touchTarget) {
           ctx.beginPath();
           ctx.arc(touchTarget.x, touchTarget.y, 15, 0, Math.PI * 2);
@@ -1797,26 +1867,20 @@
           ctx.lineWidth = 2;
           ctx.stroke();
         }
-        if (playerParalyzeTime > 0) {
-          ctx.font = "16px 'Poppins', sans-serif";
-          ctx.fillStyle = "#ffea00";
-          ctx.fillText(`Paralyzed: ${playerParalyzeTime.toFixed(1)}s`, 20, 55);
-        }
       }
 
       /* ---- MASTER LOOP (update + render) ---- */
       let lastFrameTime = performance.now();
       let accumulator = 0;
-      const FIXED_STEP = 1 / 60; // 60 FPS physics
+      const FIXED_STEP = 1 / 60; // 60 FPS physics
 
       function masterLoop() {
         const now = performance.now();
         let dt = (now - lastFrameTime) / 1000;
-        if (dt > 0.25) dt = 0.25; // avoid spiral of death
+        if (dt > 0.25) dt = 0.25;
         lastFrameTime = now;
         accumulator += dt;
         if (accumulator > FIXED_STEP * 5) {
-          // drop excess accumulated time to avoid long catch‑up
           accumulator = FIXED_STEP * 5;
         }
         while (accumulator >= FIXED_STEP) {
@@ -1841,7 +1905,8 @@
         bubbles = [];
         waterTrails = [];
         player = new Fish(WIDTH / 2, HEIGHT / 2, 0, 0, playerImg, 25, true);
-        playerPowerUpTime = 0;
+        sushiPowerUpTime = 0;
+        borgyPowerUpTime = 0;
         playerIsPoweredUp = false;
         playerParalyzeTime = 0;
         clearKeys();
@@ -1865,9 +1930,9 @@
         updateSfxButtons();
       };
 
-      /* ---- Start Game (modified to seed spawn RNGs & debounce) ---- */
+      /* ---- Start Game ---- */
       async function startNewRun() {
-        if (startInProgress) return; // Debounce multiple clicks
+        if (startInProgress) return;
         startInProgress = true;
         startBtn.disabled = true;
         playAgainBtn.disabled = true;
@@ -1876,11 +1941,8 @@
         hideGameOverScreen();
         showOrHideArrowKeys(arrowKeysBtn.textContent.includes("On"));
 
-        /* 🚀 Kick the music immediately – this call now happens inside the same
-       user‑gesture that pressed “Start Game”, so browsers will allow playback */
         startAudio();
 
-        /* 1️⃣ new session */
         let sessionInfo;
         try {
           const resp = await fetch("/api/session", {
@@ -1891,7 +1953,7 @@
               "x-api-password": getApiPassword(),
             },
           });
-          sessionInfo = await resp.json(); // {sessionId, seed}
+          sessionInfo = await resp.json();
         } catch (e) {
           alert("Cannot start game – session failed.");
           startInProgress = false;
@@ -1901,29 +1963,23 @@
           return;
         }
 
-        /* 2️⃣ deterministic RNG – break out three separate streams */
-        rng = new Math.seedrandom(sessionInfo.seed); // graphics / misc
-        spawnSpecRng = new Math.seedrandom(sessionInfo.seed + ":spec"); // ordered spawn specs
-        spawnTimingRng = new Math.seedrandom(sessionInfo.seed + ":timing"); // spawn timing
+        rng = new Math.seedrandom(sessionInfo.seed);
+        spawnSpecRng = new Math.seedrandom(sessionInfo.seed + ":spec");
+        spawnTimingRng = new Math.seedrandom(sessionInfo.seed + ":timing");
 
-        /* 3️⃣ clear schedule & build ahead */
         spawnSchedule.length = 0;
         nextScheduleIdx = 0;
         scheduleCursorTime = 0;
-        ensureScheduleAhead(120); // build 2 min ahead
+        ensureScheduleAhead(120);
 
-        /* 4️⃣ clear state */
         currentSessionId = sessionInfo.sessionId;
         eatenEvents.length = 0;
 
-        /* 5️⃣ go */
         gameState = "playing";
-        /* Mark game start (NEW) */
         epochGameStartTime = Date.now();
         epochGameEndTime = null;
 
         initGame();
-        // allow another click even if the player abandons this run
         startInProgress = false;
       }
 
@@ -1999,14 +2055,16 @@
             })
         ),
         loadImage("img/crab.png"),
-        loadImage("img/jellyfish-3.png"),
+        loadImage("img/jellyfish-4.png"),
         loadImage("img/electric-jellyfish-c.png"),
-        loadImage("img/sushi.png"),
-        loadImage("img/pufferfish-3.png"),
+        loadImage("img/sushi-4.png"),
+        loadImage("img/borgy.png"),
+        loadImage("img/pufferfish-4.png"),
         loadAudio("backgroundMusic"),
         loadAudio("eatSound"),
         loadAudio("gameOverSound"),
         loadAudio("powerUpSound"),
+        loadAudio("borgyPowerUpSound"),
         loadAudio("achievementSound"),
         loadAudio("shrinkSound"),
         loadAudio("electricSound"),
@@ -2014,7 +2072,7 @@
       ]).then(() => {
         resizeCanvas();
         showStartScreen();
-        initAudio(); /* ← now only called here once */
+        initAudio();
         let audioStarted = false;
         function kickAudio() {
           if (!audioStarted) {
