@@ -694,64 +694,15 @@
         electricSound.volume = 0.3;
         borgyPowerUpSound.volume = 0.3;
       }
-      /******************************************************************
-       * 🔊 UNIVERSAL AUDIO UNLOCK  –  add this just after initAudio()
-       ******************************************************************/
-      function unlockAllAudio() {
-        // whatever you added in initAudio(), list them here in one array ↓
-        const allClips = [
-          backgroundMusic,
-          eatSound,
-          gameOverSound,
-          powerUpSound,
-          borgyPowerUpSound,
-          borgySpawnSound,
-          achievementSound,
-          shrinkSound,
-          electricSound,
-          shockSound,
-        ].filter(Boolean); // defensive guard (nulls if a clip failed to load)
-
-        // remember their “real” volumes once, then prime each <audio> element
-        allClips.forEach((a) => {
-          if (a.dataset.origVol == null) a.dataset.origVol = a.volume; // save
-          a.volume = 0; // silent play → counts as user-gesture playback
-          a.play()
-            .then(() => {
-              a.pause(); // immediately pause
-              a.currentTime = 0;
-              a.volume = a.dataset.origVol; // restore its intended loudness
-            })
-            .catch(() => {
-              /* ignore – some browsers just refuse the silent play */
-            });
-        });
-      }
-
       const startAudio = () => {
         if (backgroundMusic && isMusicEnabled)
           backgroundMusic.play().catch(() => {});
       };
 
-      function playSfx(baseEl) {
+      function playSfx(audioEl) {
         if (!isSfxEnabled) return;
-
-        // If the base element is free, just reuse it (cheapest path)
-        if (baseEl.paused || baseEl.ended) {
-          baseEl.currentTime = 0;
-          baseEl.play().catch(() => {});
-          return;
-        }
-
-        /* Otherwise fire-and-forget a clone.  Cloning is cheap because
-     the browser reuses the already-decoded audio data internally */
-        const clone = baseEl.cloneNode(/* deep = */ false);
-        clone.volume = baseEl.volume;
-        // once it's done we remove it so we don’t leak DOM nodes
-        clone.addEventListener("ended", () => clone.remove());
-        // Safari occasionally needs a manual load() before play()
-        clone.load();
-        clone.play().catch(() => {});
+        audioEl.currentTime = 0; // rewind so it can trigger every time
+        audioEl.play().catch(() => {}); // ignore autoplay / focus rejections
       }
 
       const updateMusicButtons = () => {
@@ -2363,13 +2314,11 @@
         initAudio();
         let audioStarted = false;
         function kickAudio() {
-          if (audioStarted) return;
-          audioStarted = true;
-
-          unlockAllAudio(); // <— NEW
-          startAudio(); // plays / resumes backgroundMusic respecting Music On/Off
+          if (!audioStarted) {
+            startAudio();
+            audioStarted = true;
+          }
         }
-
         startScreen.addEventListener("click", kickAudio, { once: true });
         document.addEventListener("mousemove", kickAudio, { once: true });
         requestAnimationFrame(masterLoop);
