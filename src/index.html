@@ -398,10 +398,13 @@
               resolve(el);
             }
           };
+          // Handle normal load/error events
           el.addEventListener("canplaythrough", finalize, { once: true });
           el.addEventListener("error", finalize, { once: true });
+          // If already loaded (cached), resolve immediately
           if (el.readyState >= 3) finalize();
-          setTimeout(finalize, 300); // fallback if nothing fires
+          // Fallback: always resolve after 300ms (prevents iOS hanging)
+          setTimeout(finalize, 300);
         });
       }
 
