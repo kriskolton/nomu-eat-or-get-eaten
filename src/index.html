@@ -4,6 +4,8 @@
     <!-- Telegram Mini-App bridge -->
     <script src="https://telegram.org/js/telegram-web-app.js?57"></script>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+
     <!-- Deterministic RNG (client & server share the same seed) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
 
@@ -25,37 +27,6 @@
       href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-
-    <audio id="backgroundMusic" loop>
-      <source src="sounds/background4.mp3" type="audio/mpeg" />
-    </audio>
-    <audio id="eatSound">
-      <source src="sounds/eat.mp3" type="audio/mpeg" />
-    </audio>
-    <audio id="gameOverSound">
-      <source src="sounds/gameover.mp3" type="audio/mpeg" />
-    </audio>
-    <audio id="powerUpSound">
-      <source src="sounds/powerup.mp3" type="audio/mpeg" />
-    </audio>
-    <audio id="borgySpawnSound">
-      <source src="sounds/borgy-spawn.mp3" type="audio/mpeg" />
-    </audio>
-    <audio id="borgyPowerUpSound">
-      <source src="sounds/borgy-powerup.mp3" type="audio/mpeg" />
-    </audio>
-    <audio id="achievementSound">
-      <source src="sounds/achievement.mp3" type="audio/mpeg" />
-    </audio>
-    <audio id="shrinkSound">
-      <source src="sounds/shrink.mp3" type="audio/mpeg" />
-    </audio>
-    <audio id="electricSound">
-      <source src="sounds/electric.mp3" type="audio/mpeg" />
-    </audio>
-    <audio id="shockSound">
-      <source src="sounds/shock.mp3" type="audio/mpeg" />
-    </audio>
 
     <!-- ----------------------------------------------------------------- -->
     <!--                              STYLES                               -->
@@ -633,18 +604,18 @@
         touchTarget = null;
       let bubbles = [],
         waterTrails = [],
-        backgroundMusic,
-        eatSound,
-        gameOverSound,
-        powerUpSound,
-        borgyPowerUpSound,
-        borgySpawnSound,
-        achievementSound,
-        shrinkSound,
-        electricSound,
-        shockSound,
-        isSfxEnabled = true,
-        isMusicEnabled = true,
+        // backgroundMusic,
+        // eatSound,
+        // gameOverSound,
+        // powerUpSound,
+        // borgyPowerUpSound,
+        // borgySpawnSound,
+        // achievementSound,
+        // shrinkSound,
+        // electricSound,
+        // shockSound,
+        // isSfxEnabled = true,
+        // isMusicEnabled = true,
         explosions = [];
       let gameTime = 0, // seconds
         gameTimeMs = 0; // milliseconds
@@ -668,93 +639,98 @@
       /* --------------- NEW: Debounce state flag ---------------- */
       let startInProgress = false;
 
-      /*********************   AUDIO HELPERS   *****************************/
-      function initAudio() {
-        backgroundMusic = document.getElementById("backgroundMusic");
-        eatSound = document.getElementById("eatSound");
-        gameOverSound = document.getElementById("gameOverSound");
-        powerUpSound = document.getElementById("powerUpSound");
-        borgyPowerUpSound = document.getElementById("borgyPowerUpSound");
-        borgySpawnSound = document.getElementById("borgySpawnSound");
-        achievementSound = document.getElementById("achievementSound");
-        shrinkSound = document.getElementById("shrinkSound");
-        electricSound = document.getElementById("electricSound");
-        shockSound = document.getElementById("shockSound");
-        backgroundMusic.volume = 0.2;
-        const v = 0.5;
-        [
-          eatSound,
-          gameOverSound,
-          powerUpSound,
-          borgySpawnSound,
-          achievementSound,
-          shockSound,
-        ].forEach((s) => (s.volume = v));
-        shrinkSound.volume = 0.3;
-        electricSound.volume = 0.3;
-        borgyPowerUpSound.volume = 0.3;
-      }
-      const startAudio = () => {
-        if (backgroundMusic && isMusicEnabled)
-          backgroundMusic.play().catch(() => {});
+      /*********************   AUDIO: HOWLER.JS   *****************************/
+
+      const sounds = {
+        backgroundMusic: new Howl({
+          src: ["sounds/background4.mp3"],
+          loop: true,
+          volume: 0.2,
+          html5: true, // Ensures streaming for longer music on mobile
+        }),
+        eat: new Howl({ src: ["sounds/eat.mp3"], volume: 0.5 }),
+        gameover: new Howl({ src: ["sounds/gameover.mp3"], volume: 0.5 }),
+        powerup: new Howl({ src: ["sounds/powerup.mp3"], volume: 0.5 }),
+        borgyPowerUp: new Howl({
+          src: ["sounds/borgy-powerup.mp3"],
+          volume: 0.3,
+        }),
+        borgySpawn: new Howl({ src: ["sounds/borgy-spawn.mp3"], volume: 0.3 }),
+        achievement: new Howl({ src: ["sounds/achievement.mp3"], volume: 0.5 }),
+        shrink: new Howl({ src: ["sounds/shrink.mp3"], volume: 0.3 }),
+        electric: new Howl({ src: ["sounds/electric.mp3"], volume: 0.3 }),
+        shock: new Howl({ src: ["sounds/shock.mp3"], volume: 0.5 }),
       };
 
-      function playSfx(audioEl) {
+      let isSfxEnabled = true;
+      let isMusicEnabled = true;
+
+      const startAudio = () => {
+        if (isMusicEnabled && !sounds.backgroundMusic.playing()) {
+          sounds.backgroundMusic.play();
+          sounds.backgroundMusic.volume(0.2);
+        }
+      };
+
+      const stopAudio = () => {
+        sounds.backgroundMusic.stop();
+      };
+
+      function playSfx(howl) {
         if (!isSfxEnabled) return;
-        audioEl.currentTime = 0; // rewind so it can trigger every time
-        audioEl.play().catch(() => {}); // ignore autoplay / focus rejections
+        howl.play();
       }
+
+      const playEatSound = () => playSfx(sounds.eat);
+      const playGameOverSound = () => playSfx(sounds.gameover);
+      const playPowerUpSound = () => playSfx(sounds.powerup);
+      const playBorgyPowerUpSound = () => playSfx(sounds.borgyPowerUp);
+      const playBorgySpawnSound = () => playSfx(sounds.borgySpawn);
+      const playAchvSound = () => playSfx(sounds.achievement);
+      const playShrinkSound = () => playSfx(sounds.shrink);
+      const playElectricSound = () => playSfx(sounds.electric);
+      const playShockSound = () => playSfx(sounds.shock);
 
       const updateMusicButtons = () => {
         const txt = isMusicEnabled ? "🎵 Music On" : "🎵 Music Off";
         musicBtn.textContent = txt;
         musicBtnGameOver.textContent = txt;
       };
+
       const updateSfxButtons = () => {
         const txt = isSfxEnabled ? "🔊 SFX On" : "🔈 SFX Off";
         sfxBtn.textContent = txt;
         sfxBtnGameOver.textContent = txt;
       };
+
       const toggleMusic = () => {
         isMusicEnabled = !isMusicEnabled;
-        if (backgroundMusic) {
-          if (isMusicEnabled) {
-            startAudio();
-            backgroundMusic.volume = 0.2;
-          } else {
-            backgroundMusic.pause();
-            backgroundMusic.volume = 0;
-          }
+        if (isMusicEnabled) {
+          sounds.backgroundMusic.play();
+          sounds.backgroundMusic.volume(0.2);
+        } else {
+          sounds.backgroundMusic.pause();
+          sounds.backgroundMusic.volume(0);
         }
         updateMusicButtons();
       };
+
       const toggleSFX = () => {
         isSfxEnabled = !isSfxEnabled;
-        const v = isSfxEnabled ? 0.5 : 0;
-        [
-          eatSound,
-          gameOverSound,
-          powerUpSound,
-          borgyPowerUpSound,
-          achievementSound,
-          shockSound,
-        ].forEach((s) => (s.volume = v));
-        shrinkSound.volume =
-          electricSound.volume =
-          borgySpawnSound.volume =
-            isSfxEnabled ? 0.3 : 0;
+        // Use Howler's mute globally for SFX (not music):
+        // But to NOT mute music when SFX are off, we control each sound's volume
+        // So instead, set SFX volume to 0 or back to original
+        sounds.eat.volume(isSfxEnabled ? 0.5 : 0);
+        sounds.gameover.volume(isSfxEnabled ? 0.5 : 0);
+        sounds.powerup.volume(isSfxEnabled ? 0.5 : 0);
+        sounds.borgyPowerUp.volume(isSfxEnabled ? 0.3 : 0);
+        sounds.borgySpawn.volume(isSfxEnabled ? 0.3 : 0);
+        sounds.achievement.volume(isSfxEnabled ? 0.5 : 0);
+        sounds.shrink.volume(isSfxEnabled ? 0.3 : 0);
+        sounds.electric.volume(isSfxEnabled ? 0.3 : 0);
+        sounds.shock.volume(isSfxEnabled ? 0.5 : 0);
         updateSfxButtons();
       };
-
-      const playEatSound = () => playSfx(eatSound);
-      const playGameOverSound = () => playSfx(gameOverSound);
-      const playPowerUpSound = () => playSfx(powerUpSound);
-      const playBorgyPowerUpSound = () => playSfx(borgyPowerUpSound);
-      const playBorgySpawnSound = () => playSfx(borgySpawnSound);
-      const playAchvSound = () => playSfx(achievementSound);
-      const playShrinkSound = () => playSfx(shrinkSound);
-      const playElectricSound = () => playSfx(electricSound);
-      const playShockSound = () => playSfx(shockSound);
 
       /*********************   HELPERS   *****************************/
       /* ---------- off-screen hue / sat / lum tint ---------- */
@@ -2298,20 +2274,9 @@
         loadImage("img/sushi-4.png"),
         loadImage("img/borgy.png"),
         loadImage("img/pufferfish-4.png"),
-        loadAudio("backgroundMusic"),
-        loadAudio("eatSound"),
-        loadAudio("gameOverSound"),
-        loadAudio("powerUpSound"),
-        loadAudio("borgyPowerUpSound"),
-        loadAudio("borgySpawnSound"),
-        loadAudio("achievementSound"),
-        loadAudio("shrinkSound"),
-        loadAudio("electricSound"),
-        loadAudio("shockSound"),
       ]).then(() => {
         resizeCanvas();
         showStartScreen();
-        initAudio();
         let audioStarted = false;
         function kickAudio() {
           if (!audioStarted) {
