@@ -176,7 +176,9 @@ function verifyApiPassword(req, res, next) {
 /* ───────────────────────── Express routes ────────────────────────────── */
 
 app.use(express.static("public"));
-app.use(express.json());
+// Increase JSON & URL-encoded body limits to 10 MB
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Serve index.html *as is* – no credentials leaked to the client
 app.get("/", (req, res) => {
