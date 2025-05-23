@@ -193,7 +193,7 @@
           >
             SEASON 4 🇨🇭
           </p>
-          <p style="font-size: 12px; color: #fff; opacity: 0.5">v4.1</p>
+          <p style="font-size: 12px; color: #fff; opacity: 0.5">v4.2</p>
 
           <div
             id="telegramStatus"
@@ -694,6 +694,40 @@
         electricSound.volume = 0.3;
         borgyPowerUpSound.volume = 0.3;
       }
+      /******************************************************************
+       * 🔊 UNIVERSAL AUDIO UNLOCK  –  add this just after initAudio()
+       ******************************************************************/
+      function unlockAllAudio() {
+        // whatever you added in initAudio(), list them here in one array ↓
+        const allClips = [
+          backgroundMusic,
+          eatSound,
+          gameOverSound,
+          powerUpSound,
+          borgyPowerUpSound,
+          borgySpawnSound,
+          achievementSound,
+          shrinkSound,
+          electricSound,
+          shockSound,
+        ].filter(Boolean); // defensive guard (nulls if a clip failed to load)
+
+        // remember their “real” volumes once, then prime each <audio> element
+        allClips.forEach((a) => {
+          if (a.dataset.origVol == null) a.dataset.origVol = a.volume; // save
+          a.volume = 0; // silent play → counts as user-gesture playback
+          a.play()
+            .then(() => {
+              a.pause(); // immediately pause
+              a.currentTime = 0;
+              a.volume = a.dataset.origVol; // restore its intended loudness
+            })
+            .catch(() => {
+              /* ignore – some browsers just refuse the silent play */
+            });
+        });
+      }
+
       const startAudio = () => {
         if (backgroundMusic && isMusicEnabled)
           backgroundMusic.play().catch(() => {});
@@ -2314,11 +2348,13 @@
         initAudio();
         let audioStarted = false;
         function kickAudio() {
-          if (!audioStarted) {
-            startAudio();
-            audioStarted = true;
-          }
+          if (audioStarted) return;
+          audioStarted = true;
+
+          unlockAllAudio(); // <— NEW
+          startAudio(); // plays / resumes backgroundMusic respecting Music On/Off
         }
+
         startScreen.addEventListener("click", kickAudio, { once: true });
         document.addEventListener("mousemove", kickAudio, { once: true });
         requestAnimationFrame(masterLoop);
