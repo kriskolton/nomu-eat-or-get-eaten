@@ -177,13 +177,20 @@ function verifyApiPassword(req, res, next) {
 
 app.use(express.static("public"));
 // Increase JSON & URL-encoded body limits to 10 MB
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Serve index.html *as is* – no credentials leaked to the client
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
+
+// // somewhere after your body-parser setup…
+// app.post("/api/test-limit", (req, res) => {
+//   // respond with the actual byte-length of the parsed body
+//   const raw = JSON.stringify(req.body);
+//   res.json({ receivedBytes: Buffer.byteLength(raw, "utf8") });
+// });
 
 /* ───────────────────────── Start-game session ──────────────────────── */
 
