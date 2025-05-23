@@ -262,12 +262,12 @@ function verifyReplay({
   }
   if (runDurationMs - killerSpawnMs > 120_000) {
     console.error(
-      `❌ eatenBy idx=${eatenBy} spawned more than 60 000 ms before endTime`
+      `❌ eatenBy idx=${eatenBy} spawned more than 120 000 ms before endTime`
     );
     return {
       ok: false,
       failedDueTo:
-        "Verification failed: eatenBy idx spawned more than 60 000 ms before endTime",
+        "Verification failed: eatenBy idx spawned more than 120 000 ms before endTime",
     };
   }
 
@@ -288,9 +288,9 @@ function verifyReplay({
 
     /* time window check ------------------------------------------- */
     const dt = t - entry.spawnTimeMs;
-    if (dt < 0 || dt > 60000) {
+    if (dt < 0 || dt > 120000) {
       console.error(
-        `❌ idx=${idx} eaten ${dt} ms outside allowed window (0–60 000)`
+        `❌ idx=${idx} eaten ${dt} ms outside allowed window (0–120 000)`
       );
       return {
         ok: false,

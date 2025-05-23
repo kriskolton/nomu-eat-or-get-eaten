@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js",
+    "dev": "npm run prepare && nodemon index.js",
     "obfuscate": "node obfuscate-html.js",
     "minify": "node minify-html.js",
     "prepare": "npm run obfuscate && npm run minify"

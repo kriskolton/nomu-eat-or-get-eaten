@@ -124,7 +124,7 @@
       .overlay {
         position: absolute;
         inset: 0;
-        background: rgba(0, 0, 0, 0.5);
+        background: rgba(0, 10, 30, 0.8);
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -190,7 +190,7 @@
           >
             SEASON 4 🇨🇭
           </p>
-          <p style="font-size: 12px; color: #fff; opacity: 0.5">v3.7</p>
+          <p style="font-size: 12px; color: #fff; opacity: 0.5">v4.0</p>
 
           <div
             id="telegramStatus"
@@ -643,9 +643,11 @@
       /* Status effects */
       let playerParalyzeTime = 0;
       const PARALYZE_DURATION = 3;
-      const EATING_LEEWAY = 1.15;
+      const EATING_LEEWAY = 1.18;
       const JELLY_SHRINK_FACTOR = 0.6;
       const MIN_PLAYER_SIZE = 25;
+      const GROWTH_FACTOR = 0.03; // ↓ smaller than the old 0.05 means slower growth
+      const GROWTH_CAP = 1.5; // (optional) lower the absolute cap too
       let sushiPowerUpTime = 0;
       let borgyPowerUpTime = 0;
       let playerIsPoweredUp = false;
@@ -681,6 +683,12 @@
         if (backgroundMusic && isMusicEnabled)
           backgroundMusic.play().catch(() => {});
       };
+
+      function playSfx(audioEl) {
+        if (!isSfxEnabled) return;
+        audioEl.currentTime = 0; // rewind so it can trigger every time
+        audioEl.play().catch(() => {}); // ignore autoplay / focus rejections
+      }
 
       const updateMusicButtons = () => {
         const txt = isMusicEnabled ? "🎵 Music On" : "🎵 Music Off";
@@ -720,33 +728,150 @@
         updateSfxButtons();
       };
 
-      const playEatSound = () =>
-        isSfxEnabled && eatSound.play().catch(() => {});
-      const playGameOverSound = () =>
-        isSfxEnabled &&
-        ((gameOverSound.currentTime = 0), gameOverSound.play().catch(() => {}));
-      const playPowerUpSound = () =>
-        isSfxEnabled &&
-        ((powerUpSound.currentTime = 0), powerUpSound.play().catch(() => {}));
-      const playBorgyPowerUpSound = () =>
-        isSfxEnabled &&
-        ((borgyPowerUpSound.currentTime = 0),
-        borgyPowerUpSound.play().catch(() => {}));
-      const playAchvSound = () =>
-        isSfxEnabled &&
-        ((achievementSound.currentTime = 0),
-        achievementSound.play().catch(() => {}));
-      const playShrinkSound = () =>
-        isSfxEnabled &&
-        ((shrinkSound.currentTime = 0), shrinkSound.play().catch(() => {}));
-      const playElectricSound = () =>
-        isSfxEnabled &&
-        ((electricSound.currentTime = 0), electricSound.play().catch(() => {}));
-      const playShockSound = () =>
-        isSfxEnabled &&
-        ((shockSound.currentTime = 0), shockSound.play().catch(() => {}));
+      const playEatSound = () => playSfx(eatSound);
+      const playGameOverSound = () => playSfx(gameOverSound);
+      const playPowerUpSound = () => playSfx(powerUpSound);
+      const playBorgyPowerUpSound = () => playSfx(borgyPowerUpSound);
+      const playAchvSound = () => playSfx(achievementSound);
+      const playShrinkSound = () => playSfx(shrinkSound);
+      const playElectricSound = () => playSfx(electricSound);
+      const playShockSound = () => playSfx(shockSound);
 
       /*********************   HELPERS   *****************************/
+      /* ---------- off-screen hue / sat / lum tint ---------- */
+      function drawTextWithBg(
+        ctx,
+        text,
+        x,
+        y,
+        {
+          padding = 8,
+          radius = 8,
+          bgColor = "rgba(0,0,0,0.55)",
+          textColor = "#fff",
+          font = null,
+        } = {}
+      ) {
+        ctx.save();
+        if (font) ctx.font = font;
+        const metrics = ctx.measureText(text);
+        const textHeight = parseInt(ctx.font.match(/\d+/)); // crude height
+        const width = metrics.width + padding * 2;
+        const height = textHeight + padding * 1.5;
+        // Rounded rect
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(
+          x + width,
+          y + height,
+          x + width - radius,
+          y + height
+        );
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+        ctx.fillStyle = bgColor;
+        ctx.fill();
+        // Text
+        ctx.fillStyle = textColor;
+        ctx.textBaseline = "top";
+        ctx.fillText(text, x + padding, y + padding * 0.75);
+        ctx.restore();
+        return height;
+      }
+
+      const __tintCache = Object.create(null);
+      /**
+       * Returns a cached <canvas> with the sprite recoloured.
+       * @param {HTMLImageElement} img  original sprite
+       * @param {number} hueDeg         hue rotation, 0-360
+       * @param {number} satMul         saturation multiplier (1 = unchanged)
+       * @param {number} lumMul         luminance  multiplier (1 = unchanged)
+       */
+      function getTintedSprite(img, hueDeg = 0, satMul = 1, lumMul = 1) {
+        const key = `${img.src}|${hueDeg}|${satMul}|${lumMul}`;
+        if (__tintCache[key]) return __tintCache[key];
+
+        const off = document.createElement("canvas");
+        off.width = img.naturalWidth;
+        off.height = img.naturalHeight;
+        const oc = off.getContext("2d");
+        oc.drawImage(img, 0, 0);
+
+        const id = oc.getImageData(0, 0, off.width, off.height);
+        const d = id.data;
+        const H = (hueDeg % 360) / 360;
+
+        // helpers
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1 / 6) return p + (q - p) * 6 * t;
+          if (t < 1 / 2) return q;
+          if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+          return p;
+        };
+
+        for (let i = 0; i < d.length; i += 4) {
+          // --- RGB ➜ HSL ---
+          let r = d[i] / 255,
+            g = d[i + 1] / 255,
+            b = d[i + 2] / 255;
+
+          const max = Math.max(r, g, b),
+            min = Math.min(r, g, b);
+          let h,
+            s,
+            l = (max + min) / 2;
+
+          if (max === min) {
+            h = s = 0;
+          } else {
+            const diff = max - min;
+            s = l > 0.5 ? diff / (2 - max - min) : diff / (max + min);
+            switch (max) {
+              case r:
+                h = ((g - b) / diff + (g < b ? 6 : 0)) / 6;
+                break;
+              case g:
+                h = ((b - r) / diff + 2) / 6;
+                break;
+              case b:
+                h = ((r - g) / diff + 4) / 6;
+                break;
+            }
+          }
+
+          // --- shift hue / sat / lum ---
+          h = (h + H) % 1;
+          s = Math.min(s * satMul, 1);
+          l = Math.min(l * lumMul, 1);
+
+          // --- HSL ➜ RGB ---
+          if (s === 0) {
+            r = g = b = l; // grey
+          } else {
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1 / 3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1 / 3);
+          }
+
+          d[i] = r * 255;
+          d[i + 1] = g * 255;
+          d[i + 2] = b * 255; // alpha (d[i+3]) unchanged
+        }
+        oc.putImageData(id, 0, 0);
+
+        return (__tintCache[key] = off);
+      }
+
       const calculateFishScore = (sz) => Math.floor(sz);
       const totalFishWeight = fishTypes.reduce((s, f) => s + f.weight, 0);
 
@@ -765,6 +890,17 @@
         ent.spawnType = type;
         return ent;
       }
+
+      /* ---------- canvas-filter capability ---------- */
+      const CAN_FILTER = (() => {
+        try {
+          const testCtx = document.createElement("canvas").getContext("2d");
+          testCtx.filter = "brightness(2)"; // will be ignored if unsupported
+          return testCtx.filter === "brightness(2)";
+        } catch (_) {
+          return false;
+        }
+      })();
 
       /********************* NEW  — SPAWN SPEC GENERATOR ********************/
       const SPAWN_SPEC_WEIGHTS = [
@@ -1116,7 +1252,27 @@
               "brightness(0.7) contrast(0.9)";
           }
 
-          c.drawImage(this.sprite, 0, 0, this.width, this.height);
+          /* ---------- BEGIN filtered / fallback draw ---------- */
+          let imgToDraw = this.sprite;
+          if (!CAN_FILTER) {
+            // Decide which tint, mimicking the original filter stacks
+            let tintParams = null; // [hueDeg, satMul, lumMul]
+            if (this.isPlayer && playerParalyzeTime > 0)
+              tintParams = [30, 1.8, 1.4]; // yellow-ish
+            else if (this.isPlayer && borgyPowerUpTime > 0)
+              tintParams = [100, 3.0, 2.0]; // green boost
+            else if (ultra) tintParams = [180, 2.0, 1.5]; // rainbow-fish
+            else if (this.isFast) tintParams = [45, 1.2, 1.2]; // quick fish
+
+            if (tintParams) {
+              const [h, s, l] = tintParams;
+              imgToDraw = getTintedSprite(this.sprite, h, s, l);
+            }
+          }
+          /* ---------- draw sprite (original or tinted) ---------- */
+          c.drawImage(imgToDraw, 0, 0, this.width, this.height);
+          /* ---------- END patch ---------- */
+
           c.restore();
         }
         getBounds() {
@@ -1404,6 +1560,31 @@
         constructor(x, y, speedX) {
           super(x, y, speedX, 0, borgyImg, 45, false);
           this.isBorgy = true;
+        }
+        createWaterTrail() {
+          if (!this.width || !this.height) return;
+          const now = performance.now();
+          // Create trail more frequently
+          if (now - this.lastTrailTime < 25) return; // was 50ms for normal fish
+          this.lastTrailTime = now;
+          // Bigger, colored, and more persistent
+          const movingLeft = this.speedX < 0;
+          for (let i = 0; i < 3; i++) {
+            // triple trail for visibility
+            waterTrails.push(
+              new WaterTrail(
+                this.x + (movingLeft ? this.width : 0),
+                this.y + this.height * (0.3 + 0.4 * Math.random()), // more spread
+                movingLeft ? 1 : -1,
+                this.maxSide * 1.2, // larger trail
+                false,
+                { r: 0, g: 255, b: 120 } // bright turquoise color
+              )
+            );
+          }
+          if (waterTrails.length > MAX_WATER_TRAILS) {
+            waterTrails.splice(0, waterTrails.length - MAX_WATER_TRAILS);
+          }
         }
       }
 
@@ -1738,7 +1919,10 @@
                 );
                 playShrinkSound();
               } else {
-                player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
+                player.maxSide += Math.min(
+                  Math.sqrt(e.maxSide) * GROWTH_FACTOR,
+                  GROWTH_CAP
+                );
                 playEatSound();
               }
 
@@ -1777,7 +1961,10 @@
                 );
                 playShrinkSound();
               } else {
-                player.maxSide += Math.min(Math.sqrt(e.maxSide) * 0.05, 1.5);
+                player.maxSide += Math.min(
+                  Math.sqrt(e.maxSide) * GROWTH_FACTOR,
+                  GROWTH_CAP
+                );
                 playEatSound();
               }
 
@@ -1849,18 +2036,46 @@
         let y = 55;
         ctx.font = "16px 'Poppins', sans-serif";
         if (playerParalyzeTime > 0) {
-          ctx.fillStyle = "#ffea00";
-          ctx.fillText(`Paralyzed: ${playerParalyzeTime.toFixed(1)}s`, 20, y);
-          y += 18;
+          y +=
+            drawTextWithBg(
+              ctx,
+              `Paralyzed: ${playerParalyzeTime.toFixed(1)}s`,
+              20,
+              y,
+              {
+                bgColor: "rgba(40, 40, 0, 0.72)", // dark yellow
+                textColor: "#ffea00",
+                font: ctx.font,
+              }
+            ) + 4;
         }
         if (borgyPowerUpTime > 0) {
-          ctx.fillStyle = "#00ff66";
-          ctx.fillText(`Borgy Boost: ${borgyPowerUpTime.toFixed(1)}s`, 20, y);
-          y += 18;
+          y +=
+            drawTextWithBg(
+              ctx,
+              `Borgy Potion: ${borgyPowerUpTime.toFixed(1)}s`,
+              20,
+              y,
+              {
+                bgColor: "rgba(0, 40, 24, 0.72)", // dark green
+                textColor: "#00ff66",
+                font: ctx.font,
+              }
+            ) + 4;
         }
         if (sushiPowerUpTime > 0) {
-          ctx.fillStyle = "#ffaaff";
-          ctx.fillText(`Sushi Boost: ${sushiPowerUpTime.toFixed(1)}s`, 20, y);
+          y +=
+            drawTextWithBg(
+              ctx,
+              `Power-Up: ${sushiPowerUpTime.toFixed(1)}s`,
+              20,
+              y,
+              {
+                bgColor: "rgba(30, 0, 20, 0.7)", // dark magenta
+                textColor: "#ffaaff",
+                font: ctx.font,
+              }
+            ) + 4;
         }
 
         if (touchTarget) {

@@ -260,30 +260,49 @@ app.post(
         return res.status(400).json({ error: "Invalid or expired session" });
       }
 
-      // check the start time of the session with the current time
-      const sessionStartTime = new Date(sess.createdAt);
-      // --- sanity‑check duration and report latency ------------------------------
-      const sessionEndTime = new Date(sessionStartTime.getTime() + gameTime);
-      const msSinceGameEnded = currentTime - sessionEndTime; // >0 ⇒ game already ended
-      const MAX_REPORT_LAG_MS = 60_000; // one minute
+      /* ─────────── TIME PLAUSIBILITY & SKEW CHECKS ───────────────────────── */
 
-      // todo: check that the times are all in the same timezone
-      if (sessionStartTime > epochGameStartTime) {
+      /* server-side anchors */
+      const SESSION_START_MS = new Date(sess.createdAt).getTime(); // when /api/session inserted row
+      const GAME_DURATION_MS = Number(gameTime); // client-reported
+      const SESSION_END_MS = SESSION_START_MS + GAME_DURATION_MS;
+      const NOW_MS = Date.now(); // when score POST arrived
+
+      /* client-side anchors (sent by browser) */
+      const CLIENT_START_MS = Number(epochGameStartTime);
+      const CLIENT_END_MS = Number(epochGameEndTime);
+
+      /* tuning knobs */
+      const MAX_REPORT_LAG_MS = 10_000; // score must be sent ≤60 s after game ends
+      const MAX_CLIENT_SKEW_MS = 15_000; // allowable client/server clock mismatch
+      const MAX_CLIENT_DELTA_MS = 2_000; // tolerance on (end−start)−gameTime
+
+      /* 1. Server-only plausibility (immune to clock skew) */
+      if (SESSION_END_MS > NOW_MS) {
         isFlagged = true;
-        flaggedFor.push("Session start time is after game start time");
+        flaggedFor.push("Impossible: game ends in the future");
+      } else if (NOW_MS - SESSION_END_MS > MAX_REPORT_LAG_MS) {
+        isFlagged = true;
+        flaggedFor.push("Reported >60 s after game finished");
       }
-      if (epochGameEndTime > currentTime) {
+
+      /* 2. Client vs server clock skew (±15 s allowed) */
+      if (Math.abs(CLIENT_START_MS - SESSION_START_MS) > MAX_CLIENT_SKEW_MS) {
         isFlagged = true;
-        flaggedFor.push("Game end time is in the future");
+        flaggedFor.push("Client clock mismatch (start)");
       }
-      if (sessionEndTime > currentTime) {
-        // Claimed duration pushes the end of the game into the future
+      if (Math.abs(CLIENT_END_MS - SESSION_END_MS) > MAX_CLIENT_SKEW_MS) {
         isFlagged = true;
-        flaggedFor.push("Impossible game duration: too long");
-      } else if (msSinceGameEnded > MAX_REPORT_LAG_MS) {
-        // Score was sent more than a minute after the game finished
+        flaggedFor.push("Client clock mismatch (end)");
+      }
+
+      /* 3. Client internal consistency */
+      const CLIENT_DURATION_MS = CLIENT_END_MS - CLIENT_START_MS;
+      if (
+        Math.abs(CLIENT_DURATION_MS - GAME_DURATION_MS) > MAX_CLIENT_DELTA_MS
+      ) {
         isFlagged = true;
-        flaggedFor.push("Took longer than 1 minute to report score");
+        flaggedFor.push("Client start/end not consistent with gameTime");
       }
 
       const { ok, failedDueTo } = verifyReplay({
