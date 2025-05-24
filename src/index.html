@@ -706,11 +706,12 @@
       const toggleMusic = () => {
         isMusicEnabled = !isMusicEnabled;
         if (isMusicEnabled) {
-          sounds.backgroundMusic.play();
+          if (!sounds.backgroundMusic.playing()) {
+            sounds.backgroundMusic.play();
+          }
           sounds.backgroundMusic.volume(0.2);
         } else {
           sounds.backgroundMusic.pause();
-          sounds.backgroundMusic.volume(0);
         }
         updateMusicButtons();
       };
