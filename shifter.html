@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Image Filter and Save</title>
+  </head>
+  <body>
+    <input type="file" id="upload" accept="image/png" /><br /><br />
+    <canvas id="canvas"></canvas><br /><br />
+    <button id="download">Download Filtered Image</button>
+
+    <script>
+      const upload = document.getElementById("upload");
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      const downloadBtn = document.getElementById("download");
+
+      upload.onchange = function (e) {
+        const file = e.target.files[0];
+        const img = new Image();
+        img.onload = function () {
+          canvas.width = img.width;
+          canvas.height = img.height;
+
+          // Apply CSS-like filters
+          ctx.filter = "hue-rotate(30deg) brightness(1.4) saturate(1.8)";
+          ctx.drawImage(img, 0, 0);
+        };
+        img.src = URL.createObjectURL(file);
+      };
+
+      downloadBtn.onclick = function () {
+        const link = document.createElement("a");
+        link.download = "filtered.png";
+        link.href = canvas.toDataURL();
+        link.click();
+      };
+    </script>
+  </body>
+</html>

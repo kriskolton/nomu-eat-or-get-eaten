@@ -1,6 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <!-- 
+    SPRITE FILES NEEDED FOR PLAYER STATES:
+    
+    To use custom sprites instead of CSS filters for player states, create these files in the img/ directory:
+    
+    - img/player_fish_powered.png    (for sushi power-up state - magenta/pink tinted)
+    - img/player_fish_paralyzed.png  (for paralyzed state - yellow/electric tinted) 
+    - img/player_fish_borgy.png      (for borgy power-up state - green tinted)
+    
+    If these files don't exist, the game will fall back to using CSS filters.
+    The sprites should be the same size/style as your main player_fish.png.
+    -->
+
     <!-- Telegram Mini-App bridge -->
     <script src="https://telegram.org/js/telegram-web-app.js?57"></script>
 
@@ -164,7 +177,7 @@
           >
             SEASON 4 🇨🇭
           </p>
-          <p style="font-size: 12px; color: #fff; opacity: 0.5">v4.3</p>
+          <p style="font-size: 12px; color: #fff; opacity: 0.5">v4.4</p>
 
           <div
             id="telegramStatus"
@@ -584,6 +597,27 @@
 
       const playerImg = new Image();
       playerImg.src = "img/player_fish.png";
+
+      // NEW: Additional player sprites for different states
+      const playerPoweredUpImg = new Image();
+      playerPoweredUpImg.src = "img/player_fish_powered.png"; // You'll need to create this
+      playerPoweredUpImg.onerror = () =>
+        console.warn(
+          "player_fish_powered.png not found - using filters instead"
+        );
+
+      const playerParalyzedImg = new Image();
+      playerParalyzedImg.src = "img/player_fish_paralyzed.png"; // You'll need to create this
+      playerParalyzedImg.onerror = () =>
+        console.warn(
+          "player_fish_paralyzed.png not found - using filters instead"
+        );
+
+      const playerBorgyImg = new Image();
+      playerBorgyImg.src = "img/player_fish_borgy.png"; // You'll need to create this
+      playerBorgyImg.onerror = () =>
+        console.warn("player_fish_borgy.png not found - using filters instead");
+
       const crabImg = new Image();
       crabImg.src = "img/crab.png";
       const jellyfishImg = new Image();
@@ -1225,29 +1259,63 @@
             c.translate(-this.width / 2, -this.height / 2);
           } else c.translate(this.x, this.y);
 
-          if (this.isPlayer && playerParalyzeTime > 0) {
-            c.filter = "hue-rotate(30deg) brightness(1.4) saturate(1.8)";
-          } else if (this.isPlayer && borgyPowerUpTime > 0) {
-            c.filter = "hue-rotate(100deg) brightness(2) saturate(3)";
-          } else if (ultra) {
-            c.filter = "hue-rotate(180deg) brightness(1.5) saturate(2)";
-          } else if (this.isFast) {
-            c.filter = "hue-rotate(45deg) brightness(1.2)";
+          // NEW: Select appropriate sprite for player based on state
+          let imgToDraw = this.sprite;
+          let useFilter = true; // Whether to apply CSS filters
+
+          if (this.isPlayer) {
+            if (
+              playerParalyzedImg.complete &&
+              playerParalyzedImg.naturalWidth > 0 &&
+              playerParalyzeTime > 0
+            ) {
+              imgToDraw = playerParalyzedImg;
+              useFilter = false; // Don't apply filter since we have a custom sprite
+            } else if (
+              playerBorgyImg.complete &&
+              playerBorgyImg.naturalWidth > 0 &&
+              borgyPowerUpTime > 0
+            ) {
+              imgToDraw = playerBorgyImg;
+              useFilter = false;
+            } else if (
+              playerPoweredUpImg.complete &&
+              playerPoweredUpImg.naturalWidth > 0 &&
+              sushiPowerUpTime > 0
+            ) {
+              imgToDraw = playerPoweredUpImg;
+              useFilter = false;
+            }
           }
+
+          // Apply filters only if we're using the original sprite or for non-player entities
+          if (useFilter) {
+            if (this.isPlayer && playerParalyzeTime > 0) {
+              c.filter = "hue-rotate(30deg) brightness(1.4) saturate(1.8)";
+            } else if (this.isPlayer && borgyPowerUpTime > 0) {
+              c.filter = "hue-rotate(100deg) brightness(2) saturate(3)";
+            } else if (ultra) {
+              c.filter = "hue-rotate(180deg) brightness(1.5) saturate(2)";
+            } else if (this.isFast) {
+              c.filter = "hue-rotate(45deg) brightness(1.2)";
+            }
+          }
+
           if (flickerActive) {
             // Toggle every 100 ms → full opacity vs almost invisible
             const blinkVisible =
               (Math.floor(performance.now() / 100) & 1) === 0;
-            c.globalAlpha = blinkVisible ? 1 : 0.15; // 0.15 ≈ “off” frame
+            c.globalAlpha = blinkVisible ? 1 : 0.15; // 0.15 ≈ "off" frame
             // keep the desaturate/brightness tweak so the colour shift remains
-            c.filter =
-              (c.filter ? c.filter + " " : "") +
-              "brightness(0.7) contrast(0.9)";
+            if (useFilter) {
+              c.filter =
+                (c.filter ? c.filter + " " : "") +
+                "brightness(0.7) contrast(0.9)";
+            }
           }
 
           /* ---------- BEGIN filtered / fallback draw ---------- */
-          let imgToDraw = this.sprite;
-          if (!CAN_FILTER) {
+          if (!CAN_FILTER && useFilter) {
             // Decide which tint, mimicking the original filter stacks
             let tintParams = null; // [hueDeg, satMul, lumMul]
             if (this.isPlayer && playerParalyzeTime > 0)
@@ -2259,6 +2327,19 @@
       /*********************    PRELOAD & BOOT     **************************/
       Promise.all([
         loadImage("img/player_fish.png"),
+        // These are optional - game will fall back to filters if they don't exist
+        new Promise((resolve) => {
+          playerPoweredUpImg.onload = resolve;
+          playerPoweredUpImg.onerror = resolve;
+        }),
+        new Promise((resolve) => {
+          playerParalyzedImg.onload = resolve;
+          playerParalyzedImg.onerror = resolve;
+        }),
+        new Promise((resolve) => {
+          playerBorgyImg.onload = resolve;
+          playerBorgyImg.onerror = resolve;
+        }),
         ...fishTypes.map(
           ({ image }) =>
             new Promise((resolve) => {
