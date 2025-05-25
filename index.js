@@ -284,10 +284,10 @@ app.post(
       }
 
       // 2️⃣  Internal duration consistency
-      if (CLIENT_START_MS + GAME_DURATION_MS > CLIENT_END_MS) {
-        isFlagged = true;
-        flaggedFor.push("start + gameTime exceeds end");
-      }
+      // if (CLIENT_START_MS + GAME_DURATION_MS > CLIENT_END_MS) {
+      //   isFlagged = true;
+      //   flaggedFor.push("start + gameTime exceeds end");
+      // }
 
       // 3️⃣  Gameplay must have started no earlier than session creation
       if (CLIENT_START_MS < SESSION_START_MS - MAX_CLIENT_DELTA_MS) {

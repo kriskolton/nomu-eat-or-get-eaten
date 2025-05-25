@@ -228,8 +228,7 @@ function verifyReplay({
   if (
     typeof startTime !== "number" ||
     typeof endTime !== "number" ||
-    endTime <= startTime ||
-    startTime + gameTime > endTime
+    endTime <= startTime
   ) {
     console.error("❌ missing/invalid startTime or endTime");
     return {
