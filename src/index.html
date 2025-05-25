@@ -312,6 +312,7 @@
 
       // Spawn schedule (server-verifiable)
       const spawnSchedule = []; // { idx, spawnTime (s), spec }
+      let globalSpawnIdx = 0;
       let nextScheduleIdx = 0;
       let scheduleCursorTime = 0; // seconds
 
@@ -329,7 +330,7 @@
         const delay = getNextSpawnDelay();
         scheduleCursorTime += delay;
         spawnSchedule.push({
-          idx: spawnSchedule.length,
+          idx: globalSpawnIdx++,
           spawnTime: scheduleCursorTime,
           spec,
         });
@@ -881,8 +882,7 @@
       }
 
       function tagEntity(ent, type, manualIdx = null) {
-        ent.spawnIdx =
-          manualIdx !== null ? manualIdx : spawnSchedule.length + 1000000; // fallback
+        ent.spawnIdx = manualIdx !== null ? manualIdx : globalSpawnIdx++;
         ent.spawnType = type;
         return ent;
       }
@@ -973,7 +973,7 @@
             const size = spec.size;
             const fromLeft = spec.fromLeft;
             const x = fromLeft ? -size : WIDTH;
-            const y = getSpecRandom(0, Math.max(0, HEIGHT - size));
+            const y = getRandom(0, Math.max(0, HEIGHT - size));
             let spd = spec.baseSpeed * (0.4 + 0.6 * Math.min(score / 1000, 1));
             if (spec.ultra) spd *= 5;
             else if (spec.fast) spd *= 3;
@@ -993,7 +993,7 @@
             const size = spec.size;
             fishList.push(
               tagEntity(
-                new Crab(getSpecRandom(0, WIDTH - size), HEIGHT + size, size),
+                new Crab(getRandom(0, WIDTH - size), HEIGHT + size, size),
                 "crab",
                 idx
               )
@@ -1004,11 +1004,7 @@
             const size = spec.size;
             fishList.push(
               tagEntity(
-                new Jellyfish(
-                  getSpecRandom(0, WIDTH - size),
-                  HEIGHT + size,
-                  size
-                ),
+                new Jellyfish(getRandom(0, WIDTH - size), HEIGHT + size, size),
                 "jelly",
                 idx
               )
@@ -1020,7 +1016,7 @@
             fishList.push(
               tagEntity(
                 new ElectricJellyfish(
-                  getSpecRandom(0, WIDTH - size),
+                  getRandom(0, WIDTH - size),
                   HEIGHT + size,
                   size
                 ),
@@ -1034,7 +1030,7 @@
             const size = 30;
             const fromLeft = spec.fromLeft;
             const x = fromLeft ? -size : WIDTH;
-            const y = getSpecRandom(0, HEIGHT - size);
+            const y = getRandom(0, HEIGHT - size);
             const spd = (fromLeft ? 1 : -1) * 1.5;
             fishList.push(tagEntity(new Sushi(x, y, spd), "sushi", idx));
             break;
@@ -1043,7 +1039,7 @@
             const size = 45;
             const fromLeft = spec.fromLeft;
             const x = fromLeft ? -size : WIDTH;
-            const y = getSpecRandom(0, HEIGHT - size);
+            const y = getRandom(0, HEIGHT - size);
             const spd = (fromLeft ? 1 : -1) * 1.2;
             fishList.push(tagEntity(new Borgy(x, y, spd), "borgy", idx));
             playBorgySpawnSound();
@@ -1053,8 +1049,8 @@
             const baseSize = spec.baseSize;
             const fromLeft = spec.fromLeft;
             const x = fromLeft ? -baseSize : WIDTH;
-            const y = getSpecRandom(0, HEIGHT - baseSize);
-            const spd = getSpecRandom(0.2, 1.2) * (fromLeft ? 1 : -1);
+            const y = getRandom(0, HEIGHT - baseSize);
+            const spd = getRandom(0.2, 1.2) * (fromLeft ? 1 : -1);
             fishList.push(
               tagEntity(new Pufferfish(x, y, spd, baseSize), "puffer", idx)
             );
@@ -2181,6 +2177,8 @@
         rng = new Math.seedrandom(sessionInfo.seed);
         spawnSpecRng = new Math.seedrandom(sessionInfo.seed + ":spec");
         spawnTimingRng = new Math.seedrandom(sessionInfo.seed + ":timing");
+
+        globalSpawnIdx = 0;
 
         spawnSchedule.length = 0;
         nextScheduleIdx = 0;
