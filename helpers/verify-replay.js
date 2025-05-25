@@ -246,7 +246,9 @@ function verifyReplay({
     };
   }
 
-  const runDurationMs = endTime - startTime; // how long the round lasted
+  // const runDurationMs = endTime - startTime; // how long the round lasted
+  const runDurationMs = gameTime;
+
   const killerSpawnMs = killerEntry.spawnTimeMs;
 
   if (killerSpawnMs > runDurationMs) {
