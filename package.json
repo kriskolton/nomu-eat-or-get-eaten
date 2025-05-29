@@ -1,14 +1,42 @@
 {
-  "name": "fish-eater-surf",
-  "version": "1.0.0",
-  "description": "A fish eating game with Telegram integration",
+  "name": "nomu-eat-or-get-eaten",
+  "version": "0.4.4",
+  "description": "Nomu: Eat or Get Eaten - A competitive fish survival game built as a Telegram Mini App with anti-cheat mechanisms and social features",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "npm run prepare && nodemon index.js",
     "obfuscate": "node obfuscate-html.js",
     "minify": "node minify-html.js",
-    "prepare": "npm run obfuscate && npm run minify"
+    "prepare": "npm run obfuscate && npm run minify",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "telegram",
+    "mini-app",
+    "game",
+    "multiplayer",
+    "nodejs",
+    "express",
+    "mongodb",
+    "telegram-bot",
+    "html5-game",
+    "canvas-game",
+    "survival-game"
+  ],
+  "author": {
+    "name": "Ryan A. Moody",
+    "email": "contact@nomu.dev",
+    "url": "https://github.com/kriskolton"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kriskolton/nomu-eat-or-get-eaten.git"
+  },
+  "homepage": "https://github.com/kriskolton/nomu-eat-or-get-eaten#readme",
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
   },
   "dependencies": {
     "@telegram-apps/init-data-node": "^2.0.4",
