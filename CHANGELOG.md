@@ -43,7 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Planned
 
-- Multiplayer mode
 - Tournament system
 - Achievement system
 - Power-ups and special abilities
@@ -52,8 +51,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved anti-cheat detection
 - Performance optimizations
 - WebSocket support
-- Redis caching layer
-
----
-
-For more details on each release, see the [GitHub Releases](https://github.com/yourusername/nomu-fish-game/releases) page.

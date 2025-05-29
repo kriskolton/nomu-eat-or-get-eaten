@@ -185,13 +185,6 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// // somewhere after your body-parser setup…
-// app.post("/api/test-limit", (req, res) => {
-//   // respond with the actual byte-length of the parsed body
-//   const raw = JSON.stringify(req.body);
-//   res.json({ receivedBytes: Buffer.byteLength(raw, "utf8") });
-// });
-
 /* ───────────────────────── Start-game session ──────────────────────── */
 
 app.post(

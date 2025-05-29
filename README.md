@@ -21,8 +21,8 @@ For the fastest setup experience, use our setup script:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/nomu-fish-game.git
-cd nomu-fish-game
+git clone https://github.com/yourusername/nomu-eat-or-get-eaten.git
+cd nomu-eat-or-get-eaten
 
 # Run the setup script
 ./setup.sh
@@ -67,7 +67,6 @@ The setup script will:
 - **Express.js** - Web framework
 - **MongoDB** - Database for user scores and sessions
 - **Telegram Bot API** - Bot integration
-- **Helmet.js** - Security middleware
 
 ### Frontend
 
@@ -94,8 +93,8 @@ The setup script will:
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/yourusername/nomu-fish-game.git
-   cd nomu-fish-game
+   git clone https://github.com/yourusername/nomu-eat-or-get-eaten.git
+   cd nomu-eat-or-get-eaten
    ```
 
 2. **Install dependencies**
@@ -238,9 +237,8 @@ We welcome contributions! Please follow these steps:
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/nomu-fish-game/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/nomu-fish-game/discussions)
-- **Telegram**: [@nomu_game_support](https://t.me/nomu_game_support)
+- **Issues**: [GitHub Issues](https://github.com/kriskolton/nomu-eat-or-get-eaten/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/kriskolton/nomu-eat-or-get-eaten/discussions)
 
 ---
 
