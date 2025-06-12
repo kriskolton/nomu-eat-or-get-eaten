@@ -19,14 +19,12 @@ A competitive survival game built as a Telegram Mini App, with a public leaderbo
 
 For the fastest setup experience, use our setup script:
 
-```bash
+````bash
 # Clone the repository
 git clone https://github.com/yourusername/nomu-eat-or-get-eaten.git
 cd nomu-eat-or-get-eaten
 
-# Run the setup script
-./setup.sh
-```
+
 
 The setup script will:
 
@@ -95,7 +93,7 @@ The setup script will:
    ```bash
    git clone https://github.com/yourusername/nomu-eat-or-get-eaten.git
    cd nomu-eat-or-get-eaten
-   ```
+````
 
 2. **Install dependencies**
 
