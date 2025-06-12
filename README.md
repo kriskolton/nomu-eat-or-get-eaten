@@ -2,7 +2,7 @@
 
 A competitive survival game built as a Telegram Mini App, with a public leaderboard. Players control a fish that must eat smaller fish to grow while avoiding larger predators.
 
-![Game Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Game Version](https://img.shields.io/badge/version-4.4.2-blue.svg)
 ![Node](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen.svg)
 
 ## 🎮 Game Overview

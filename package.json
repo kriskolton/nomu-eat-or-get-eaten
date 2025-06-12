@@ -1,6 +1,6 @@
 {
   "name": "nomu-eat-or-get-eaten",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "Nomu: Eat or Get Eaten - A competitive fish survival game built as a Telegram Mini App with anti-cheat mechanisms and social features",
   "main": "index.js",
   "scripts": {

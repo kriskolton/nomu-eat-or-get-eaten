@@ -379,7 +379,7 @@ function setupBotCommands() {
     }
   }
 
-  bot.onText(/\/start/, async (msg) => {
+  bot.onText(/\/play/, async (msg) => {
     const chatId = msg.chat.id;
     const messageThreadId = msg.message_thread_id; // if forum
     const username = msg.from.username || msg.from.first_name;
@@ -402,23 +402,23 @@ function setupBotCommands() {
     );
   });
 
-  bot.onText(/\/play/, async (msg) => {
-    const chatId = msg.chat.id;
-    const messageThreadId = msg.message_thread_id;
+  // bot.onText(/\/play/, async (msg) => {
+  //   const chatId = msg.chat.id;
+  //   const messageThreadId = msg.message_thread_id;
 
-    await sendMessageWithErrorHandling(
-      chatId,
-      "Ready to play Eat or Get Eaten? 🐟\n\nClick the button below to start!",
-      messageThreadId,
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "🎮 Play Now", url: process.env.GAME_URL }],
-          ],
-        },
-      }
-    );
-  });
+  //   await sendMessageWithErrorHandling(
+  //     chatId,
+  //     "Ready to play Eat or Get Eaten? 🐟\n\nClick the button below to start!",
+  //     messageThreadId,
+  //     {
+  //       reply_markup: {
+  //         inline_keyboard: [
+  //           [{ text: "🎮 Play Now", url: process.env.GAME_URL }],
+  //         ],
+  //       },
+  //     }
+  //   );
+  // });
 
   bot.on("callback_query", async (cbq) => {
     const chatId = cbq.message.chat.id;
