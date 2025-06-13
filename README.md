@@ -15,24 +15,6 @@ A competitive survival game built as a Telegram Mini App, with a public leaderbo
 - **Anti-cheat mechanisms** to ensure fair play
 - **Telegram integration** for seamless social gaming
 
-## 🚀 Quick Start
-
-For the fastest setup experience, use our setup script:
-
-````bash
-# Clone the repository
-git clone https://github.com/yourusername/nomu-eat-or-get-eaten.git
-cd nomu-eat-or-get-eaten
-
-
-
-The setup script will:
-
-- Check for Node.js and npm
-- Install all dependencies
-- Create a `.env` file from the example
-- Prepare the frontend assets
-
 ## 🚀 Features
 
 ### Core Gameplay
@@ -91,8 +73,10 @@ The setup script will:
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/yourusername/nomu-eat-or-get-eaten.git
+   git clone https://github.com/kriskolton/nomu-eat-or-get-eaten.git
    cd nomu-eat-or-get-eaten
+   ```
+
 ````
 
 2. **Install dependencies**
@@ -240,4 +224,4 @@ We welcome contributions! Please follow these steps:
 
 ---
 
-Made with ❤️ for the Telegram gaming community
+````
