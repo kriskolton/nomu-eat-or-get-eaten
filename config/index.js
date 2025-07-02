@@ -1,5 +1,5 @@
 const config = {
-  activeEvent: "Season 4",
+  activeEvent: "Nomu vs XBorg",
 };
 
 module.exports = config;
