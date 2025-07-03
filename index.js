@@ -102,6 +102,27 @@ app.use(
 let bot = null;
 let botInitialized = false;
 
+// Helper function to decode HTML entities
+function decodeHtmlEntities(text) {
+  if (!text) return text;
+
+  const entities = {
+    "&amp;": "&",
+    "&lt;": "<",
+    "&gt;": ">",
+    "&quot;": '"',
+    "&#39;": "'",
+    "&#x27;": "'",
+    "&#x2F;": "/",
+    "&#x60;": "`",
+    "&#x3D;": "=",
+  };
+
+  return text.replace(/&[#\w]+;/g, (entity) => {
+    return entities[entity] || entity;
+  });
+}
+
 function initializeBot() {
   if (
     !process.env.TELEGRAM_BOT_TOKEN ||
@@ -326,7 +347,7 @@ app.post(
         flaggedFor.push("Game ends in the future");
       }
 
-      // 5️⃣  Session start + duration cannot exceed ‘now’
+      // 5️⃣  Session start + duration cannot exceed 'now'
       if (SESSION_START_MS + GAME_DURATION_MS > currentTime) {
         isFlagged = true;
         flaggedFor.push("Session start + gameTime exceeds now");
@@ -458,7 +479,7 @@ function setupBotCommands() {
 
     try {
       if (cbq.data === "highscores") {
-        /* 1️⃣  Pull the current event’s top scores */
+        /* 1️⃣  Pull the current event's top scores */
         const highScores = await getActiveEventHighScores(10);
 
         /* 2️⃣  Collect userIds missing a firstName */
@@ -468,7 +489,7 @@ function setupBotCommands() {
 
         if (missingIds.length) {
           try {
-            /* 3️⃣  Single bulk lookup in referral-bot.users */
+            /* 3️⃣  Bulk-fetch first names from referral-bot.users */
             const referralColl = await getReferralUsersColl();
             const refs = await referralColl
               .find(
@@ -481,29 +502,12 @@ function setupBotCommands() {
               refs.map((u) => [u._id, u.first_name])
             );
 
-            /* 4️⃣  Enrich in-memory list and write back to scores */
-            const scoresCollection = await getScoresColl();
-
-            await Promise.all(
-              highScores.map(async (s) => {
-                if (!s.firstName && nameMap[s.userId]) {
-                  s.firstName = nameMap[s.userId];
-
-                  // One score per user+event → updateOne is sufficient
-                  const result = await scoresCollection.updateOne(
-                    { userId: s.userId, event: activeEvent },
-                    { $set: { firstName: s.firstName } }
-                  );
-
-                  if (!result.matchedCount) {
-                    console.warn(
-                      "No score doc matched while persisting firstName",
-                      { userId: s.userId, event: activeEvent }
-                    );
-                  }
-                }
-              })
-            );
+            /* 4️⃣  Enrich the in-memory list (no DB write-back) */
+            highScores.forEach((s) => {
+              if (!s.firstName && nameMap[s.userId]) {
+                s.firstName = nameMap[s.userId];
+              }
+            });
           } catch (e) {
             console.warn("first-name lookup failed:", e);
           }
@@ -512,17 +516,42 @@ function setupBotCommands() {
         /* 5️⃣  Craft and send the leaderboard message */
         let message = `🏆 Top 10 High Scores for ${activeEvent} 🏆\n\n`;
         highScores.forEach((s, i) => {
-          const displayName = s.firstName || s.username || String(s.userId);
+          const rawDisplayName = s.firstName || s.username || String(s.userId);
+          const displayName = decodeHtmlEntities(rawDisplayName);
+
           message += `${i + 1}. ${displayName}: ${s.highScore}\n`;
         });
 
         await sendMessageWithErrorHandling(chatId, message, messageThreadId);
       } else if (cbq.data === "mystats") {
         const userScore = await getUserScore(cbq.from.id, activeEvent);
+
         if (userScore) {
+          /* 🔍  Try to obtain firstName (don’t persist) */
+          let firstName = userScore.firstName; // if it’s already in the doc
+          if (!firstName) {
+            try {
+              const referralColl = await getReferralUsersColl();
+              const ref = await referralColl.findOne(
+                { _id: userScore.userId ?? cbq.from.id },
+                { projection: { first_name: 1 } }
+              );
+              if (ref?.first_name) firstName = ref.first_name;
+            } catch (e) {
+              console.warn("first-name lookup for mystats failed:", e);
+            }
+          }
+
+          /* 📝  Build and send the stats message */
+          const userLabelRaw = firstName
+            ? `${userScore.username} (${firstName})`
+            : userScore.username;
+
+          const userLabel = decodeHtmlEntities(userLabelRaw);
+
           await sendMessageWithErrorHandling(
             chatId,
-            `${activeEvent} Stats for ${userScore.username}:\n\n` +
+            `${activeEvent} Stats for ${userLabel}:\n\n` +
               `High Score: ${userScore.highScore}\n` +
               `Last Score: ${userScore.lastScore}\n` +
               `Last Played: ${new Date(
