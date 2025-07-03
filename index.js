@@ -458,17 +458,17 @@ function setupBotCommands() {
 
     try {
       if (cbq.data === "highscores") {
-        /* 1️⃣  pull the scores as today */
+        /* 1️⃣  Pull the current event’s top scores */
         const highScores = await getActiveEventHighScores(10);
 
-        /* 2️⃣  gather the userIds that still need a name */
+        /* 2️⃣  Collect userIds missing a firstName */
         const missingIds = highScores
           .filter((s) => !s.firstName)
           .map((s) => s.userId);
 
         if (missingIds.length) {
           try {
-            /* 3️⃣  single bulk query to referral-bot.users */
+            /* 3️⃣  Single bulk lookup in referral-bot.users */
             const referralColl = await getReferralUsersColl();
             const refs = await referralColl
               .find(
@@ -481,7 +481,7 @@ function setupBotCommands() {
               refs.map((u) => [u._id, u.first_name])
             );
 
-            /* 4️⃣  enrich & persist */
+            /* 4️⃣  Enrich in-memory list and write back to scores */
             const scoresCollection = await getScoresColl();
 
             await Promise.all(
@@ -489,14 +489,17 @@ function setupBotCommands() {
                 if (!s.firstName && nameMap[s.userId]) {
                   s.firstName = nameMap[s.userId];
 
-                  // write-back so we never look it up again
-                  try {
-                    await scoresCollection.updateOne(
-                      { _id: s._id },
-                      { $set: { firstName: s.firstName } }
+                  // One score per user+event → updateOne is sufficient
+                  const result = await scoresCollection.updateOne(
+                    { userId: s.userId, event: activeEvent },
+                    { $set: { firstName: s.firstName } }
+                  );
+
+                  if (!result.matchedCount) {
+                    console.warn(
+                      "No score doc matched while persisting firstName",
+                      { userId: s.userId, event: activeEvent }
                     );
-                  } catch (e) {
-                    console.warn("Could not upsert firstName to scores:", e);
                   }
                 }
               })
@@ -506,11 +509,11 @@ function setupBotCommands() {
           }
         }
 
-        /* 5️⃣  craft the message */
+        /* 5️⃣  Craft and send the leaderboard message */
         let message = `🏆 Top 10 High Scores for ${activeEvent} 🏆\n\n`;
         highScores.forEach((s, i) => {
-          const name = s.firstName || s.username || String(s.userId);
-          message += `${i + 1}. ${name}: ${s.highScore}\n`;
+          const displayName = s.firstName || s.username || String(s.userId);
+          message += `${i + 1}. ${displayName}: ${s.highScore}\n`;
         });
 
         await sendMessageWithErrorHandling(chatId, message, messageThreadId);
