@@ -27,6 +27,38 @@ const {
 } = require("./repositories/sessionRepository");
 const verifyReplay = require("./helpers/verify-replay");
 
+/* ────────── Cross-DB helpers (lazy singletons) ────────── */
+const { MongoClient } = require("mongodb");
+
+/* referral-bot.users */
+let referralUsersColl;
+async function getReferralUsersColl() {
+  if (referralUsersColl) return referralUsersColl;
+
+  const uri = process.env.REFERRAL_BOT_MONGODB_URI;
+  if (!uri) throw new Error("REFERRAL_BOT_MONGODB_URI is not set");
+
+  const client = new MongoClient(uri, { retryWrites: true });
+  await client.connect();
+  referralUsersColl = client
+    .db(process.env.REFERRALS_DATABASE_NAME)
+    .collection("users");
+  return referralUsersColl;
+}
+
+/* main scores collection – for the upsert */
+let scoresColl;
+async function getScoresColl() {
+  if (scoresColl) return scoresColl;
+
+  const uri = process.env.MONGODB_URI; // already in prod
+  const client = new MongoClient(uri, { retryWrites: true });
+  await client.connect();
+  // default DB is whatever you use in MONGODB_URI
+  scoresColl = client.db(process.env.DATABASE_NAME).collection("scores");
+  return scoresColl;
+}
+
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -426,11 +458,61 @@ function setupBotCommands() {
 
     try {
       if (cbq.data === "highscores") {
+        /* 1️⃣  pull the scores as today */
         const highScores = await getActiveEventHighScores(10);
+
+        /* 2️⃣  gather the userIds that still need a name */
+        const missingIds = highScores
+          .filter((s) => !s.firstName)
+          .map((s) => s.userId);
+
+        if (missingIds.length) {
+          try {
+            /* 3️⃣  single bulk query to referral-bot.users */
+            const referralColl = await getReferralUsersColl();
+            const refs = await referralColl
+              .find(
+                { _id: { $in: missingIds } },
+                { projection: { first_name: 1 } }
+              )
+              .toArray();
+
+            const nameMap = Object.fromEntries(
+              refs.map((u) => [u._id, u.first_name])
+            );
+
+            /* 4️⃣  enrich & persist */
+            const scoresCollection = await getScoresColl();
+
+            await Promise.all(
+              highScores.map(async (s) => {
+                if (!s.firstName && nameMap[s.userId]) {
+                  s.firstName = nameMap[s.userId];
+
+                  // write-back so we never look it up again
+                  try {
+                    await scoresCollection.updateOne(
+                      { _id: s._id },
+                      { $set: { firstName: s.firstName } }
+                    );
+                  } catch (e) {
+                    console.warn("Could not upsert firstName to scores:", e);
+                  }
+                }
+              })
+            );
+          } catch (e) {
+            console.warn("first-name lookup failed:", e);
+          }
+        }
+
+        /* 5️⃣  craft the message */
         let message = `🏆 Top 10 High Scores for ${activeEvent} 🏆\n\n`;
         highScores.forEach((s, i) => {
-          message += `${i + 1}. ${s.username || "Anonymous"}: ${s.highScore}\n`;
+          const name = s.firstName || s.username || String(s.userId);
+          message += `${i + 1}. ${name}: ${s.highScore}\n`;
         });
+
         await sendMessageWithErrorHandling(chatId, message, messageThreadId);
       } else if (cbq.data === "mystats") {
         const userScore = await getUserScore(cbq.from.id, activeEvent);
