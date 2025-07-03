@@ -162,9 +162,9 @@
               letter-spacing: 2px;
             "
           >
-            SEASON 4 🇨🇭
+            SEASON 4: NOMU VS XBORG 🔥
           </p>
-          <p style="font-size: 12px; color: #fff; opacity: 0.5">v4.6</p>
+          <p style="font-size: 12px; color: #fff; opacity: 0.5">v4.8</p>
 
           <div
             id="telegramStatus"
@@ -192,9 +192,22 @@
               justify-content: center;
             "
           >
-            <button id="musicBtn">🎵 Music On</button>
-            <button id="sfxBtn">🔊 SFX On</button>
-            <button id="arrowKeysBtn">🎮 Arrow Keys Off</button>
+            <button id="musicBtn" style="width: 35%">🎵 Music On</button>
+            <button id="sfxBtn" style="width: 35%">🔊 SFX On</button>
+          </div>
+
+          <div
+            style="
+              display: flex;
+              gap: 0px;
+              margin-bottom: 0px;
+              justify-content: center;
+            "
+          >
+            <button id="arrowKeysBtn" style="width: 35%">
+              🎮 Arrow Keys Off
+            </button>
+            <button id="joystickBtn" style="width: 35%">🕹️ Joystick On</button>
           </div>
 
           <button id="startBtn" style="font-size: 24px; padding: 12px 24px">
@@ -204,18 +217,50 @@
       </div>
 
       <!-- ---------- Game-over overlay ---------- -->
-      <div id="gameOverScreen" class="overlay hidden">
-        <div style="max-width: 90%; margin: 0 auto; text-align: center">
+      <div id="gameOverScreen" class="overlay hidden" style="width: 100%">
+        <div
+          style="
+            max-width: 90%;
+            margin: 0 auto;
+            text-align: center;
+            width: 100%;
+          "
+        >
           <h1
             style="font-family: 'Londrina Solid', sans-serif; font-size: 44px"
           >
             GAME OVER!
           </h1>
           <p id="finalScore"></p>
-          <div style="display: flex; gap: 0; justify-content: center">
-            <button id="musicBtnGameOver">🎵 Music On</button>
-            <button id="sfxBtnGameOver">🔊 SFX On</button>
-            <button id="arrowKeysBtnGameOver">🎮 Arrow Keys Off</button>
+          <div
+            style="
+              display: flex;
+              gap: 0px;
+              margin-bottom: 0px;
+              justify-content: center;
+              width: 100%;
+            "
+          >
+            <button id="musicBtnGameOver" style="width: 35%">
+              🎵 Music On
+            </button>
+            <button id="sfxBtnGameOver" style="width: 35%">🔊 SFX On</button>
+          </div>
+          <div
+            style="
+              display: flex;
+              gap: 0px;
+              margin-bottom: 0px;
+              justify-content: center;
+              width: 100%;
+            "
+          >
+            <button id="arrowKeysBtnGameOver" style="width: 35%">
+              🎮 Arrow Keys On
+            </button>
+            <button id="joystickBtnGameOver" style="width: 35%">
+              🕹️ Joystick On
+            </button>
           </div>
           <button
             id="playAgainBtn"
@@ -520,10 +565,14 @@
       const musicBtn = document.getElementById("musicBtn");
       const sfxBtn = document.getElementById("sfxBtn");
       const arrowKeysBtn = document.getElementById("arrowKeysBtn");
+      const joystickBtn = document.getElementById("joystickBtn");
       const musicBtnGameOver = document.getElementById("musicBtnGameOver");
       const sfxBtnGameOver = document.getElementById("sfxBtnGameOver");
       const arrowKeysBtnGameOver = document.getElementById(
         "arrowKeysBtnGameOver"
+      );
+      const joystickBtnGameOver = document.getElementById(
+        "joystickBtnGameOver"
       );
       const controlsContainer = document.getElementById("controlsContainer");
       const arrowUp = document.getElementById("arrowUp");
@@ -539,6 +588,7 @@
         showOrHideArrowKeys(false);
         updateMusicButtons();
         updateSfxButtons();
+        updateJoystickButtons();
       };
       const hideStartScreen = () => startScreen.classList.add("hidden");
       const showGameOverScreen = (scoreVal) => {
@@ -626,18 +676,6 @@
         touchTarget = null;
       let bubbles = [],
         waterTrails = [],
-        // backgroundMusic,
-        // eatSound,
-        // gameOverSound,
-        // powerUpSound,
-        // borgyPowerUpSound,
-        // borgySpawnSound,
-        // achievementSound,
-        // shrinkSound,
-        // electricSound,
-        // shockSound,
-        // isSfxEnabled = true,
-        // isMusicEnabled = true,
         explosions = [];
       let gameTime = 0, // seconds
         gameTimeMs = 0; // milliseconds
@@ -686,6 +724,17 @@
 
       let isSfxEnabled = true;
       let isMusicEnabled = true;
+      let isJoystickEnabled = true; // DEFAULT: on → joystick mode
+
+      const joystick = {
+        active: false,
+        baseX: 0,
+        baseY: 0,
+        stickX: 0,
+        stickY: 0,
+        radius: 60,
+        innerRadius: 24,
+      };
 
       const startAudio = () => {
         if (isMusicEnabled && !sounds.backgroundMusic.playing()) {
@@ -725,6 +774,12 @@
         sfxBtnGameOver.textContent = txt;
       };
 
+      const updateJoystickButtons = () => {
+        const txt = isJoystickEnabled ? "🕹️ Joystick On" : "🕹️ Joystick Off";
+        joystickBtn.textContent = txt;
+        joystickBtnGameOver.textContent = txt;
+      };
+
       const toggleMusic = () => {
         isMusicEnabled = !isMusicEnabled;
         if (isMusicEnabled) {
@@ -753,6 +808,13 @@
         sounds.electric.volume(isSfxEnabled ? 0.3 : 0);
         sounds.shock.volume(isSfxEnabled ? 0.5 : 0);
         updateSfxButtons();
+      };
+
+      const toggleJoystick = () => {
+        isJoystickEnabled = !isJoystickEnabled;
+        updateJoystickButtons();
+        joystick.active = false;
+        touchTarget = null;
       };
 
       /*********************   HELPERS   *****************************/
@@ -1779,6 +1841,7 @@
         borgyPowerUpTime = 0;
         playerIsPoweredUp = false;
         playerParalyzeTime = 0;
+        joystick.active = false;
         spawnBubbleGroup();
         bubbleTimer = 0;
       }
@@ -1864,23 +1927,37 @@
         const canMove = playerParalyzeTime <= 0;
         const accelMult = borgyPowerUpTime > 0 ? BORGY_SPEED_MULT : 1;
         const a = player.accel * accelMult * dt * 60;
+
         if (canMove) {
-          if (keys.left) player.vx -= a;
-          if (keys.right) player.vx += a;
-          if (keys.up) player.vy -= a;
-          if (keys.down) player.vy += a;
-          if (touchTarget && player.width && player.height) {
-            const px = player.x + player.width / 2;
-            const py = player.y + player.height / 2;
-            const dx = touchTarget.x - px;
-            const dy = touchTarget.y - py;
+          if (isJoystickEnabled && joystick.active) {
+            const dx = joystick.stickX - joystick.baseX;
+            const dy = joystick.stickY - joystick.baseY;
             const dist = Math.hypot(dx, dy);
-            if (dist > 1) {
-              player.vx += (dx / dist) * a;
-              player.vy += (dy / dist) * a;
+            if (dist > 5) {
+              const nx = dx / dist;
+              const ny = dy / dist;
+              player.vx += nx * a;
+              player.vy += ny * a;
+            }
+          } else {
+            if (keys.left) player.vx -= a;
+            if (keys.right) player.vx += a;
+            if (keys.up) player.vy -= a;
+            if (keys.down) player.vy += a;
+            if (touchTarget && player.width && player.height) {
+              const px = player.x + player.width / 2;
+              const py = player.y + player.height / 2;
+              const dx = touchTarget.x - px;
+              const dy = touchTarget.y - py;
+              const dist = Math.hypot(dx, dy);
+              if (dist > 1) {
+                player.vx += (dx / dist) * a;
+                player.vy += (dy / dist) * a;
+              }
             }
           }
         }
+
         const spd = Math.hypot(player.vx, player.vy);
         if (spd > player.maxSpd) {
           const r = player.maxSpd / spd;
@@ -2032,6 +2109,7 @@
               /* player is eaten */
               isGameOver = true;
               touchTarget = null;
+              joystick.active = false;
               gameState = "over";
 
               const eatenBy = e.spawnIdx ?? null;
@@ -2126,7 +2204,33 @@
             ) + 4;
         }
 
-        if (touchTarget) {
+        if (isJoystickEnabled && joystick.active) {
+          ctx.save();
+          ctx.globalAlpha = 0.4;
+          ctx.fillStyle = "#ffffff22";
+          ctx.beginPath();
+          ctx.arc(
+            joystick.baseX,
+            joystick.baseY,
+            joystick.radius,
+            0,
+            Math.PI * 2
+          );
+          ctx.fill();
+          ctx.fillStyle = "#ffffff88";
+          ctx.beginPath();
+          ctx.arc(
+            joystick.stickX,
+            joystick.stickY,
+            joystick.innerRadius,
+            0,
+            Math.PI * 2
+          );
+          ctx.fill();
+          ctx.restore();
+        }
+
+        if (touchTarget && !isJoystickEnabled) {
           ctx.beginPath();
           ctx.arc(touchTarget.x, touchTarget.y, 15, 0, Math.PI * 2);
           ctx.strokeStyle = "#ffffff88";
@@ -2176,10 +2280,12 @@
         playerIsPoweredUp = false;
         playerParalyzeTime = 0;
         clearKeys();
+        joystick.active = false;
         spawnBubbleGroup();
         bubbleTimer = 0;
         updateMusicButtons();
         updateSfxButtons();
+        updateJoystickButtons();
       }
 
       /*********************      UI EVENTS       *************************/
@@ -2194,6 +2300,7 @@
         showOrHideArrowKeys(controlsContainer.style.display !== "none");
         updateMusicButtons();
         updateSfxButtons();
+        updateJoystickButtons();
       };
 
       /* ---- Start Game ---- */
@@ -2262,6 +2369,8 @@
         showOrHideArrowKeys(controlsContainer.style.display === "none");
       arrowKeysBtnGameOver.onclick = () =>
         showOrHideArrowKeys(controlsContainer.style.display === "none");
+      joystickBtn.onclick = toggleJoystick;
+      joystickBtnGameOver.onclick = toggleJoystick;
 
       /* hardware keyboard */
       window.addEventListener("keydown", (e) => {
@@ -2277,38 +2386,104 @@
         if (e.key === "ArrowDown" || e.key === "s") keys.down = false;
       });
 
-      /* touch / mouse aiming */
+      /* touch / mouse aiming & joystick */
       canvas.addEventListener("touchstart", (e) => {
         const t = e.touches[0];
-        if (t) {
-          const r = canvas.getBoundingClientRect();
+        if (!t) return;
+        const r = canvas.getBoundingClientRect();
+        if (isJoystickEnabled) {
+          joystick.baseX = joystick.stickX = t.clientX - r.left;
+          joystick.baseY = joystick.stickY = t.clientY - r.top;
+          joystick.active = true;
+          e.preventDefault();
+        } else {
           touchTarget = { x: t.clientX - r.left, y: t.clientY - r.top };
         }
       });
       canvas.addEventListener("touchmove", (e) => {
         const t = e.touches[0];
-        if (t) {
-          const r = canvas.getBoundingClientRect();
+        if (!t) return;
+        const r = canvas.getBoundingClientRect();
+        if (isJoystickEnabled && joystick.active) {
+          const rawX = t.clientX - r.left;
+          const rawY = t.clientY - r.top;
+          const dx = rawX - joystick.baseX;
+          const dy = rawY - joystick.baseY;
+          const dist = Math.hypot(dx, dy);
+          if (dist > joystick.radius) {
+            const ratio = joystick.radius / dist;
+            joystick.stickX = joystick.baseX + dx * ratio;
+            joystick.stickY = joystick.baseY + dy * ratio;
+          } else {
+            joystick.stickX = rawX;
+            joystick.stickY = rawY;
+          }
+          e.preventDefault();
+        } else if (!isJoystickEnabled) {
           touchTarget = { x: t.clientX - r.left, y: t.clientY - r.top };
         }
       });
-      canvas.addEventListener("touchend", () => (touchTarget = null));
+      canvas.addEventListener("touchend", () => {
+        if (isJoystickEnabled) {
+          joystick.active = false;
+        } else {
+          touchTarget = null;
+        }
+      });
+
+      /* Mouse (desktop dev) */
       canvas.addEventListener("mousedown", (e) => {
         const r = canvas.getBoundingClientRect();
-        touchTarget = { x: e.clientX - r.left, y: e.clientY - r.top };
-      });
-      canvas.addEventListener("mousemove", (e) => {
-        if (e.buttons > 0) {
-          const r = canvas.getBoundingClientRect();
+        if (isJoystickEnabled) {
+          joystick.baseX = joystick.stickX = e.clientX - r.left;
+          joystick.baseY = joystick.stickY = e.clientY - r.top;
+          joystick.active = true;
+        } else {
           touchTarget = { x: e.clientX - r.left, y: e.clientY - r.top };
         }
       });
-      canvas.addEventListener("mouseup", () => (touchTarget = null));
+      canvas.addEventListener("mousemove", (e) => {
+        const r = canvas.getBoundingClientRect();
+        if (e.buttons > 0) {
+          if (isJoystickEnabled && joystick.active) {
+            const rawX = e.clientX - r.left;
+            const rawY = e.clientY - r.top;
+            const dx = rawX - joystick.baseX;
+            const dy = rawY - joystick.baseY;
+            const dist = Math.hypot(dx, dy);
+            if (dist > joystick.radius) {
+              const ratio = joystick.radius / dist;
+              joystick.stickX = joystick.baseX + dx * ratio;
+              joystick.stickY = joystick.baseY + dy * ratio;
+            } else {
+              joystick.stickX = rawX;
+              joystick.stickY = rawY;
+            }
+          } else if (!isJoystickEnabled) {
+            touchTarget = { x: e.clientX - r.left, y: e.clientY - r.top };
+          }
+        }
+      });
+      canvas.addEventListener("mouseup", () => {
+        if (isJoystickEnabled) {
+          joystick.active = false;
+        } else {
+          touchTarget = null;
+        }
+      });
 
       /* safety: clear keys on blur */
-      window.addEventListener("blur", clearKeys);
+      window.addEventListener("blur", () => {
+        clearKeys();
+        joystick.active = false;
+        touchTarget = null;
+      });
       document.addEventListener("visibilitychange", () => {
-        if (document.hidden) clearKeys();
+        if (document.hidden) {
+          clearKeys();
+          joystick.active = false;
+          touchTarget = null;
+        }
       });
 
       /*********************    PRELOAD & BOOT     **************************/
