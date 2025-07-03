@@ -41,7 +41,7 @@ async function getReferralUsersColl() {
   const client = new MongoClient(uri, { retryWrites: true });
   await client.connect();
   referralUsersColl = client
-    .db(process.env.REFERRALS_DATABASE_NAME)
+    .db(process.env.REFERRAL_BOT_DATABASE_NAME)
     .collection("users");
   return referralUsersColl;
 }
