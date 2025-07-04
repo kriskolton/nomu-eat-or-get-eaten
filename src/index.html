@@ -1936,8 +1936,9 @@
             if (dist > 5) {
               const nx = dx / dist;
               const ny = dy / dist;
-              player.vx += nx * a;
-              player.vy += ny * a;
+              const force = dist / joystick.radius;
+              player.vx += nx * a * force;
+              player.vy += ny * a * force;
             }
           } else {
             if (keys.left) player.vx -= a;
