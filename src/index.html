@@ -244,6 +244,17 @@
             GAME OVER!
           </h1>
           <p id="finalScore"></p>
+          <button
+            id="shareBtn"
+            style="
+              font-size: 24px;
+              padding: 12px 24px;
+              margin-top: 12px;
+              background-color: #222;
+            "
+          >
+            𝕏 &nbsp;Share on X
+          </button>
           <div
             style="
               display: flex;
@@ -580,6 +591,7 @@
       const joystickBtn = document.getElementById("joystickBtn");
       const musicBtnGameOver = document.getElementById("musicBtnGameOver");
       const sfxBtnGameOver = document.getElementById("sfxBtnGameOver");
+      const shareBtn = document.getElementById("shareBtn");
       const arrowKeysBtnGameOver = document.getElementById(
         "arrowKeysBtnGameOver"
       );
@@ -612,6 +624,13 @@
         startInProgress = false;
         startBtn.disabled = false;
         playAgainBtn.disabled = false;
+        shareBtn.disabled = false;
+        shareBtn.addEventListener("click", () => {
+          const text = `I just scored ${scoreVal} points in @EatwithNomu Eat or Get Eaten! 🔥\n\n Can you beat my score? Play now on Telegram: https://t.me/NomuTheFish`;
+          const url =
+            "https://x.com/intent/tweet?text=" + encodeURIComponent(text);
+          Telegram.WebApp.openLink(url, { tryBrowser: "external" });
+        });
       };
       const hideGameOverScreen = () => gameOverScreen.classList.add("hidden");
 
@@ -2196,8 +2215,8 @@
               20,
               y,
               {
-                bgColor: "rgba(0, 40, 24, 0.72)", // dark green
-                textColor: "#00ff66",
+                bgColor: "rgba(40, 6, 8, 0.72)", // dark red
+                textColor: "#eb3a4a",
                 font: ctx.font,
               }
             ) + 4;
@@ -2322,6 +2341,7 @@
         startInProgress = true;
         startBtn.disabled = true;
         playAgainBtn.disabled = true;
+        shareBtn.disabled = true;
 
         hideStartScreen();
         hideGameOverScreen();
