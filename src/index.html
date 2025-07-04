@@ -663,9 +663,9 @@
         );
 
       const playerBorgyImg = new Image();
-      playerBorgyImg.src = "img/player_fish_borgy.png"; // You'll need to create this
+      playerBorgyImg.src = "img/player_fish_chomp.png"; // You'll need to create this
       playerBorgyImg.onerror = () =>
-        console.warn("player_fish_borgy.png not found - using filters instead");
+        console.warn("player_fish_chomp.png not found - using filters instead");
 
       const crabImg = new Image();
       crabImg.src = "img/crab.png";
@@ -2192,7 +2192,7 @@
           y +=
             drawTextWithBg(
               ctx,
-              `Borgy Potion: ${borgyPowerUpTime.toFixed(1)}s`,
+              `Chomp Potion: ${borgyPowerUpTime.toFixed(1)}s`,
               20,
               y,
               {
