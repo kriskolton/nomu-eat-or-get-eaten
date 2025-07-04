@@ -626,7 +626,7 @@
         playAgainBtn.disabled = false;
         shareBtn.disabled = false;
         shareBtn.addEventListener("click", () => {
-          const text = `I just scored ${scoreVal} points in @EatwithNomu Eat or Get Eaten! 🔥\n\n Can you beat my score? Play now on Telegram: https://t.me/NomuTheFish`;
+          const text = `I just scored ${scoreVal} points in @EatwithNomu Eat or Get Eaten! 🔥\n\nCan you beat my score? Play now on Telegram: https://t.me/NomuTheFish`;
           const url =
             "https://x.com/intent/tweet?text=" + encodeURIComponent(text);
           Telegram.WebApp.openLink(url, { tryBrowser: "external" });
