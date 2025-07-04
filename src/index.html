@@ -154,7 +154,7 @@
           />
           <p
             style="
-              font-size: 28px;
+              font-size: 24px;
               -webkit-background-clip: text;
               background-clip: text;
               color: #fff;
@@ -164,14 +164,26 @@
           >
             SEASON 4: NOMU VS XBORG 🔥
           </p>
-          <p style="font-size: 12px; color: #fff; opacity: 0.5">v4.8</p>
+          <p
+            style="
+              font-size: 12px;
+              color: #fff;
+              opacity: 0.5;
+              position: absolute;
+              bottom: 6px;
+              right: 6px;
+            "
+          >
+            v4.8
+          </p>
 
           <div
             id="telegramStatus"
             style="
               color: white;
               font-family: 'Poppins', sans-serif;
-              margin-bottom: 24px;
+              font-size: 12px;
+              margin-bottom: 12px;
             "
           ></div>
 
@@ -192,8 +204,8 @@
               justify-content: center;
             "
           >
-            <button id="musicBtn" style="width: 35%">🎵 Music On</button>
-            <button id="sfxBtn" style="width: 35%">🔊 SFX On</button>
+            <button id="musicBtn" style="width: 40%">🎵 Music On</button>
+            <button id="sfxBtn" style="width: 40%">🔊 SFX On</button>
           </div>
 
           <div
@@ -204,10 +216,10 @@
               justify-content: center;
             "
           >
-            <button id="arrowKeysBtn" style="width: 35%">
+            <button id="arrowKeysBtn" style="width: 40%">
               🎮 Arrow Keys Off
             </button>
-            <button id="joystickBtn" style="width: 35%">🕹️ Joystick On</button>
+            <button id="joystickBtn" style="width: 40%">🕹️ Joystick On</button>
           </div>
 
           <button id="startBtn" style="font-size: 24px; padding: 12px 24px">
@@ -241,10 +253,10 @@
               width: 100%;
             "
           >
-            <button id="musicBtnGameOver" style="width: 35%">
+            <button id="musicBtnGameOver" style="width: 40%">
               🎵 Music On
             </button>
-            <button id="sfxBtnGameOver" style="width: 35%">🔊 SFX On</button>
+            <button id="sfxBtnGameOver" style="width: 40%">🔊 SFX On</button>
           </div>
           <div
             style="
@@ -255,10 +267,10 @@
               width: 100%;
             "
           >
-            <button id="arrowKeysBtnGameOver" style="width: 35%">
+            <button id="arrowKeysBtnGameOver" style="width: 40%">
               🎮 Arrow Keys On
             </button>
-            <button id="joystickBtnGameOver" style="width: 35%">
+            <button id="joystickBtnGameOver" style="width: 40%">
               🕹️ Joystick On
             </button>
           </div>
@@ -318,8 +330,8 @@
       /* Status banner */
       const statusDiv = document.getElementById("telegramStatus");
       if (userId) {
-        statusDiv.textContent = `Telegram connected ✓ (User: ${
-          userData?.username || userData?.first_name || "Anonymous"
+        statusDiv.textContent = `Telegram connected ✓ (${
+          userData?.username || userData?.first_name || userId
         })`;
         statusDiv.style.color = "lightgreen";
       } else {
@@ -666,7 +678,7 @@
       const pufferImg = new Image();
       pufferImg.src = "img/pufferfish-4.png";
       const borgyImg = new Image();
-      borgyImg.src = "img/borgy.png";
+      borgyImg.src = "img/chomp.png";
 
       /*********************   GAME VARIABLES   ****************************/
       let fishList = [],
