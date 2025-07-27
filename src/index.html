@@ -698,6 +698,12 @@
       pufferImg.src = "img/pufferfish-4.png";
       const borgyImg = new Image();
       borgyImg.src = "img/chomp.png";
+      const chipImg = new Image();
+      chipImg.src = "img/chip.png";
+      chipImg.onerror = () =>
+        console.warn(
+          "chip.png not found – enemies will keep their normal sprite"
+        );
 
       /*********************   GAME VARIABLES   ****************************/
       let fishList = [],
@@ -1342,6 +1348,17 @@
           // NEW: Select appropriate sprite for player based on state
           let imgToDraw = this.sprite;
           let useFilter = true; // Whether to apply CSS filters
+
+          /* Enemy re‑skin while Borgy power‑up is active */
+          if (
+            !this.isPlayer &&
+            borgyPowerUpTime > 0 &&
+            chipImg.complete &&
+            chipImg.naturalWidth > 0
+          ) {
+            imgToDraw = chipImg;
+            useFilter = false; // no colour tweaks on Chip sprite
+          }
 
           if (this.isPlayer) {
             if (
@@ -2549,6 +2566,7 @@
         loadImage("img/sushi-4.png"),
         loadImage("img/borgy.png"),
         loadImage("img/pufferfish-4.png"),
+        loadImage("img/chip.png"),
       ]).then(() => {
         resizeCanvas();
         showStartScreen();
