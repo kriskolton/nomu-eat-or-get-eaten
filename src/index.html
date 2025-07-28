@@ -763,7 +763,12 @@
           src: ["sounds/borgy-powerup.mp3"],
           volume: 0.3,
         }),
-        borgySpawn: new Howl({ src: ["sounds/chomp-spawn.mp3"], volume: 0.3 }),
+        borgySpawn: new Howl({ src: ["sounds/chippy-spawn.mp3"], volume: 0.3 }),
+        pollySpawn: new Howl({ src: ["sounds/polly-spawn.mp3"], volume: 0.3 }),
+        pollyPowerUp: new Howl({
+          src: ["sounds/polly-powerup.mp3"],
+          volume: 0.3,
+        }),
         achievement: new Howl({ src: ["sounds/achievement.mp3"], volume: 0.5 }),
         shrink: new Howl({ src: ["sounds/shrink.mp3"], volume: 0.3 }),
         electric: new Howl({ src: ["sounds/electric.mp3"], volume: 0.3 }),
@@ -1197,6 +1202,7 @@
             const y = getRandom(0, HEIGHT - size);
             const spd = (fromLeft ? 1 : -1) * 1.2;
             fishList.push(tagEntity(new Polly(x, y, spd), "polly", idx));
+            playSfx(sounds.pollySpawn); // <-- add this
             break;
           }
         }
@@ -2117,7 +2123,7 @@
             if (e.isPolly) {
               score += 75;
               pollyFreezeTime = POLLY_DURATION;
-              playPowerUpSound(); // reuse existing SFX
+              playSfx(sounds.pollyPowerUp);
 
               // freeze every enemy now on screen
               fishList.forEach((f) => {
