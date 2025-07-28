@@ -49,7 +49,7 @@
         width: 100%;
         position: relative;
         overflow: hidden;
-        background: #222 url("img/bg4.8.png") center/cover no-repeat;
+        background: #222 url("img/bg5-1.png") center/cover no-repeat;
         display: flex;
         margin: 0 auto;
         max-width: 430px;
@@ -733,6 +733,13 @@
       let borgyPowerUpTime = 0;
       let playerIsPoweredUp = false;
 
+      // <<< Polly power‑up globals & asset -------------------------------
+      const POLLY_DURATION = 8; // seconds enemy stay frozen
+      let pollyFreezeTime = 0; // counts down while active
+      const pollyImg = new Image();
+      pollyImg.src = "img/polly.png"; // 35 × 35 fish («Polly»)
+      // >>> ----------------------------------------------------------------
+
       /* --------------- NEW: Debounce state flag ---------------- */
       let startInProgress = false;
 
@@ -740,7 +747,7 @@
 
       const sounds = {
         backgroundMusic: new Howl({
-          src: ["sounds/background4.8.mp3"],
+          src: ["sounds/background5.mp3"],
           loop: true,
           volume: 0.2,
           html5: true, // Ensures streaming for longer music on mobile
@@ -1026,6 +1033,7 @@
         { kind: "electricJelly", weight: 0.0147 },
         { kind: "sushi", weight: 0.0147 },
         { kind: "borgy", weight: 0.00735 },
+        { kind: "polly", weight: 0.30735 }, // <<< NEW
         { kind: "puffer", weight: 0.0587 },
       ];
       const TOTAL_SPEC_WEIGHT = SPAWN_SPEC_WEIGHTS.reduce(
@@ -1061,6 +1069,8 @@
             const fromLeft = specRand() < 0.5;
             return { kind: "puffer", baseSize, fromLeft };
           }
+          case "polly":
+            return { kind: "polly", fromLeft: specRand() < 0.5 };
         }
       }
 
@@ -1176,6 +1186,15 @@
             );
             break;
           }
+          case "polly": {
+            const size = 35;
+            const fromLeft = spec.fromLeft;
+            const x = fromLeft ? -size : WIDTH;
+            const y = getRandom(0, HEIGHT - size);
+            const spd = (fromLeft ? 1 : -1) * 1.2;
+            fishList.push(tagEntity(new Polly(x, y, spd), "polly", idx));
+            break;
+          }
         }
       }
 
@@ -1242,7 +1261,14 @@
           if (this.isUltra) this.hue = (this.hue + this.hueSpeed) % 360;
         }
         draw(c) {
-          if (this.life <= 0) return;
+          // if (this.life <= 0) return;
+          /* ---- safety: bail if any value is non‑finite ---- */
+          if (
+            !Number.isFinite(this.x) ||
+            !Number.isFinite(this.y) ||
+            !Number.isFinite(this.size)
+          )
+            return;
           c.beginPath();
           c.arc(
             this.x + this.offsetX,
@@ -1273,6 +1299,7 @@
       /* ---- Fish (base + player) ---- */
       class Fish {
         constructor(x, y, sx, sy, img, maxSide, isPlayer = false) {
+          this.baseSprite = img;
           this.x = x;
           this.y = y;
           this.speedX = sx;
@@ -1323,6 +1350,8 @@
         }
         draw(c) {
           if (!this.sprite.complete) return;
+          // sprite finished downloading but failed? – also skip it
+          if (!this.sprite.naturalWidth || !this.sprite.naturalHeight) return;
           if (this.width === null || this.height === null)
             this.calculateDimensions();
 
@@ -1779,6 +1808,17 @@
         }
       }
 
+      /* ---- Polly (freeze power‑up) ---- */
+      // <<< add directly after Borgy / Pufferfish classes ---------------
+      class Polly extends Fish {
+        constructor(x, y, speedX) {
+          super(x, y, speedX, 0, pollyImg, 35, false);
+          this.isPolly = true;
+          // no extra behaviour – basic Fish flight path
+        }
+      }
+      // >>> ----------------------------------------------------------------
+
       /* ---- Bubble & Explosion ---- */
       class Bubble {
         constructor(baseX) {
@@ -1844,6 +1884,7 @@
         }
         draw(c) {
           if (this.isComplete()) return;
+          if (!Number.isFinite(this.x) || !Number.isFinite(this.y)) return;
           for (const p of this.particles) {
             if (p.life <= 0) continue;
             c.beginPath();
@@ -1889,6 +1930,7 @@
         borgyPowerUpTime = 0;
         playerIsPoweredUp = false;
         playerParalyzeTime = 0;
+        pollyFreezeTime = 0;
         joystick.active = false;
         spawnBubbleGroup();
         bubbleTimer = 0;
@@ -1930,6 +1972,23 @@
         /* time */
         gameTime += dt;
         gameTimeMs = Math.round(gameTime * 1000);
+
+        /* Polly timer --------------------------------------------------- */
+        if (pollyFreezeTime > 0) {
+          pollyFreezeTime -= dt;
+          if (pollyFreezeTime <= 0) {
+            pollyFreezeTime = 0;
+            // thaw out frozen enemies
+            fishList.forEach((f) => {
+              if (f.isFrozen) {
+                f.isFrozen = false;
+                f.speedX = f.origSpeedX;
+                f.speedY = f.origSpeedY;
+                if (f.origSprite) f.sprite = f.origSprite;
+              }
+            });
+          }
+        }
 
         /* power-up timers */
         if (sushiPowerUpTime > 0) {
@@ -2021,13 +2080,18 @@
         /* enemies & pickups */
         for (let i = fishList.length - 1; i >= 0; i--) {
           const e = fishList[i];
-          if (e.remove) {
-            fishList.splice(i, 1);
-            continue;
+          /* honour freeze ------------------------------------------------ */
+          if (!e.isPlayer && e.isFrozen) {
+            // skip movement & AI – but still let player collide with it
+          } else {
+            if (e.remove) {
+              fishList.splice(i, 1);
+              continue;
+            }
+            if (e instanceof ElectricJellyfish) e.update(dt);
+            else if (e.isCrab) e.update(dt, player);
+            else e.update(dt);
           }
-          if (e instanceof ElectricJellyfish) e.update(dt);
-          else if (e.isCrab) e.update(dt, player);
-          else e.update(dt);
           e.createWaterTrail();
 
           const b = e.getBounds();
@@ -2043,6 +2107,58 @@
 
           /* collision with player */
           if (checkCollisionOval(player, e)) {
+            /* --- Polly pickup ------------------------------------------ */
+            if (e.isPolly) {
+              score += 75;
+              pollyFreezeTime = POLLY_DURATION;
+              playPowerUpSound(); // reuse existing SFX
+
+              // freeze every enemy now on screen
+              fishList.forEach((f) => {
+                if (!f.isPolly && !f.isSushi && !f.isCrab && !f.isFrozen) {
+                  /* --- physics --- */
+                  f.isFrozen = true;
+                  f.origSpeedX = f.speedX;
+                  f.origSpeedY = f.speedY;
+                  f.speedX = f.speedY = 0;
+
+                  /* --- remember what sprite to restore after thaw --- */
+                  f.origSprite = f.sprite; // may be a <canvas>, that’s OK
+
+                  /* --- build the frozen skin safely --- */
+                  const imgForSrc =
+                    f.baseSprite instanceof HTMLImageElement
+                      ? f.baseSprite
+                      : null; // fallback if ever undefined
+
+                  const frozenImg = new Image();
+                  if (imgForSrc && imgForSrc.src.endsWith(".png")) {
+                    frozenImg.src = imgForSrc.src.replace(
+                      /\.png$/,
+                      "-frozen.png"
+                    );
+                  } else {
+                    frozenImg.src = "img/fish-frozen-placeholder.png";
+                  }
+                  /* NEW: fallback if that -frozen file is 404 */
+                  frozenImg.onerror = () => {
+                    frozenImg.src = "img/fish-frozen-placeholder.png";
+                  };
+
+                  f.frozenSprite = frozenImg;
+                  f.sprite = frozenImg;
+                }
+              });
+              eatenEvents.push({
+                t: gameTimeMs,
+                idx: e.spawnIdx,
+                type: e.spawnType,
+                size: e.maxSide,
+                ultra: false,
+              });
+              fishList.splice(i, 1);
+              continue;
+            }
             /* --- sushi pickup --- */
             if (e.isSushi) {
               score += 50;
@@ -2073,6 +2189,43 @@
               });
               fishList.splice(i, 1);
               continue;
+            }
+
+            if (e.isFrozen) {
+              score += calculateFishScore(e.maxSide);
+
+              eatenEvents.push({
+                t: gameTimeMs,
+                idx: e.spawnIdx,
+                type: e.spawnType,
+                size: e.maxSide,
+                ultra: !!e.isUltraFast,
+              });
+
+              // apply normal growth / side‑effects
+              if (e.isJellyfish && !e.isElectric) {
+                player.maxSide = Math.max(
+                  player.maxSide * JELLY_SHRINK_FACTOR,
+                  MIN_PLAYER_SIZE
+                );
+                playShrinkSound();
+              } else {
+                player.maxSide += Math.min(
+                  Math.sqrt(e.maxSide) * GROWTH_FACTOR,
+                  GROWTH_CAP
+                );
+                playEatSound();
+              }
+
+              if (e.isElectric) {
+                // frozen electric still shocks!
+                playerParalyzeTime = PARALYZE_DURATION;
+                playShockSound();
+              }
+
+              player.width = player.height = null; // force dimension recalc
+              fishList.splice(i, 1); // remove the enemy
+              continue; // done with this entity
             }
 
             /* --- player is powered-up --- */
@@ -2253,6 +2406,21 @@
             ) + 4;
         }
 
+        if (pollyFreezeTime > 0) {
+          y +=
+            drawTextWithBg(
+              ctx,
+              `Freeze: ${pollyFreezeTime.toFixed(1)}s`,
+              20,
+              y,
+              {
+                bgColor: "rgba(0,40,80,0.72)",
+                textColor: "#9cf",
+                font: ctx.font,
+              }
+            ) + 4;
+        }
+
         if (isJoystickEnabled && joystick.active) {
           ctx.save();
           ctx.globalAlpha = 0.4;
@@ -2328,6 +2496,7 @@
         borgyPowerUpTime = 0;
         playerIsPoweredUp = false;
         playerParalyzeTime = 0;
+        pollyFreezeTime = 0;
         clearKeys();
         joystick.active = false;
         spawnBubbleGroup();
@@ -2567,6 +2736,7 @@
         loadImage("img/borgy.png"),
         loadImage("img/pufferfish-4.png"),
         loadImage("img/chip.png"),
+        loadImage("img/polly.png"),
       ]).then(() => {
         resizeCanvas();
         showStartScreen();
