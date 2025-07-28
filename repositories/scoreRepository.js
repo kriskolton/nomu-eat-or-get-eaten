@@ -227,10 +227,67 @@ async function getUserScore(userId, eventName) {
   return db.collection("scores").findOne(query, { projection: { _id: 0 } });
 }
 
+/**
+ * Set a user's team affiliation.
+ *
+ * @param {string} userId – unique player ID
+ * @param {string} username – display name (required for new documents)
+ * @param {string} team – team name (must be "Nomu", "Polly", or "Chippy")
+ * @returns {Promise<object>} – the updated score document
+ */
+async function setTeam(userId, username, team) {
+  await initDB();
+
+  // Validate team parameter
+  const validTeams = ["Nomu", "Polly", "Chippy"];
+  if (!validTeams.includes(team)) {
+    throw new Error(`Invalid team. Must be one of: ${validTeams.join(", ")}`);
+  }
+
+  const now = new Date();
+  const resolvedEvent = activeEvent || "Season 1";
+
+  try {
+    const scores = db.collection("scores");
+
+    const { value } = await scores.findOneAndUpdate(
+      { userId, event: resolvedEvent },
+      [
+        {
+          $set: {
+            // Always (re)set identifiers on upsert – without this a new document created by upsert
+            // would *not* contain userId / event, because aggregation-style updates do **not**
+            // copy the query filter fields automatically.
+            userId,
+            event: resolvedEvent,
+            username,
+            team,
+            lastScore: { $ifNull: ["$lastScore", 0] },
+            lastGameTime: { $ifNull: ["$lastGameTime", 0] },
+            lastPlayed: { $ifNull: ["$lastPlayed", now] },
+            highScore: { $ifNull: ["$highScore", 0] },
+            highScoreGameTime: { $ifNull: ["$highScoreGameTime", 0] },
+          },
+        },
+      ],
+      {
+        upsert: true,
+        returnDocument: "after",
+      }
+    );
+
+    return value;
+  } catch (error) {
+    console.error("Error setting team:", error);
+    throw error;
+  }
+}
+
 module.exports = {
   initDB,
   updateScore,
   getHighScores,
   getUserScore,
   getActiveEventHighScores,
+  setTeam,
 };

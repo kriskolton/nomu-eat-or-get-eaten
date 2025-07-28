@@ -18,6 +18,7 @@ const {
   getHighScores,
   getUserScore,
   getActiveEventHighScores,
+  setTeam,
 } = require("./repositories/scoreRepository");
 
 const {
@@ -253,6 +254,36 @@ app.post(
       console.error("Session creation error:", err);
       res.status(500).json({ error: "Internal server error" });
     }
+  }
+);
+
+app.get(
+  "/api/score",
+  verifyTelegramData,
+  verifyApiPassword,
+  async (req, res) => {
+    const { id: userId } = req.telegramUser;
+    const score = await getUserScore(userId, activeEvent);
+    res.json(score);
+  }
+);
+
+app.post(
+  "/api/score/team",
+  verifyTelegramData,
+  verifyApiPassword,
+  async (req, res) => {
+    const { id: userId, username } = req.telegramUser;
+    const { team } = req.body;
+
+    await setTeam(userId, username, team);
+
+    const score = await getUserScore(userId, activeEvent);
+    if (!score) {
+      return res.status(404).json({ error: "Error setting team" });
+    }
+
+    res.json(score);
   }
 );
 

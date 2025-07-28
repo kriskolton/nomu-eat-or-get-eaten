@@ -228,6 +228,52 @@
         </div>
       </div>
 
+      <!-- ─────────────────── TEAM‑SELECT OVERLAY ─────────────────── -->
+      <div id="teamScreen" class="overlay hidden">
+        <div style="max-width: 90%; margin: 0 auto; text-align: center">
+          <img
+            src="img/title.png"
+            alt="Eat or Get Eaten"
+            style="
+              max-width: 55%;
+              height: auto;
+              padding: 12px;
+              max-height: 30vh;
+            "
+          />
+          <p
+            style="
+              font-size: 22px;
+              font-family: 'Londrina Solid', sans-serif;
+              letter-spacing: 1px;
+              color: #fff;
+              margin-top: 4px;
+            "
+          >
+            CHOOSE&nbsp;YOUR&nbsp;TEAM
+          </p>
+
+          <button class="teamBtn" data-team="Nomu" style="background: #f78719">
+            🦈 Team Nomu</button
+          ><br />
+          <button class="teamBtn" data-team="Polly" style="background: #4b74ff">
+            🐠 Team Polly</button
+          ><br />
+          <button
+            class="teamBtn"
+            data-team="Chippy"
+            style="background: #03b0b0"
+          >
+            🐡 Team Chippy</button
+          ><br />
+
+          <p style="font-size: 12px; color: #fffa">
+            *You can’t change this later
+          </p>
+        </div>
+      </div>
+      <!-- ─────────────────── /TEAM‑SELECT OVERLAY ─────────────────── -->
+
       <!-- ---------- Game-over overlay ---------- -->
       <div id="gameOverScreen" class="overlay hidden" style="width: 100%">
         <div
@@ -317,6 +363,12 @@
       const urlParams = new URLSearchParams(window.location.search);
       const forceDev = urlParams.has("dev");
 
+      // ─── TEAM‑SELECT CONSTS ───────────────────────────────────────
+      const VALID_TEAMS = ["Nomu", "Polly", "Chippy"];
+      let userTeam = null; // populated after /api/score call
+      const teamScreen = document.getElementById("teamScreen");
+      // ───────────────────────────────────────────────────────────────
+
       let tg, userData, userId, initDataRaw;
       try {
         tg = window.Telegram.WebApp;
@@ -381,6 +433,7 @@
       const SUSHI_DURATION = 10;
       const BORGY_DURATION = 15;
       const BORGY_SPEED_MULT = 3;
+      const POLLY_SPEED_MULT = 2;
 
       // Spawn schedule (server-verifiable)
       const spawnSchedule = []; // { idx, spawnTime (s), spec }
@@ -738,7 +791,7 @@
       let playerIsPoweredUp = false;
 
       // <<< Polly power‑up globals & asset -------------------------------
-      const POLLY_DURATION = 8; // seconds enemy stay frozen
+      const POLLY_DURATION = 15; // seconds enemy stay frozen
       let pollyFreezeTime = 0; // counts down while active
       const pollyImg = new Image();
       pollyImg.src = "img/polly-5.png"; // 35 × 35 fish («Polly»)
@@ -814,6 +867,8 @@
       const playShrinkSound = () => playSfx(sounds.shrink);
       const playElectricSound = () => playSfx(sounds.electric);
       const playShockSound = () => playSfx(sounds.shock);
+      const playPollySpawnSound = () => playSfx(sounds.pollySpawn);
+      const playPollyPowerUpSound = () => playSfx(sounds.pollyPowerUp);
 
       const updateMusicButtons = () => {
         const txt = isMusicEnabled ? "🎵 Music On" : "🎵 Music Off";
@@ -1040,7 +1095,7 @@
         { kind: "crab", weight: 0.00147 },
         { kind: "jelly", weight: 0.0294 },
         { kind: "electricJelly", weight: 0.0147 },
-        { kind: "sushi", weight: 0.0147 },
+        // { kind: "sushi", weight: 0.0147 },
         { kind: "borgy", weight: 0.070735 },
         { kind: "polly", weight: 0.10735 }, // <<< NEW
         { kind: "puffer", weight: 0.0587 },
@@ -1202,7 +1257,7 @@
             const y = getRandom(0, HEIGHT - size);
             const spd = (fromLeft ? 1 : -1) * 1.2;
             fishList.push(tagEntity(new Polly(x, y, spd), "polly", idx));
-            playSfx(sounds.pollySpawn); // <-- add this
+            playPollySpawnSound(); // <-- add this
             break;
           }
         }
@@ -1491,8 +1546,10 @@
         update(dt) {
           const df = dt * 60;
           if (this.isPlayer) {
-            this.maxSpd =
-              this.baseMaxSpd * (borgyPowerUpTime > 0 ? BORGY_SPEED_MULT : 1);
+            let speedMult = 1;
+            if (borgyPowerUpTime > 0) speedMult = BORGY_SPEED_MULT;
+            else if (pollyFreezeTime > 0) speedMult = POLLY_SPEED_MULT;
+            this.maxSpd = this.baseMaxSpd * speedMult;
 
             const f = Math.pow(this.friction, df);
             this.vx *= f;
@@ -2011,7 +2068,8 @@
           borgyPowerUpTime -= dt;
           if (borgyPowerUpTime <= 0) borgyPowerUpTime = 0;
         }
-        playerIsPoweredUp = sushiPowerUpTime > 0 || borgyPowerUpTime > 0;
+        // playerIsPoweredUp = sushiPowerUpTime > 0 || borgyPowerUpTime > 0;
+        playerIsPoweredUp = pollyFreezeTime > 0 || borgyPowerUpTime > 0;
 
         /* status decrement */
         if (playerParalyzeTime > 0) {
@@ -2044,7 +2102,13 @@
 
         /* player input */
         const canMove = playerParalyzeTime <= 0;
-        const accelMult = borgyPowerUpTime > 0 ? BORGY_SPEED_MULT : 1;
+        const accelMult =
+          borgyPowerUpTime > 0
+            ? BORGY_SPEED_MULT
+            : pollyFreezeTime > 0
+            ? POLLY_SPEED_MULT
+            : 1;
+
         const a = player.accel * accelMult * dt * 60;
 
         if (canMove) {
@@ -2123,7 +2187,7 @@
             if (e.isPolly) {
               score += 75;
               pollyFreezeTime = POLLY_DURATION;
-              playSfx(sounds.pollyPowerUp);
+              playPollyPowerUpSound();
 
               // freeze every enemy now on screen
               fishList.forEach((f) => {
@@ -2541,6 +2605,11 @@
 
       /* ---- Start Game ---- */
       async function startNewRun() {
+        if (!VALID_TEAMS.includes(userTeam)) {
+          alert("Please pick a team first!");
+          return;
+        }
+
         if (startInProgress) return;
         startInProgress = true;
         startBtn.disabled = true;
@@ -2723,6 +2792,38 @@
         }
       });
 
+      // ─── TEAM‑SELECT HANDLERS ─────────────────────────────────────
+      teamScreen.addEventListener("click", async (e) => {
+        const btn = e.target.closest(".teamBtn");
+        if (!btn) return;
+
+        const chosen = btn.dataset.team;
+        if (!VALID_TEAMS.includes(chosen)) return;
+
+        btn.disabled = true; // optimistic UX
+        try {
+          // Only one chance – backend should reject changes later
+          const resp = await fetch("/api/score/team", {
+            method: "POST", // or PUT – match your API
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `tma ${initDataRaw}`,
+              "x-api-password": getApiPassword(),
+            },
+            body: JSON.stringify({ team: chosen }),
+          });
+          if (!resp.ok) throw new Error(await resp.text());
+          userTeam = chosen;
+          teamScreen.classList.add("hidden");
+          showStartScreen();
+        } catch (err) {
+          console.error(err);
+          alert("Couldn’t save team – try again?");
+          btn.disabled = false;
+        }
+      });
+      // ───────────────────────────────────────────────────────────────
+
       /*********************    PRELOAD & BOOT     **************************/
       Promise.all([
         loadImage("img/player_fish-5.png"),
@@ -2757,7 +2858,29 @@
         loadImage("img/polly-5.png"),
       ]).then(() => {
         resizeCanvas();
-        showStartScreen();
+        (async function initialiseTeam() {
+          try {
+            const scoreResp = await fetch("/api/score", {
+              method: "GET",
+              headers: {
+                Authorization: `tma ${initDataRaw}`,
+                "x-api-password": getApiPassword(),
+              },
+            });
+            if (!scoreResp.ok) throw new Error("score fetch failed");
+            const scoreDoc = await scoreResp.json();
+            userTeam = scoreDoc?.team ?? null;
+          } catch (e) {
+            console.error(e);
+            userTeam = null; // fall back
+          }
+
+          if (!VALID_TEAMS.includes(userTeam)) {
+            teamScreen.classList.remove("hidden"); // show picker
+          } else {
+            showStartScreen(); // carry on
+          }
+        })();
         let audioStarted = false;
         function kickAudio() {
           if (!audioStarted) {
