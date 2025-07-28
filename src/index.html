@@ -49,7 +49,7 @@
         width: 100%;
         position: relative;
         overflow: hidden;
-        background: #222 url("img/bg5-1.png") center/cover no-repeat;
+        background: #222 url("img/bg5-2.png") center/cover no-repeat;
         display: flex;
         margin: 0 auto;
         max-width: 430px;
@@ -162,7 +162,7 @@
               letter-spacing: 2px;
             "
           >
-            SEASON 4: NOMU VS XBORG 🔥
+            SEASON 5: COMMUNITY SHOWDOWN ⚔️
           </p>
           <p
             style="
@@ -372,6 +372,10 @@
       const MAX_WATER_TRAILS = 1500;
       const MAX_EXPLOSIONS = 100;
       const RETAIN_SCHEDULE_ENTRIES = 1000;
+
+      // Guest character constants
+      const CHIPPY_SIZE = 90; // 45 × 2
+      const POLLY_SIZE = 70; // 35 × 2
 
       // Power-up constants
       const SUSHI_DURATION = 10;
@@ -645,12 +649,12 @@
 
       /*********************   IMAGES & SPRITES   ***************************/
       const fishTypeDefinitions = [
-        { src: "img/fish1-4.png", minSize: 10, maxSize: 40, weight: 0.432 },
-        { src: "img/fish2-4.png", minSize: 20, maxSize: 60, weight: 0.252 },
-        { src: "img/fish3-4.png", minSize: 25, maxSize: 80, weight: 0.2 },
-        { src: "img/fish4-4.png", minSize: 35, maxSize: 100, weight: 0.1 },
-        { src: "img/fish5-4.png", minSize: 200, maxSize: 300, weight: 0.013 },
-        { src: "img/fish6-4.png", minSize: 400, maxSize: 500, weight: 0.003 },
+        { src: "img/fish1-5.png", minSize: 10, maxSize: 40, weight: 0.432 },
+        { src: "img/fish2-5.png", minSize: 20, maxSize: 60, weight: 0.252 },
+        { src: "img/fish3-5.png", minSize: 25, maxSize: 80, weight: 0.2 },
+        { src: "img/fish4-5.png", minSize: 35, maxSize: 100, weight: 0.1 },
+        { src: "img/fish5-5.png", minSize: 200, maxSize: 300, weight: 0.013 },
+        { src: "img/fish6-5.png", minSize: 400, maxSize: 500, weight: 0.003 },
       ];
       const fishTypes = fishTypeDefinitions.map((def) => {
         const image = new Image();
@@ -664,7 +668,7 @@
       });
 
       const playerImg = new Image();
-      playerImg.src = "img/player_fish.png";
+      playerImg.src = "img/player_fish-5.png";
 
       // NEW: Additional player sprites for different states
       const playerPoweredUpImg = new Image();
@@ -687,19 +691,19 @@
         console.warn("player_fish_chomp.png not found - using filters instead");
 
       const crabImg = new Image();
-      crabImg.src = "img/crab.png";
+      crabImg.src = "img/crab-5.png";
       const jellyfishImg = new Image();
-      jellyfishImg.src = "img/jellyfish-4.png";
+      jellyfishImg.src = "img/jellyfish-5.png";
       const electricJellyfishImg = new Image();
-      electricJellyfishImg.src = "img/electric-jellyfish-c.png";
+      electricJellyfishImg.src = "img/electric-jellyfish-5.png";
       const sushiImg = new Image();
-      sushiImg.src = "img/sushi-4.png";
+      sushiImg.src = "img/sushi.png";
       const pufferImg = new Image();
-      pufferImg.src = "img/pufferfish-4.png";
+      pufferImg.src = "img/pufferfish-5.png";
       const borgyImg = new Image();
-      borgyImg.src = "img/chomp.png";
+      borgyImg.src = "img/chippy-5.png";
       const chipImg = new Image();
-      chipImg.src = "img/chip.png";
+      chipImg.src = "img/chip-5.png";
       chipImg.onerror = () =>
         console.warn(
           "chip.png not found – enemies will keep their normal sprite"
@@ -737,7 +741,7 @@
       const POLLY_DURATION = 8; // seconds enemy stay frozen
       let pollyFreezeTime = 0; // counts down while active
       const pollyImg = new Image();
-      pollyImg.src = "img/polly.png"; // 35 × 35 fish («Polly»)
+      pollyImg.src = "img/polly-5.png"; // 35 × 35 fish («Polly»)
       // >>> ----------------------------------------------------------------
 
       /* --------------- NEW: Debounce state flag ---------------- */
@@ -1032,8 +1036,8 @@
         { kind: "jelly", weight: 0.0294 },
         { kind: "electricJelly", weight: 0.0147 },
         { kind: "sushi", weight: 0.0147 },
-        { kind: "borgy", weight: 0.00735 },
-        { kind: "polly", weight: 0.30735 }, // <<< NEW
+        { kind: "borgy", weight: 0.070735 },
+        { kind: "polly", weight: 0.10735 }, // <<< NEW
         { kind: "puffer", weight: 0.0587 },
       ];
       const TOTAL_SPEC_WEIGHT = SPAWN_SPEC_WEIGHTS.reduce(
@@ -1166,7 +1170,7 @@
             break;
           }
           case "borgy": {
-            const size = 45;
+            const size = CHIPPY_SIZE;
             const fromLeft = spec.fromLeft;
             const x = fromLeft ? -size : WIDTH;
             const y = getRandom(0, HEIGHT - size);
@@ -1187,7 +1191,7 @@
             break;
           }
           case "polly": {
-            const size = 35;
+            const size = POLLY_SIZE;
             const fromLeft = spec.fromLeft;
             const x = fromLeft ? -size : WIDTH;
             const y = getRandom(0, HEIGHT - size);
@@ -1381,6 +1385,8 @@
           /* Enemy re‑skin while Borgy power‑up is active */
           if (
             !this.isPlayer &&
+            !this.isPolly && // ⬅️  NEW
+            !this.isBorgy && // ⬅️  NEW (Chippy itself)
             borgyPowerUpTime > 0 &&
             chipImg.complete &&
             chipImg.naturalWidth > 0
@@ -1745,7 +1751,7 @@
       /* ---- Borgy ---- */
       class Borgy extends Fish {
         constructor(x, y, speedX) {
-          super(x, y, speedX, 0, borgyImg, 45, false);
+          super(x, y, speedX, 0, borgyImg, CHIPPY_SIZE, false);
           this.isBorgy = true;
         }
         createWaterTrail() {
@@ -1765,7 +1771,7 @@
                 movingLeft ? 1 : -1,
                 this.maxSide * 1.2, // larger trail
                 false,
-                { r: 235, g: 58, b: 74 } // bright red color
+                { r: 3, g: 176, b: 176 } // teal color #03b0b0
               )
             );
           }
@@ -1812,7 +1818,7 @@
       // <<< add directly after Borgy / Pufferfish classes ---------------
       class Polly extends Fish {
         constructor(x, y, speedX) {
-          super(x, y, speedX, 0, pollyImg, 35, false);
+          super(x, y, speedX, 0, pollyImg, POLLY_SIZE, false);
           this.isPolly = true;
           // no extra behaviour – basic Fish flight path
         }
@@ -2115,7 +2121,13 @@
 
               // freeze every enemy now on screen
               fishList.forEach((f) => {
-                if (!f.isPolly && !f.isSushi && !f.isCrab && !f.isFrozen) {
+                if (
+                  !f.isPolly &&
+                  !f.isSushi &&
+                  !f.isCrab &&
+                  !f.isFrozen &&
+                  !f.isBorgy
+                ) {
                   /* --- physics --- */
                   f.isFrozen = true;
                   f.origSpeedX = f.speedX;
@@ -2381,12 +2393,12 @@
           y +=
             drawTextWithBg(
               ctx,
-              `Chomp Potion: ${borgyPowerUpTime.toFixed(1)}s`,
+              `Chippy Potion: ${borgyPowerUpTime.toFixed(1)}s`,
               20,
               y,
               {
-                bgColor: "rgba(40, 6, 8, 0.72)", // dark red
-                textColor: "#eb3a4a",
+                bgColor: "rgba(1, 60, 60, 0.72)", // dark teal
+                textColor: "#03b0b0",
                 font: ctx.font,
               }
             ) + 4;
@@ -2707,7 +2719,7 @@
 
       /*********************    PRELOAD & BOOT     **************************/
       Promise.all([
-        loadImage("img/player_fish.png"),
+        loadImage("img/player_fish-5.png"),
         // These are optional - game will fall back to filters if they don't exist
         new Promise((resolve) => {
           playerPoweredUpImg.onload = resolve;
@@ -2729,14 +2741,14 @@
               image.addEventListener("error", resolve, { once: true });
             })
         ),
-        loadImage("img/crab.png"),
-        loadImage("img/jellyfish-4.png"),
-        loadImage("img/electric-jellyfish-c.png"),
-        loadImage("img/sushi-4.png"),
-        loadImage("img/borgy.png"),
-        loadImage("img/pufferfish-4.png"),
-        loadImage("img/chip.png"),
-        loadImage("img/polly.png"),
+        loadImage("img/crab-5.png"),
+        loadImage("img/jellyfish-5.png"),
+        loadImage("img/electric-jellyfish-5.png"),
+        loadImage("img/sushi.png"),
+        loadImage("img/chippy-5.png"),
+        loadImage("img/pufferfish-5.png"),
+        loadImage("img/chip-5.png"),
+        loadImage("img/polly-5.png"),
       ]).then(() => {
         resizeCanvas();
         showStartScreen();
