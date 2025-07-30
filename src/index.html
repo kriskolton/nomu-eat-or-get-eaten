@@ -1179,7 +1179,30 @@
             const fromLeft = spec.fromLeft;
             const x = fromLeft ? -size : WIDTH;
             const y = getRandom(0, Math.max(0, HEIGHT - size));
-            let spd = spec.baseSpeed * (0.4 + 0.6 * Math.min(score / 1000, 1));
+            // let spd = spec.baseSpeed * (0.4 + 0.6 * Math.min(score / 1000, 1));
+            // if (spec.ultra) spd *= 5;
+            // else if (spec.fast) spd *= 3;
+            // spd = fromLeft ? spd : -spd;
+
+            // ① Base ramp‑up (unchanged): 0 → 1× between 0‑1 000 pts
+            const baseMult = 0.4 + 0.6 * Math.min(score / 1000, 1);
+
+            /*
+             * ② Extra ramp‑up: starts once the player is already at
+             *    the “full” base speed (≥1 000 pts) and rises linearly
+             *    to +25 % at 100 000 pts.
+             *
+             *    – We use the range 1 000 → 100 000 pts (Δ = 99 000).
+             *    – Slope = 0.25 / 99 000  (≈ 2.53 e‑6 per point)
+             *    – Continues past 100 000 pts with the same slope,
+             *      so the reset-round at 100 k does **not** roll it back.
+             */
+            const extraMult = (Math.max(score - 1000, 0) / 99000) * 0.25; // linear 0 → 0.25 → …
+
+            // ③ Total multiplier
+            let spd = spec.baseSpeed * (baseMult + extraMult);
+
+            // keep the existing “fast / ultra” modifiers & direction
             if (spec.ultra) spd *= 5;
             else if (spec.fast) spd *= 3;
             spd = fromLeft ? spd : -spd;

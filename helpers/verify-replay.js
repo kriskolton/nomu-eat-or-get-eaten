@@ -61,6 +61,7 @@ const calcFishScore = (sz) => Math.floor(sz);
 function calcPickupPoints(type, size) {
   if (type === "sushi") return 50;
   if (type === "borgy") return 75;
+  if (type === "polly") return 75;
   return calcFishScore(size);
 }
 
