@@ -189,7 +189,7 @@
               right: 6px;
             "
           >
-            v5.0
+            v5.1
           </p>
 
           <div
@@ -2535,10 +2535,10 @@
               }
 
               player.width = player.height = null;
-              if (e.isUltraFast) {
-                sushiPowerUpTime = SUSHI_DURATION;
-                playPowerUpSound();
-              }
+              // if (e.isUltraFast) {
+              //   sushiPowerUpTime = SUSHI_DURATION;
+              //   playPowerUpSound();
+              // }
               fishList.splice(i, 1);
               continue;
             }
@@ -2577,10 +2577,10 @@
               }
 
               player.width = player.height = null;
-              if (e.isUltraFast) {
-                sushiPowerUpTime = SUSHI_DURATION;
-                playPowerUpSound();
-              }
+              // if (e.isUltraFast) {
+              // sushiPowerUpTime = SUSHI_DURATION;
+              // playPowerUpSound();
+              // }
               fishList.splice(i, 1);
               continue;
             } else {
@@ -2641,10 +2641,10 @@
                 );
                 playEatSound();
               }
-              if (e.isUltraFast) {
-                sushiPowerUpTime = SUSHI_DURATION;
-                playPowerUpSound();
-              }
+              // if (e.isUltraFast) {
+              //   sushiPowerUpTime = SUSHI_DURATION;
+              //   playPowerUpSound();
+              // }
               player.width = player.height = null;
               if (e.isBorgy) {
                 // helper ate a Chippy
