@@ -384,21 +384,31 @@ app.post(
         flaggedFor.push("Session start + gameTime exceeds now");
       }
 
-      const { ok, failedDueTo } = verifyReplay({
-        seed: sess.seed,
-        eaten: eaten,
-        finalScore: score,
-        gameTime,
-        eatenBy,
-        startTime: epochGameStartTime,
-        endTime: epochGameEndTime,
-      });
+      let verifyResult;
+      try {
+        verifyResult = verifyReplay({
+          seed: sess.seed,
+          eaten: eaten,
+          finalScore: score,
+          gameTime,
+          eatenBy,
+          startTime: epochGameStartTime,
+          endTime: epochGameEndTime,
+        });
+      } catch (error) {
+        console.error("verifyReplay threw an error", {
+          userId,
+          sessionId,
+          error: error.message,
+        });
+        verifyResult = { ok: false, failedDueTo: "Verification crashed" };
+      }
 
-      if (!ok) {
+      if (!verifyResult.ok) {
         console.warn("Replay verification failed", { userId, sessionId });
         // return res.status(400).json({ error: "Replay check failed" });
         isFlagged = true;
-        flaggedFor.push(failedDueTo);
+        flaggedFor.push(verifyResult.failedDueTo);
       }
 
       const updated = await updateScore(
@@ -549,9 +559,39 @@ function setupBotCommands() {
         highScores.forEach((s, i) => {
           const rawDisplayName = s.firstName || s.username || String(s.userId);
           const displayName = decodeHtmlEntities(rawDisplayName);
+          const teamSuffix = s.team ? ` | ${s.team.toUpperCase()}` : "";
 
-          message += `${i + 1}. ${displayName}: ${s.highScore}\n`;
+          message += `${i + 1}. ${displayName}${teamSuffix}: ${s.highScore}\n`;
         });
+
+        /* 6️⃣  Add team leaderboard */
+        // Get all scores for the active event to calculate team totals
+        const allScores = await getHighScores(1000, activeEvent); // Get a large number to include all players
+
+        // Calculate team totals (highscores only)
+        const teamTotals = {};
+        allScores.forEach((score) => {
+          if (score.team && score.highScore) {
+            if (!teamTotals[score.team]) {
+              teamTotals[score.team] = 0;
+            }
+            teamTotals[score.team] += score.highScore;
+          }
+        });
+
+        // Sort teams by total points and get top 3
+        const sortedTeams = Object.entries(teamTotals)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 3);
+
+        if (sortedTeams.length > 0) {
+          message += `\n🏆 Top 3 Teams (Total High Scores) 🏆\n\n`;
+          const medals = ["🥇", "🥈", "🥉"];
+          sortedTeams.forEach(([team, total], i) => {
+            const medal = medals[i] || `${i + 1}.`;
+            message += `${medal} ${team.toUpperCase()}: ${total}\n`;
+          });
+        }
 
         await sendMessageWithErrorHandling(chatId, message, messageThreadId);
       } else if (cbq.data === "mystats") {
