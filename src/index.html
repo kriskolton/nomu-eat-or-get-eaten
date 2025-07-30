@@ -135,6 +135,21 @@
     <!--                            MARK-UP                                -->
     <!-- ----------------------------------------------------------------- -->
     <div id="gameWrapper">
+      <!-- ─────────────── Loading overlay (always present at first) ─────────────── -->
+      <div id="loadingScreen" class="overlay">
+        <p
+          style="
+            font-family: 'Londrina Solid', sans-serif;
+            font-size: 32px;
+            letter-spacing: 2px;
+            color: #fff;
+          "
+        >
+          Loading…
+        </p>
+      </div>
+      <!-- ───────────────────────────────────────────────────────────────────────── -->
+
       <canvas id="gameCanvas"></canvas>
 
       <!-- ---------- Start overlay ---------- -->
@@ -254,17 +269,17 @@
           </p>
 
           <button class="teamBtn" data-team="Nomu" style="background: #f78719">
-            🦈 Team Nomu</button
+            🐡 Team Nomu</button
           ><br />
           <button class="teamBtn" data-team="Polly" style="background: #4b74ff">
-            🐠 Team Polly</button
+             🐧 Team Polly</button
           ><br />
           <button
             class="teamBtn"
             data-team="Chippy"
             style="background: #03b0b0"
           >
-            🐡 Team Chippy</button
+            🐟 Team Chippy</button
           ><br />
 
           <p style="font-size: 12px; color: #fffa">
@@ -3061,6 +3076,9 @@
             console.error(e);
             userTeam = null; // fall back
           }
+
+          /* NEW — dismiss the loader */
+          document.getElementById("loadingScreen").classList.add("hidden");
 
           if (!VALID_TEAMS.includes(userTeam)) {
             teamScreen.classList.remove("hidden"); // show picker
