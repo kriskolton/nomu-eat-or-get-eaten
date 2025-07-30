@@ -585,7 +585,7 @@ function setupBotCommands() {
           .slice(0, 3);
 
         if (sortedTeams.length > 0) {
-          message += `\n🏆 Top 3 Teams (Total High Scores) 🏆\n\n`;
+          message += `\n🏆 Team Rankings 🏆\n\n`;
           const medals = ["🥇", "🥈", "🥉"];
           sortedTeams.forEach(([team, total], i) => {
             const medal = medals[i] || `${i + 1}.`;
