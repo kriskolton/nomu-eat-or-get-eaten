@@ -36,8 +36,9 @@ const SPAWN_SPEC_WEIGHTS = [
   { kind: "crab", weight: 0.00147 },
   { kind: "jelly", weight: 0.0294 },
   { kind: "electricJelly", weight: 0.0147 },
-  { kind: "sushi", weight: 0.0147 },
+  // { kind: "sushi", weight: 0.0 },
   { kind: "borgy", weight: 0.00735 }, // NEW in v3.7
+  { kind: "polly", weight: 0.00735 }, // NEW in v5.0
   { kind: "puffer", weight: 0.0587 },
 ];
 const TOTAL_SPEC_WEIGHT = SPAWN_SPEC_WEIGHTS.reduce((s, w) => s + w.weight, 0);
@@ -49,7 +50,8 @@ const TYPE_SIZE_BOUNDS = {
   jelly: () => ({ minSize: 30, maxSize: 80 }),
   electricJelly: () => ({ minSize: 40, maxSize: 90 }),
   sushi: () => ({ minSize: 30, maxSize: 30 }),
-  borgy: () => ({ minSize: 45, maxSize: 45 }), // NEW
+  borgy: () => ({ minSize: 90, maxSize: 90 }), // NEW
+  polly: () => ({ minSize: 70, maxSize: 70 }), // NEW
   puffer: () => ({ minSize: 30, maxSize: 240 }), // inflated
 };
 
@@ -209,6 +211,10 @@ function verifyReplay({
           baseSize: getSpecRandom(30, 60),
           fromLeft: specRand() < 0.5,
         };
+        break;
+
+      case "polly":
+        spec = { kind, fromLeft: specRand() < 0.5 };
         break;
     }
 
