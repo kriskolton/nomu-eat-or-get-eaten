@@ -1469,6 +1469,7 @@
             this.isPolly =
             this.isPollyHelper =
               false;
+          this.drawFullHeight = false;
           if (!isPlayer) {
             this.oscSpd = getRandom(0.005, 0.01);
             this.oscAmt = getRandom(0.05, 0.1);
@@ -1547,6 +1548,14 @@
           ) {
             imgToDraw = chipImg;
             useFilter = false; // no colour tweaks on Chip sprite
+            this.drawFullHeight = true;
+          } else {
+            // when the potion is gone, go back to normal drawing
+            // Power‑up ended: clear the flag *only* for the Chip skin itself.
+            // Frozen sprites (or anything else) keep their own setting.
+            if (this.sprite === chipImg) {
+              this.drawFullHeight = false;
+            }
           }
 
           if (this.isPlayer) {
@@ -1624,7 +1633,19 @@
             }
           }
           /* ---------- draw sprite (original or tinted) ---------- */
-          c.drawImage(imgToDraw, 0, 0, this.width, this.height);
+
+          // NEW  –  keep the sprite’s natural aspect‑ratio when requested
+          let drawW = this.width; // logical width (physics)
+          let drawH = this.height; // logical height
+          let offset = 0; // centred shift if needed
+
+          if (this.drawFullHeight && this.sprite.naturalHeight) {
+            const scale = this.height / this.sprite.naturalHeight; // stretch to full height
+            drawW = this.sprite.naturalWidth * scale; // preserve aspect
+            offset = (this.width - drawW) / 2; // centre inside hit‑box
+          }
+
+          c.drawImage(imgToDraw, offset, 0, drawW, drawH);
           /* ---------- END patch ---------- */
 
           c.restore();
@@ -2207,6 +2228,7 @@
                 f.speedX = f.origSpeedX;
                 f.speedY = f.origSpeedY;
                 if (f.origSprite) f.sprite = f.origSprite;
+                f.drawFullHeight = false;
               }
             });
             if (pollyHelper) {
@@ -2394,6 +2416,7 @@
                   /* swap to the pre‑cached frozen skin */
                   const frozenSkin = f.frozenSprite || f.fishType?.frozenSprite;
                   if (frozenSkin) f.sprite = frozenSkin;
+                  f.drawFullHeight = true;
                 }
               });
               eatenEvents.push({
@@ -2594,7 +2617,16 @@
             const e = fishList[j];
             if (e === pollyHelper || e.isPlayer || e.isPollyHelper) continue;
             if (checkCollisionOval(pollyHelper, e)) {
-              score += calculateFishScore(e.maxSide);
+              // Award points based on creature type (same logic as player eating)
+              if (e.isSushi) {
+                score += 50;
+              } else if (e.isBorgy) {
+                score += 75;
+              } else if (e.isPolly) {
+                score += 75;
+              } else {
+                score += calculateFishScore(e.maxSide);
+              }
               eatenEvents.push({
                 t: gameTimeMs,
                 idx: e.spawnIdx,
