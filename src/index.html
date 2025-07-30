@@ -14,7 +14,7 @@
       name="viewport"
       content="width=device-width, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Nomu: Eat or Get Eaten (Season 4): Nomu vs XBorg</title>
+    <title>Nomu: Eat or Get Eaten (Season 5): Community Showdown ⚔️</title>
 
     <!-- ----------------------------------------------------------------- -->
     <!--                       FONTS & AUDIO ASSETS                         -->
@@ -174,7 +174,7 @@
               right: 6px;
             "
           >
-            v4.8
+            v5.0
           </p>
 
           <div
@@ -428,6 +428,7 @@
       // Guest character constants
       const CHIPPY_SIZE = 90; // 45 × 2
       const POLLY_SIZE = 70; // 35 × 2
+      const POLLY_HELPER_SIZE = 70;
 
       // Power-up constants
       const SUSHI_DURATION = 10;
@@ -581,7 +582,7 @@
             body: JSON.stringify({
               score,
               gameTime: gameTimeMs, // existing
-              event: "Nomu vs XBorg",
+              event: "Season 5",
               eaten,
               sessionId,
 
@@ -732,16 +733,18 @@
         );
 
       const playerParalyzedImg = new Image();
-      playerParalyzedImg.src = "img/player_fish_paralyzed.png"; // You'll need to create this
+      playerParalyzedImg.src = "img/player_fish_paralyzed-5.png"; // You'll need to create this
       playerParalyzedImg.onerror = () =>
         console.warn(
-          "player_fish_paralyzed.png not found - using filters instead"
+          "player_fish_paralyzed-5.png not found - using filters instead"
         );
 
       const playerBorgyImg = new Image();
-      playerBorgyImg.src = "img/player_fish_chomp.png"; // You'll need to create this
+      playerBorgyImg.src = "img/player_fish_chippy-5.png"; // You'll need to create this
       playerBorgyImg.onerror = () =>
-        console.warn("player_fish_chomp.png not found - using filters instead");
+        console.warn(
+          "player_fish_chippy-5.png not found - using filters instead"
+        );
 
       const crabImg = new Image();
       crabImg.src = "img/crab-5.png";
@@ -761,6 +764,15 @@
         console.warn(
           "chip.png not found – enemies will keep their normal sprite"
         );
+
+      const pollyImg = new Image();
+      pollyImg.src = "img/polly-5.png"; // 35 × 35 fish («Polly»)
+
+      const pollyHelperImg = new Image();
+      pollyHelperImg.src = "img/polly-helper.png";
+
+      const playerPollyImg = new Image();
+      playerPollyImg.src = "img/player_fish_polly-5.png";
 
       /*********************   GAME VARIABLES   ****************************/
       let fishList = [],
@@ -793,8 +805,7 @@
       // <<< Polly power‑up globals & asset -------------------------------
       const POLLY_DURATION = 15; // seconds enemy stay frozen
       let pollyFreezeTime = 0; // counts down while active
-      const pollyImg = new Image();
-      pollyImg.src = "img/polly-5.png"; // 35 × 35 fish («Polly»)
+      let pollyHelper = null;
       // >>> ----------------------------------------------------------------
 
       /* --------------- NEW: Debounce state flag ---------------- */
@@ -1380,6 +1391,8 @@
             this.isSushi =
             this.isBorgy =
             this.isPuffer =
+            this.isPolly =
+            this.isPollyHelper =
               false;
           if (!isPlayer) {
             this.oscSpd = getRandom(0.005, 0.01);
@@ -1428,7 +1441,11 @@
           const ultra =
             this.isUltraFast || (this.isPlayer && playerIsPoweredUp);
           const boostRemaining =
-            borgyPowerUpTime > 0 ? borgyPowerUpTime : sushiPowerUpTime;
+            borgyPowerUpTime > 0
+              ? borgyPowerUpTime
+              : pollyFreezeTime > 0
+              ? pollyFreezeTime
+              : sushiPowerUpTime;
           const flickerActive =
             this.isPlayer && playerIsPoweredUp && boostRemaining <= 3;
 
@@ -1448,6 +1465,7 @@
             !this.isPlayer &&
             !this.isPolly && // ⬅️  NEW
             !this.isBorgy && // ⬅️  NEW (Chippy itself)
+            !this.isPollyHelper &&
             borgyPowerUpTime > 0 &&
             chipImg.complete &&
             chipImg.naturalWidth > 0
@@ -1477,6 +1495,13 @@
               sushiPowerUpTime > 0
             ) {
               imgToDraw = playerPoweredUpImg;
+              useFilter = false;
+            } else if (
+              playerPollyImg.complete &&
+              playerPollyImg.naturalWidth > 0 &&
+              pollyFreezeTime > 0
+            ) {
+              imgToDraw = playerPollyImg;
               useFilter = false;
             }
           }
@@ -1578,7 +1603,7 @@
             const osc =
               Math.sin(performance.now() * this.oscSpd + this.oscOff) *
               this.oscAmt;
-            if (!this.isJellyfish && !this.isCrab) {
+            if (!this.isJellyfish && !this.isCrab && !this.isPollyHelper) {
               this.speedX +=
                 this.accel *
                 Math.sign(this.speedX) *
@@ -1719,6 +1744,7 @@
             this.pauseTimeRemaining -= dt;
             if (this.pauseTimeRemaining <= 0) {
               this.pauseTimeRemaining = 0;
+              // thaw out frozen enemies
               const phase = Math.sin(performance.now() * this.oscS + this.oscO);
               this.baseX = this.x - phase * this.oscA;
               this.pulseCooldown = getRandom(5, 12);
@@ -1888,6 +1914,54 @@
       }
       // >>> ----------------------------------------------------------------
 
+      /* ---- PollyHelper ---- */
+      class PollyHelper extends Fish {
+        constructor(x, size) {
+          super(x, -size, 0, 0, pollyHelperImg, size, false);
+          this.isPollyHelper = true;
+          this.speed = 2.5;
+          this.timeAlive = 0;
+          this.remove = false;
+        }
+        update(dt) {
+          if (this.remove) return;
+          const df = dt * 60;
+          this.timeAlive += dt;
+          let minDist = Infinity;
+          let nearest = null;
+          for (const f of fishList) {
+            if (
+              f === this ||
+              f.isPlayer ||
+              f.isPollyHelper ||
+              f.remove ||
+              f.maxSide <= 0
+            )
+              continue;
+            const d = Math.hypot(f.x - this.x, f.y - this.y);
+            if (d < minDist) {
+              minDist = d;
+              nearest = f;
+            }
+          }
+          if (nearest) {
+            const myB = this.getBounds();
+            const eB = nearest.getBounds();
+            const dx = eB.centerX - myB.centerX;
+            const dy = eB.centerY - myB.centerY;
+            const dist = Math.hypot(dx, dy) || 1;
+            const s = this.speed;
+            this.x += (dx / dist) * s * df;
+            this.y += (dy / dist) * s * df;
+            this.speedX = dx > 0 ? 2 : -2;
+          }
+          if (this.width && this.height) {
+            this.x = Math.min(Math.max(0, this.x), WIDTH - this.width);
+            this.y = Math.min(Math.max(0, this.y), HEIGHT - this.height);
+          }
+        }
+      }
+
       /* ---- Bubble & Explosion ---- */
       class Bubble {
         constructor(baseX) {
@@ -2000,6 +2074,7 @@
         playerIsPoweredUp = false;
         playerParalyzeTime = 0;
         pollyFreezeTime = 0;
+        pollyHelper = null;
         joystick.active = false;
         spawnBubbleGroup();
         bubbleTimer = 0;
@@ -2056,6 +2131,12 @@
                 if (f.origSprite) f.sprite = f.origSprite;
               }
             });
+            if (pollyHelper) {
+              spawnExplosion(pollyHelper);
+              const idx = fishList.indexOf(pollyHelper);
+              if (idx !== -1) fishList.splice(idx, 1);
+              pollyHelper = null;
+            }
           }
         }
 
@@ -2166,6 +2247,7 @@
             }
             if (e instanceof ElectricJellyfish) e.update(dt);
             else if (e.isCrab) e.update(dt, player);
+            else if (e.isPollyHelper) e.update(dt);
             else e.update(dt);
           }
           e.createWaterTrail();
@@ -2183,6 +2265,7 @@
 
           /* collision with player */
           if (checkCollisionOval(player, e)) {
+            if (e.isPollyHelper) continue;
             /* --- Polly pickup ------------------------------------------ */
             if (e.isPolly) {
               score += 75;
@@ -2196,7 +2279,8 @@
                   !f.isSushi &&
                   !f.isCrab &&
                   !f.isFrozen &&
-                  !f.isBorgy
+                  !f.isBorgy &&
+                  !f.isPollyHelper
                 ) {
                   /* --- physics --- */
                   f.isFrozen = true;
@@ -2238,6 +2322,12 @@
                 size: e.maxSide,
                 ultra: false,
               });
+              if (!pollyHelper) {
+                const size = POLLY_HELPER_SIZE;
+                const x = getRandom(0, WIDTH - size);
+                pollyHelper = new PollyHelper(x, size);
+                fishList.push(pollyHelper);
+              }
               fishList.splice(i, 1);
               continue;
             }
@@ -2417,6 +2507,74 @@
           }
         }
 
+        /* Polly Helper collisions */
+        if (pollyHelper) {
+          for (let j = fishList.length - 1; j >= 0; j--) {
+            const e = fishList[j];
+            if (e === pollyHelper || e.isPlayer || e.isPollyHelper) continue;
+            if (checkCollisionOval(pollyHelper, e)) {
+              score += calculateFishScore(e.maxSide);
+              eatenEvents.push({
+                t: gameTimeMs,
+                idx: e.spawnIdx,
+                type: e.spawnType,
+                size: e.maxSide,
+                ultra: !!e.isUltraFast,
+              });
+              if (!(e.isJellyfish && !e.isElectric) && !e.isElectric) {
+                player.maxSide += Math.min(
+                  Math.sqrt(e.maxSide) * GROWTH_FACTOR,
+                  GROWTH_CAP
+                );
+                playEatSound();
+              }
+              if (e.isUltraFast) {
+                sushiPowerUpTime = SUSHI_DURATION;
+                playPowerUpSound();
+              }
+              player.width = player.height = null;
+              if (e.isBorgy) {
+                // helper ate a Chippy
+                borgyPowerUpTime = BORGY_DURATION;
+                playBorgyPowerUpSound();
+              } else if (e.isPolly) {
+                // helper ate another Polly
+                pollyFreezeTime = POLLY_DURATION;
+                playPollyPowerUpSound();
+
+                // re‑freeze (or keep frozen) all enemies
+                fishList.forEach((f) => {
+                  if (
+                    !f.isPlayer &&
+                    !f.isPolly &&
+                    !f.isCrab &&
+                    !f.isBorgy &&
+                    !f.isPollyHelper &&
+                    !f.isFrozen
+                  ) {
+                    f.isFrozen = true;
+                    f.origSpeedX = f.speedX;
+                    f.speedX = 0;
+                    f.origSpeedY = f.speedY;
+                    f.speedY = 0;
+                    f.origSprite = f.sprite;
+
+                    const frozen = new Image();
+                    frozen.src = (f.baseSprite?.src ?? "").replace(
+                      /\.png$/,
+                      "-frozen.png"
+                    );
+                    frozen.onerror = () =>
+                      (frozen.src = "img/fish-frozen-placeholder.png");
+                    f.sprite = frozen;
+                  }
+                });
+              }
+              fishList.splice(j, 1);
+            }
+          }
+        }
+
         if (score >= nextMilestone) {
           playAchvSound();
           resetRound();
@@ -2579,6 +2737,7 @@
         playerIsPoweredUp = false;
         playerParalyzeTime = 0;
         pollyFreezeTime = 0;
+        pollyHelper = null;
         clearKeys();
         joystick.active = false;
         spawnBubbleGroup();
@@ -2840,6 +2999,10 @@
           playerBorgyImg.onload = resolve;
           playerBorgyImg.onerror = resolve;
         }),
+        new Promise((resolve) => {
+          playerPollyImg.onload = resolve;
+          playerPollyImg.onerror = resolve;
+        }),
         ...fishTypes.map(
           ({ image }) =>
             new Promise((resolve) => {
@@ -2856,6 +3019,7 @@
         loadImage("img/pufferfish-5.png"),
         loadImage("img/chip-5.png"),
         loadImage("img/polly-5.png"),
+        loadImage("img/polly-helper.png"),
       ]).then(() => {
         resizeCanvas();
         (async function initialiseTeam() {
