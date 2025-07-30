@@ -736,6 +736,28 @@
         };
       });
 
+      const frozenPlaceholderImg = new Image();
+      frozenPlaceholderImg.src = "img/fish-frozen-placeholder.png";
+
+      // ── preload & cache «frozen» skins ────────────────────────────
+      fishTypes.forEach((ft) => {
+        // start with the placeholder so we always have *something*
+        ft.frozenSprite = frozenPlaceholderImg;
+
+        const customSrc = ft.image.src.replace(/\.png$/, "-frozen.png");
+        const custom = new Image();
+
+        // If the custom image loads, use it; otherwise keep the placeholder.
+        custom.onload = () => {
+          ft.frozenSprite = custom;
+        };
+        custom.onerror = () => {
+          /* leave placeholder in place */
+        };
+
+        custom.src = customSrc; // kicks off the request immediately
+      });
+
       const playerImg = new Image();
       playerImg.src = "img/player_fish-5.png";
 
@@ -788,6 +810,20 @@
 
       const playerPollyImg = new Image();
       playerPollyImg.src = "img/player_fish_polly-5.png";
+
+      // const frozenPlaceholderImg = new Image();
+      // frozenPlaceholderImg.src = "img/fish-frozen-placeholder.png";
+
+      // ── frozen versions ──────────────────────────────────────────────────────
+      const jellyfishFrozenImg = new Image();
+      jellyfishFrozenImg.src = "img/jellyfish-5-frozen.png";
+      jellyfishFrozenImg.onerror = () =>
+        (jellyfishFrozenImg.src = frozenPlaceholderImg.src);
+
+      const electricJellyFrozenImg = new Image();
+      electricJellyFrozenImg.src = "img/electric-jellyfish-5-frozen.png";
+      electricJellyFrozenImg.onerror = () =>
+        (electricJellyFrozenImg.src = frozenPlaceholderImg.src);
 
       /*********************   GAME VARIABLES   ****************************/
       let fishList = [],
@@ -1123,7 +1159,8 @@
         { kind: "electricJelly", weight: 0.0147 },
         // { kind: "sushi", weight: 0.0147 },
         { kind: "borgy", weight: 0.00735 },
-        { kind: "polly", weight: 0.00735 }, // <<< NEW
+        { kind: "polly", weight: 0.15735 }, // <<< NEW
+        // { kind: "polly", weight: 0.00735 }, // <<< NEW
         { kind: "puffer", weight: 0.0587 },
       ];
       const TOTAL_SPEC_WEIGHT = SPAWN_SPEC_WEIGHTS.reduce(
@@ -1227,6 +1264,7 @@
               "fish",
               idx
             );
+            fish.fishType = t;
             fish.isUltraFast = spec.ultra;
             fish.isFast = spec.fast;
             fishList.push(fish);
@@ -1732,6 +1770,7 @@
       class Jellyfish extends Fish {
         constructor(x, y, size) {
           super(x, y, 0, -1.2, jellyfishImg, size, false);
+          this.frozenSprite = jellyfishFrozenImg;
           this.isJellyfish = true;
           this.oscS = getRandom(0.0008, 0.0015);
           this.oscA = getRandom(10, 15);
@@ -1771,6 +1810,7 @@
       class ElectricJellyfish extends Jellyfish {
         constructor(x, y, size) {
           super(x, y, size);
+          this.frozenSprite = electricJellyFrozenImg;
           this.sprite = electricJellyfishImg;
           this.isElectric = true;
           this.pulseCooldown = getRandom(5, 12);
@@ -1912,6 +1952,7 @@
       class Pufferfish extends Fish {
         constructor(x, y, speedX, baseSize) {
           super(x, y, speedX, 0, pufferImg, baseSize, false);
+          this.frozenSprite = frozenPlaceholderImg;
           this.isPuffer = true;
           this.baseSize = baseSize;
           this.inflating = false;
@@ -2329,28 +2370,31 @@
                   /* --- remember what sprite to restore after thaw --- */
                   f.origSprite = f.sprite; // may be a <canvas>, that’s OK
 
-                  /* --- build the frozen skin safely --- */
-                  const imgForSrc =
-                    f.baseSprite instanceof HTMLImageElement
-                      ? f.baseSprite
-                      : null; // fallback if ever undefined
+                  // /* --- build the frozen skin safely --- */
+                  // const imgForSrc =
+                  //   f.baseSprite instanceof HTMLImageElement
+                  //     ? f.baseSprite
+                  //     : null; // fallback if ever undefined
 
-                  const frozenImg = new Image();
-                  if (imgForSrc && imgForSrc.src.endsWith(".png")) {
-                    frozenImg.src = imgForSrc.src.replace(
-                      /\.png$/,
-                      "-frozen.png"
-                    );
-                  } else {
-                    frozenImg.src = "img/fish-frozen-placeholder.png";
-                  }
-                  /* NEW: fallback if that -frozen file is 404 */
-                  frozenImg.onerror = () => {
-                    frozenImg.src = "img/fish-frozen-placeholder.png";
-                  };
+                  // const frozenImg = new Image();
+                  // if (imgForSrc && imgForSrc.src.endsWith(".png")) {
+                  //   frozenImg.src = imgForSrc.src.replace(
+                  //     /\.png$/,
+                  //     "-frozen.png"
+                  //   );
+                  // } else {
+                  //   frozenImg.src = "img/fish-frozen-placeholder.png";
+                  // }
+                  // /* NEW: fallback if that -frozen file is 404 */
+                  // frozenImg.onerror = () => {
+                  //   frozenImg.src = "img/fish-frozen-placeholder.png";
+                  // };
 
-                  f.frozenSprite = frozenImg;
-                  f.sprite = frozenImg;
+                  // f.frozenSprite = frozenImg;
+                  // f.sprite = frozenImg;
+                  /* swap to the pre‑cached frozen skin */
+                  const frozenSkin = f.frozenSprite || f.fishType?.frozenSprite;
+                  if (frozenSkin) f.sprite = frozenSkin;
                 }
               });
               eatenEvents.push({
