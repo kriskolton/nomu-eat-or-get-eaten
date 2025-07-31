@@ -2479,7 +2479,7 @@
               });
 
               // apply normal growth / side‑effects
-              if (e.isJellyfish && !e.isElectric) {
+              if (e.isJellyfish && !e.isElectric && borgyPowerUpTime <= 0) {
                 player.maxSide = Math.max(
                   player.maxSide * JELLY_SHRINK_FACTOR,
                   MIN_PLAYER_SIZE
@@ -2493,7 +2493,7 @@
                 playEatSound();
               }
 
-              if (e.isElectric) {
+              if (e.isElectric && borgyPowerUpTime <= 0) {
                 // frozen electric still shocks!
                 playerParalyzeTime = PARALYZE_DURATION;
                 playShockSound();
