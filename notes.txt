@@ -1,0 +1,15 @@
+Polly => Monke
+Chippy => Banana
+Serpent = Jellyfish top to bottom
+Frog => electric Jellyfish
+Pufferfish => 
+Crab => explorer Crab
+
+
+Bananas => ennemies become solo Banana
+cameleon, peroquet, toucant, spider, fish 1 to 4
+tiger: fish 5
+Gorilla => fish 6
+Snake goes from top to bottom (classic jelly)
+Poison frog is electric Jellyfish|
+Crab

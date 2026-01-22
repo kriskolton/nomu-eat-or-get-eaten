@@ -18,7 +18,6 @@ const {
   getHighScores,
   getUserScore,
   getActiveEventHighScores,
-  setTeam,
 } = require("./repositories/scoreRepository");
 
 const {
@@ -268,25 +267,6 @@ app.get(
   }
 );
 
-app.post(
-  "/api/score/team",
-  verifyTelegramData,
-  verifyApiPassword,
-  async (req, res) => {
-    const { id: userId, username } = req.telegramUser;
-    const { team } = req.body;
-
-    await setTeam(userId, username, team);
-
-    const score = await getUserScore(userId, activeEvent);
-    if (!score) {
-      return res.status(404).json({ error: "Error setting team" });
-    }
-
-    res.json(score);
-  }
-);
-
 // Submit a score (POST)
 // Protected only by Telegram signature
 app.post(
@@ -488,7 +468,7 @@ function setupBotCommands() {
 
     await sendMessageWithErrorHandling(
       chatId,
-      `Welcome to Nomu: Eat or Get Eaten ${activeEvent} ⚔️\n\n` +
+      `Welcome to Nomu: Eat or Get Eaten ${activeEvent} 🌴\n\n` +
         `Eat smaller fish to grow bigger, but watch out for bigger ones!\n\n` +
         `Use the buttons below to:`,
       messageThreadId,
@@ -559,39 +539,8 @@ function setupBotCommands() {
         highScores.forEach((s, i) => {
           const rawDisplayName = s.firstName || s.username || String(s.userId);
           const displayName = decodeHtmlEntities(rawDisplayName);
-          const teamSuffix = s.team ? ` | ${s.team.toUpperCase()}` : "";
-
-          message += `${i + 1}. ${displayName}${teamSuffix}: ${s.highScore}\n`;
+          message += `${i + 1}. ${displayName}: ${s.highScore}\n`;
         });
-
-        /* 6️⃣  Add team leaderboard */
-        // Get all scores for the active event to calculate team totals
-        const allScores = await getHighScores(1000, activeEvent); // Get a large number to include all players
-
-        // Calculate team totals (highscores only)
-        const teamTotals = {};
-        allScores.forEach((score) => {
-          if (score.team && score.highScore) {
-            if (!teamTotals[score.team]) {
-              teamTotals[score.team] = 0;
-            }
-            teamTotals[score.team] += score.highScore;
-          }
-        });
-
-        // Sort teams by total points and get top 3
-        const sortedTeams = Object.entries(teamTotals)
-          .sort(([, a], [, b]) => b - a)
-          .slice(0, 3);
-
-        if (sortedTeams.length > 0) {
-          message += `\n🏆 Team Rankings 🏆\n\n`;
-          const medals = ["🥇", "🥈", "🥉"];
-          sortedTeams.forEach(([team, total], i) => {
-            const medal = medals[i] || `${i + 1}.`;
-            message += `${medal} ${team.toUpperCase()}: ${total}\n`;
-          });
-        }
 
         await sendMessageWithErrorHandling(chatId, message, messageThreadId);
       } else if (cbq.data === "mystats") {

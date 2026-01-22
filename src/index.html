@@ -14,7 +14,7 @@
       name="viewport"
       content="width=device-width, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Nomu: Eat or Get Eaten (Season 5): Community Showdown ⚔️</title>
+    <title>Nomu: Eat or Get Eaten (Season 6): Jungle Adventure 🌴</title>
 
     <!-- ----------------------------------------------------------------- -->
     <!--                       FONTS & AUDIO ASSETS                         -->
@@ -49,7 +49,7 @@
         width: 100%;
         position: relative;
         overflow: hidden;
-        background: #222 url("img/bg5-2.png") center/cover no-repeat;
+        background: #222 url("img/bg6-2.png") center/cover no-repeat;
         display: flex;
         margin: 0 auto;
         max-width: 430px;
@@ -98,7 +98,7 @@
       .overlay {
         position: absolute;
         inset: 0;
-        background: rgba(0, 10, 30, 0.8);
+        background: rgba(0, 30, 15, 0.8);
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -156,7 +156,7 @@
       <div id="startScreen" class="overlay hidden">
         <div style="max-width: 90%; margin: 0 auto; text-align: center">
           <img
-            src="img/title.png"
+            src="img/title-6.png"
             alt="Eat or Get Eaten"
             style="
               max-width: 50%;
@@ -177,7 +177,7 @@
               letter-spacing: 2px;
             "
           >
-            SEASON 5: COMMUNITY SHOWDOWN ⚔️
+            SEASON 6: JUNGLE ADVENTURE 🌴
           </p>
           <p
             style="
@@ -189,7 +189,7 @@
               right: 6px;
             "
           >
-            v5.2
+            v6.0
           </p>
 
           <div
@@ -242,52 +242,6 @@
           </button>
         </div>
       </div>
-
-      <!-- ─────────────────── TEAM‑SELECT OVERLAY ─────────────────── -->
-      <div id="teamScreen" class="overlay hidden">
-        <div style="max-width: 90%; margin: 0 auto; text-align: center">
-          <img
-            src="img/title.png"
-            alt="Eat or Get Eaten"
-            style="
-              max-width: 55%;
-              height: auto;
-              padding: 12px;
-              max-height: 30vh;
-            "
-          />
-          <p
-            style="
-              font-size: 22px;
-              font-family: 'Londrina Solid', sans-serif;
-              letter-spacing: 1px;
-              color: #fff;
-              margin-top: 4px;
-            "
-          >
-            CHOOSE&nbsp;YOUR&nbsp;TEAM
-          </p>
-
-          <button class="teamBtn" data-team="Nomu" style="background: #f78719">
-            🐡 Team Nomu</button
-          ><br />
-          <button class="teamBtn" data-team="Polly" style="background: #4b74ff">
-            🐧 Team Polly</button
-          ><br />
-          <button
-            class="teamBtn"
-            data-team="Chippy"
-            style="background: #03b0b0"
-          >
-            🐟 Team Chippy</button
-          ><br />
-
-          <p style="font-size: 12px; color: #fffa">
-            *You can’t change this later
-          </p>
-        </div>
-      </div>
-      <!-- ─────────────────── /TEAM‑SELECT OVERLAY ─────────────────── -->
 
       <!-- ---------- Game-over overlay ---------- -->
       <div id="gameOverScreen" class="overlay hidden" style="width: 100%">
@@ -378,12 +332,6 @@
       const urlParams = new URLSearchParams(window.location.search);
       const forceDev = urlParams.has("dev");
 
-      // ─── TEAM‑SELECT CONSTS ───────────────────────────────────────
-      const VALID_TEAMS = ["Nomu", "Polly", "Chippy"];
-      let userTeam = null; // populated after /api/score call
-      const teamScreen = document.getElementById("teamScreen");
-      // ───────────────────────────────────────────────────────────────
-
       let tg, userData, userId, initDataRaw;
       try {
         tg = window.Telegram.WebApp;
@@ -449,7 +397,6 @@
       const SUSHI_DURATION = 10;
       const BORGY_DURATION = 15;
       const BORGY_SPEED_MULT = 3;
-      const POLLY_SPEED_MULT = 2;
 
       // Spawn schedule (server-verifiable)
       const spawnSchedule = []; // { idx, spawnTime (s), spec }
@@ -635,7 +582,7 @@
           player.x = Math.min(Math.max(0, player.x), WIDTH - player.width);
           player.y = Math.min(Math.max(0, player.y), HEIGHT - player.height);
         }
-        [...fishList, ...bubbles].forEach((ent) => {
+        fishList.forEach((ent) => {
           if (ent.width == null || ent.height == null) {
             if (typeof ent.calculateDimensions === "function") {
               ent.calculateDimensions();
@@ -718,12 +665,12 @@
 
       /*********************   IMAGES & SPRITES   ***************************/
       const fishTypeDefinitions = [
-        { src: "img/fish1-5.png", minSize: 10, maxSize: 40, weight: 0.432 },
-        { src: "img/fish2-5.png", minSize: 20, maxSize: 60, weight: 0.252 },
-        { src: "img/fish3-5.png", minSize: 25, maxSize: 80, weight: 0.2 },
-        { src: "img/fish4-5.png", minSize: 35, maxSize: 100, weight: 0.1 },
-        { src: "img/fish5-5.png", minSize: 200, maxSize: 300, weight: 0.013 },
-        { src: "img/fish6-5.png", minSize: 400, maxSize: 500, weight: 0.003 },
+        { src: "img/fish1-6.png", minSize: 10, maxSize: 40, weight: 0.432 },
+        { src: "img/fish2-6.png", minSize: 20, maxSize: 60, weight: 0.252 },
+        { src: "img/fish3-6.png", minSize: 25, maxSize: 80, weight: 0.2 },
+        { src: "img/fish4-6.png", minSize: 35, maxSize: 100, weight: 0.1 },
+        { src: "img/fish5-6.png", minSize: 200, maxSize: 300, weight: 0.013 },
+        { src: "img/fish6-6.png", minSize: 400, maxSize: 500, weight: 0.003 },
       ];
       const fishTypes = fishTypeDefinitions.map((def) => {
         const image = new Image();
@@ -759,7 +706,7 @@
       });
 
       const playerImg = new Image();
-      playerImg.src = "img/player_fish-5.png";
+      playerImg.src = "img/player_fish-6.png";
 
       // NEW: Additional player sprites for different states
       const playerPoweredUpImg = new Image();
@@ -770,46 +717,46 @@
         );
 
       const playerParalyzedImg = new Image();
-      playerParalyzedImg.src = "img/player_fish_paralyzed-5.png"; // You'll need to create this
+      playerParalyzedImg.src = "img/player_fish_paralyzed-6.png"; // You'll need to create this
       playerParalyzedImg.onerror = () =>
         console.warn(
           "player_fish_paralyzed-5.png not found - using filters instead"
         );
 
       const playerBorgyImg = new Image();
-      playerBorgyImg.src = "img/player_fish_chippy-5.png"; // You'll need to create this
+      playerBorgyImg.src = "img/player_fish_chippy-6.png"; // You'll need to create this
       playerBorgyImg.onerror = () =>
         console.warn(
           "player_fish_chippy-5.png not found - using filters instead"
         );
 
       const crabImg = new Image();
-      crabImg.src = "img/crab-5.png";
+      crabImg.src = "img/crab-6.png";
       const jellyfishImg = new Image();
-      jellyfishImg.src = "img/jellyfish-5.png";
+      jellyfishImg.src = "img/jellyfish-6.png";
       const electricJellyfishImg = new Image();
-      electricJellyfishImg.src = "img/electric-jellyfish-5.png";
+      electricJellyfishImg.src = "img/electric-jellyfish-6.png";
       const sushiImg = new Image();
       sushiImg.src = "img/sushi.png";
       const pufferImg = new Image();
-      pufferImg.src = "img/pufferfish-5.png";
+      pufferImg.src = "img/pufferfish-6.png";
       const borgyImg = new Image();
-      borgyImg.src = "img/chippy-5.png";
+      borgyImg.src = "img/chippy-6.png";
       const chipImg = new Image();
-      chipImg.src = "img/chip-5.png";
+      chipImg.src = "img/chip-6.png";
       chipImg.onerror = () =>
         console.warn(
           "chip.png not found – enemies will keep their normal sprite"
         );
 
       const pollyImg = new Image();
-      pollyImg.src = "img/polly-5.png"; // 35 × 35 fish («Polly»)
+      pollyImg.src = "img/polly-6.png"; // 35 × 35 fish («Polly»)
 
       const pollyHelperImg = new Image();
-      pollyHelperImg.src = "img/polly-helper.png";
+      pollyHelperImg.src = "img/polly-6.png";
 
       const playerPollyImg = new Image();
-      playerPollyImg.src = "img/player_fish_polly-5.png";
+      playerPollyImg.src = "img/player_fish_polly-6.png";
 
       // const frozenPlaceholderImg = new Image();
       // frozenPlaceholderImg.src = "img/fish-frozen-placeholder.png";
@@ -831,8 +778,7 @@
         nextMilestone = 100000,
         player,
         touchTarget = null;
-      let bubbles = [],
-        waterTrails = [],
+      let waterTrails = [],
         explosions = [];
       let gameTime = 0, // seconds
         gameTimeMs = 0; // milliseconds
@@ -854,8 +800,8 @@
       let playerIsPoweredUp = false;
 
       // <<< Polly power‑up globals & asset -------------------------------
-      const POLLY_DURATION = 15; // seconds enemy stay frozen
-      let pollyFreezeTime = 0; // counts down while active
+      const POLLY_DURATION = 15; // seconds helper stays active
+      let pollyFreezeTime = 0; // helper timer
       let pollyHelper = null;
       // >>> ----------------------------------------------------------------
 
@@ -878,10 +824,16 @@
           src: ["sounds/borgy-powerup.mp3"],
           volume: 0.3,
         }),
-        borgySpawn: new Howl({ src: ["sounds/chippy-spawn.mp3"], volume: 0.3 }),
-        pollySpawn: new Howl({ src: ["sounds/polly-spawn.mp3"], volume: 0.3 }),
+        borgySpawn: new Howl({
+          src: ["sounds/chippy-spawn-6.mp3"],
+          volume: 0.3,
+        }),
+        pollySpawn: new Howl({
+          src: ["sounds/polly-spawn-6.mp3"],
+          volume: 0.3,
+        }),
         pollyPowerUp: new Howl({
-          src: ["sounds/polly-powerup.mp3"],
+          src: ["sounds/polly-powerup-6.mp3"],
           volume: 0.3,
         }),
         achievement: new Howl({ src: ["sounds/achievement.mp3"], volume: 0.5 }),
@@ -1284,7 +1236,7 @@
             const size = spec.size;
             fishList.push(
               tagEntity(
-                new Jellyfish(getRandom(0, WIDTH - size), HEIGHT + size, size),
+                new Jellyfish(getRandom(0, WIDTH - size), -size, size),
                 "jelly",
                 idx
               )
@@ -1389,16 +1341,24 @@
       /*********************    CLASS DEFINITIONS  *************************/
       /* ---- WaterTrail ---- */
       class WaterTrail {
-        constructor(x, y, dir, fishSize, isUltra = false, colorRGB = null) {
+        constructor(
+          x,
+          y,
+          dir,
+          fishSize,
+          isUltra = false,
+          colorRGB = null,
+          isVertical = false
+        ) {
           this.x = x;
           this.y = y;
-          this.size = getRandom(
-            Math.min(8, Math.max(2, fishSize * 0.1)) * 0.8,
-            Math.min(8, Math.max(2, fishSize * 0.1)) * 1.2
-          );
+          const base = Math.min(12, Math.max(3, fishSize * 0.08));
+          this.length = base * getRandom(2.5, 4);
+          this.thickness = Math.max(1, base * 0.25);
           this.life = 1;
           this.fadeSpeed = getRandom(0.02, 0.04);
           this.dir = dir;
+          this.isVertical = isVertical;
           this.offsetX = getRandom(-3, 3);
           this.offsetY = getRandom(-3, 3);
           this.isUltra = isUltra;
@@ -1408,7 +1368,11 @@
         }
         update(dt) {
           this.life -= this.fadeSpeed * dt * 60;
-          this.x += this.dir * 0.5 * dt * 60;
+          if (this.isVertical) {
+            this.y += this.dir * 0.5 * dt * 60;
+          } else {
+            this.x += this.dir * 0.5 * dt * 60;
+          }
           if (this.isUltra) this.hue = (this.hue + this.hueSpeed) % 360;
         }
         draw(c) {
@@ -1417,32 +1381,27 @@
           if (
             !Number.isFinite(this.x) ||
             !Number.isFinite(this.y) ||
-            !Number.isFinite(this.size)
+            !Number.isFinite(this.length) ||
+            !Number.isFinite(this.thickness)
           )
             return;
+          const cx = this.x + this.offsetX;
+          const cy = this.y + this.offsetY;
+          const half = this.length * 0.5;
           c.beginPath();
-          c.arc(
-            this.x + this.offsetX,
-            this.y + this.offsetY,
-            this.size,
-            0,
-            Math.PI * 2
-          );
-
-          if (this.isUltra) {
-            c.fillStyle = `hsla(${this.hue},100%,50%,${this.life * 0.3})`;
-            c.shadowBlur = 10;
-            c.shadowColor = `hsla(${this.hue},100%,50%,${this.life * 0.3})`;
-          } else if (this.colorRGB) {
-            const { r, g, b } = this.colorRGB;
-            c.fillStyle = `rgba(${r},${g},${b},${this.life * 0.3})`;
-            c.shadowBlur = 6;
-            c.shadowColor = `rgba(${r},${g},${b},${this.life * 0.3})`;
+          if (this.isVertical) {
+            c.moveTo(cx, cy - half);
+            c.lineTo(cx, cy + half);
           } else {
-            c.fillStyle = `rgba(255,255,255,${this.life * 0.05})`;
-            c.shadowBlur = 0;
+            c.moveTo(cx - half, cy);
+            c.lineTo(cx + half, cy);
           }
-          c.fill();
+
+          c.strokeStyle = `rgba(255,255,255,${this.life * 0.15})`;
+          c.shadowBlur = 0;
+          c.lineWidth = this.thickness;
+          c.lineCap = "round";
+          c.stroke();
           c.shadowBlur = 0;
         }
       }
@@ -1517,11 +1476,7 @@
           const ultra =
             this.isUltraFast || (this.isPlayer && playerIsPoweredUp);
           const boostRemaining =
-            borgyPowerUpTime > 0
-              ? borgyPowerUpTime
-              : pollyFreezeTime > 0
-              ? pollyFreezeTime
-              : sushiPowerUpTime;
+            borgyPowerUpTime > 0 ? borgyPowerUpTime : sushiPowerUpTime;
           const flickerActive =
             this.isPlayer && playerIsPoweredUp && boostRemaining <= 3;
 
@@ -1579,13 +1534,6 @@
               sushiPowerUpTime > 0
             ) {
               imgToDraw = playerPoweredUpImg;
-              useFilter = false;
-            } else if (
-              playerPollyImg.complete &&
-              playerPollyImg.naturalWidth > 0 &&
-              pollyFreezeTime > 0
-            ) {
-              imgToDraw = playerPollyImg;
               useFilter = false;
             }
           }
@@ -1669,7 +1617,6 @@
           if (this.isPlayer) {
             let speedMult = 1;
             if (borgyPowerUpTime > 0) speedMult = BORGY_SPEED_MULT;
-            else if (pollyFreezeTime > 0) speedMult = POLLY_SPEED_MULT;
             this.maxSpd = this.baseMaxSpd * speedMult;
 
             const f = Math.pow(this.friction, df);
@@ -1797,28 +1744,38 @@
           this.oscO = Rand() * Math.PI * 2;
           this.baseX = x;
           this.vSpeed = getRandom(0.5, 1.2);
+          this.verticalDir = 1; // regular jellyfish move top -> bottom
         }
         update(dt) {
           const df = dt * 60;
-          this.y -= this.vSpeed * df;
+          this.y += this.vSpeed * df * this.verticalDir;
           this.x =
             this.baseX +
             Math.sin(performance.now() * this.oscS + this.oscO) * this.oscA;
-          if (this.y + this.height < -50) this.maxSide = 0;
+          const h = this.height ?? this.maxSide;
+          if (this.verticalDir < 0) {
+            if (this.y + h < -50) this.maxSide = 0;
+          } else {
+            if (this.y > HEIGHT + 50) this.maxSide = 0;
+          }
         }
         createWaterTrail() {
           if (!this.width || !this.height) return;
           const now = performance.now();
           if (now - this.lastTrailTime < 80) return;
           this.lastTrailTime = now;
+          const movingDown = this.verticalDir >= 0;
+          const trailDir = movingDown ? -1 : 1;
+          const trailY = movingDown ? this.y : this.y + this.height;
           waterTrails.push(
             new WaterTrail(
               this.x + this.width / 2,
-              this.y + this.height,
-              0,
+              trailY,
+              trailDir,
               this.maxSide * 0.4,
               false,
-              { r: 120, g: 0, b: 0 }
+              { r: 120, g: 0, b: 0 },
+              true
             )
           );
           if (waterTrails.length > MAX_WATER_TRAILS)
@@ -1833,6 +1790,7 @@
           this.frozenSprite = electricJellyFrozenImg;
           this.sprite = electricJellyfishImg;
           this.isElectric = true;
+          this.verticalDir = -1; // electric jellyfish move bottom -> top
           this.pulseCooldown = getRandom(5, 12);
           this.pauseTimeRemaining = 0;
           this.pulseRadius = size * 2.3;
@@ -1912,14 +1870,18 @@
           const now = performance.now();
           if (now - this.lastTrailTime < 80) return;
           this.lastTrailTime = now;
+          const movingDown = this.verticalDir >= 0;
+          const trailDir = movingDown ? -1 : 1;
+          const trailY = movingDown ? this.y : this.y + this.height;
           waterTrails.push(
             new WaterTrail(
               this.x + this.width / 2,
-              this.y + this.height,
-              0,
+              trailY,
+              trailDir,
               this.maxSide * 0.4,
               false,
-              { r: 255, g: 255, b: 0 }
+              { r: 255, g: 255, b: 0 },
+              true
             )
           );
           if (waterTrails.length > MAX_WATER_TRAILS)
@@ -2002,7 +1964,7 @@
         }
       }
 
-      /* ---- Polly (freeze power‑up) ---- */
+      /* ---- Polly (helper power‑up) ---- */
       // <<< add directly after Borgy / Pufferfish classes ---------------
       class Polly extends Fish {
         constructor(x, y, speedX) {
@@ -2061,35 +2023,7 @@
         }
       }
 
-      /* ---- Bubble & Explosion ---- */
-      class Bubble {
-        constructor(baseX) {
-          this.baseX = baseX;
-          this.x = this.baseX + getRandom(-10, 10);
-          this.y = HEIGHT + 20;
-          this.size = getRandom(3, 8);
-          this.speed = getRandom(2, 3.5);
-          this.opacity = getRandom(0.2, 0.4);
-          this.wobbleAmount = getRandom(0.1, 0.3);
-          this.wobbleSpeed = getRandom(0.02, 0.05);
-          this.wobbleOffset = Rand() * Math.PI * 2;
-        }
-        update(dt) {
-          this.y -= this.speed * dt * 60;
-          this.x +=
-            Math.sin(this.wobbleOffset + performance.now() * this.wobbleSpeed) *
-            this.wobbleAmount *
-            dt *
-            60;
-        }
-        draw(c) {
-          c.beginPath();
-          c.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-          c.fillStyle = `rgba(255,255,255,${this.opacity})`;
-          c.fill();
-        }
-      }
-
+      /* ---- Explosion ---- */
       class Explosion {
         constructor(x, y, size) {
           this.x = x;
@@ -2148,19 +2082,9 @@
         }
       }
 
-      /* Bubble helper */
-      function spawnBubbleGroup() {
-        const n = Math.floor(getRandom(3, 6));
-        const baseX = getRandom(50, WIDTH - 50);
-        for (let i = 0; i < n; i++) bubbles.push(new Bubble(baseX));
-      }
-      let bubbleTimer = 0;
-      const BUBBLE_INTERVAL = 20;
-
       /*********************     RESET ROUND (size)     *********************/
       function resetRound() {
         fishList = [];
-        bubbles = [];
         waterTrails = [];
         explosions = [];
         player.maxSide = 25;
@@ -2175,8 +2099,6 @@
         pollyFreezeTime = 0;
         pollyHelper = null;
         joystick.active = false;
-        spawnBubbleGroup();
-        bubbleTimer = 0;
       }
 
       /*********************      GAME LOOP LOGIC      *********************/
@@ -2216,21 +2138,11 @@
         gameTime += dt;
         gameTimeMs = Math.round(gameTime * 1000);
 
-        /* Polly timer --------------------------------------------------- */
+        /* Polly helper timer ------------------------------------------- */
         if (pollyFreezeTime > 0) {
           pollyFreezeTime -= dt;
           if (pollyFreezeTime <= 0) {
             pollyFreezeTime = 0;
-            // thaw out frozen enemies
-            fishList.forEach((f) => {
-              if (f.isFrozen) {
-                f.isFrozen = false;
-                f.speedX = f.origSpeedX;
-                f.speedY = f.origSpeedY;
-                if (f.origSprite) f.sprite = f.origSprite;
-                f.drawFullHeight = false;
-              }
-            });
             if (pollyHelper) {
               spawnExplosion(pollyHelper);
               const idx = fishList.indexOf(pollyHelper);
@@ -2249,8 +2161,7 @@
           borgyPowerUpTime -= dt;
           if (borgyPowerUpTime <= 0) borgyPowerUpTime = 0;
         }
-        // playerIsPoweredUp = sushiPowerUpTime > 0 || borgyPowerUpTime > 0;
-        playerIsPoweredUp = pollyFreezeTime > 0 || borgyPowerUpTime > 0;
+        playerIsPoweredUp = sushiPowerUpTime > 0 || borgyPowerUpTime > 0;
 
         /* status decrement */
         if (playerParalyzeTime > 0) {
@@ -2260,17 +2171,6 @@
 
         /* spawn processing */
         processScheduledSpawns();
-
-        /* bubbles */
-        for (let i = bubbles.length - 1; i >= 0; i--) {
-          bubbles[i].update(dt);
-          if (bubbles[i].y < -20) bubbles.splice(i, 1);
-        }
-        bubbleTimer += dt;
-        if (bubbleTimer >= BUBBLE_INTERVAL) {
-          spawnBubbleGroup();
-          bubbleTimer = 0;
-        }
 
         /* water trails */
         for (let i = waterTrails.length - 1; i >= 0; i--) {
@@ -2283,12 +2183,7 @@
 
         /* player input */
         const canMove = playerParalyzeTime <= 0;
-        const accelMult =
-          borgyPowerUpTime > 0
-            ? BORGY_SPEED_MULT
-            : pollyFreezeTime > 0
-            ? POLLY_SPEED_MULT
-            : 1;
+        const accelMult = borgyPowerUpTime > 0 ? BORGY_SPEED_MULT : 1;
 
         const a = player.accel * accelMult * dt * 60;
 
@@ -2337,7 +2232,7 @@
         /* enemies & pickups */
         for (let i = fishList.length - 1; i >= 0; i--) {
           const e = fishList[i];
-          /* honour freeze ------------------------------------------------ */
+          /* honour frozen enemies (if any) ------------------------------- */
           if (!e.isPlayer && e.isFrozen) {
             // skip movement & AI – but still let player collide with it
           } else {
@@ -2369,56 +2264,8 @@
             /* --- Polly pickup ------------------------------------------ */
             if (e.isPolly) {
               score += 75;
-              pollyFreezeTime = POLLY_DURATION;
+              pollyFreezeTime = POLLY_DURATION; // helper active timer
               playPollyPowerUpSound();
-
-              // freeze every enemy now on screen
-              fishList.forEach((f) => {
-                if (
-                  !f.isPolly &&
-                  !f.isSushi &&
-                  !f.isCrab &&
-                  !f.isFrozen &&
-                  !f.isBorgy &&
-                  !f.isPollyHelper
-                ) {
-                  /* --- physics --- */
-                  f.isFrozen = true;
-                  f.origSpeedX = f.speedX;
-                  f.origSpeedY = f.speedY;
-                  f.speedX = f.speedY = 0;
-
-                  /* --- remember what sprite to restore after thaw --- */
-                  f.origSprite = f.sprite; // may be a <canvas>, that’s OK
-
-                  // /* --- build the frozen skin safely --- */
-                  // const imgForSrc =
-                  //   f.baseSprite instanceof HTMLImageElement
-                  //     ? f.baseSprite
-                  //     : null; // fallback if ever undefined
-
-                  // const frozenImg = new Image();
-                  // if (imgForSrc && imgForSrc.src.endsWith(".png")) {
-                  //   frozenImg.src = imgForSrc.src.replace(
-                  //     /\.png$/,
-                  //     "-frozen.png"
-                  //   );
-                  // } else {
-                  //   frozenImg.src = "img/fish-frozen-placeholder.png";
-                  // }
-                  // /* NEW: fallback if that -frozen file is 404 */
-                  // frozenImg.onerror = () => {
-                  //   frozenImg.src = "img/fish-frozen-placeholder.png";
-                  // };
-
-                  // f.frozenSprite = frozenImg;
-                  // f.sprite = frozenImg;
-                  /* swap to the pre‑cached frozen skin */
-                  const frozenSkin = f.frozenSprite || f.fishType?.frozenSprite;
-                  if (frozenSkin) f.sprite = frozenSkin;
-                  f.drawFullHeight = true;
-                }
-              });
               eatenEvents.push({
                 t: gameTimeMs,
                 idx: e.spawnIdx,
@@ -2652,36 +2499,8 @@
                 playBorgyPowerUpSound();
               } else if (e.isPolly) {
                 // helper ate another Polly
-                pollyFreezeTime = POLLY_DURATION;
+                pollyFreezeTime = POLLY_DURATION; // helper active timer
                 playPollyPowerUpSound();
-
-                // re‑freeze (or keep frozen) all enemies
-                fishList.forEach((f) => {
-                  if (
-                    !f.isPlayer &&
-                    !f.isPolly &&
-                    !f.isCrab &&
-                    !f.isBorgy &&
-                    !f.isPollyHelper &&
-                    !f.isFrozen
-                  ) {
-                    f.isFrozen = true;
-                    f.origSpeedX = f.speedX;
-                    f.speedX = 0;
-                    f.origSpeedY = f.speedY;
-                    f.speedY = 0;
-                    f.origSprite = f.sprite;
-
-                    const frozen = new Image();
-                    frozen.src = (f.baseSprite?.src ?? "").replace(
-                      /\.png$/,
-                      "-frozen.png"
-                    );
-                    frozen.onerror = () =>
-                      (frozen.src = "img/fish-frozen-placeholder.png");
-                    f.sprite = frozen;
-                  }
-                });
               }
               fishList.splice(j, 1);
             }
@@ -2700,7 +2519,6 @@
       let cachedScoreText = "";
       function renderGame() {
         ctx.clearRect(0, 0, WIDTH, HEIGHT);
-        bubbles.forEach((b) => b.draw(ctx));
         waterTrails.forEach((t) => t.draw(ctx));
         if (player && !(isGameOver && pendingGameOver)) player.draw(ctx);
         fishList.forEach((f) => f.draw(ctx));
@@ -2763,7 +2581,7 @@
           y +=
             drawTextWithBg(
               ctx,
-              `Freeze: ${pollyFreezeTime.toFixed(1)}s`,
+              `Helper: ${pollyFreezeTime.toFixed(1)}s`,
               20,
               y,
               {
@@ -2842,7 +2660,6 @@
         pendingGameOver = false;
         fishList = [];
         explosions = [];
-        bubbles = [];
         waterTrails = [];
         player = new Fish(WIDTH / 2, HEIGHT / 2, 0, 0, playerImg, 25, true);
         sushiPowerUpTime = 0;
@@ -2853,8 +2670,6 @@
         pollyHelper = null;
         clearKeys();
         joystick.active = false;
-        spawnBubbleGroup();
-        bubbleTimer = 0;
         updateMusicButtons();
         updateSfxButtons();
         updateJoystickButtons();
@@ -2877,11 +2692,6 @@
 
       /* ---- Start Game ---- */
       async function startNewRun() {
-        if (!VALID_TEAMS.includes(userTeam)) {
-          alert("Please pick a team first!");
-          return;
-        }
-
         if (startInProgress) return;
         startInProgress = true;
         startBtn.disabled = true;
@@ -3064,41 +2874,9 @@
         }
       });
 
-      // ─── TEAM‑SELECT HANDLERS ─────────────────────────────────────
-      teamScreen.addEventListener("click", async (e) => {
-        const btn = e.target.closest(".teamBtn");
-        if (!btn) return;
-
-        const chosen = btn.dataset.team;
-        if (!VALID_TEAMS.includes(chosen)) return;
-
-        btn.disabled = true; // optimistic UX
-        try {
-          // Only one chance – backend should reject changes later
-          const resp = await fetch("/api/score/team", {
-            method: "POST", // or PUT – match your API
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `tma ${initDataRaw}`,
-              "x-api-password": getApiPassword(),
-            },
-            body: JSON.stringify({ team: chosen }),
-          });
-          if (!resp.ok) throw new Error(await resp.text());
-          userTeam = chosen;
-          teamScreen.classList.add("hidden");
-          showStartScreen();
-        } catch (err) {
-          console.error(err);
-          alert("Couldn’t save team – try again?");
-          btn.disabled = false;
-        }
-      });
-      // ───────────────────────────────────────────────────────────────
-
       /*********************    PRELOAD & BOOT     **************************/
       Promise.all([
-        loadImage("img/player_fish-5.png"),
+        loadImage("img/player_fish-6.png"),
         // These are optional - game will fall back to filters if they don't exist
         new Promise((resolve) => {
           playerPoweredUpImg.onload = resolve;
@@ -3135,32 +2913,9 @@
         loadImage("img/polly-helper.png"),
       ]).then(() => {
         resizeCanvas();
-        (async function initialiseTeam() {
-          try {
-            const scoreResp = await fetch("/api/score", {
-              method: "GET",
-              headers: {
-                Authorization: `tma ${initDataRaw}`,
-                "x-api-password": getApiPassword(),
-              },
-            });
-            if (!scoreResp.ok) throw new Error("score fetch failed");
-            const scoreDoc = await scoreResp.json();
-            userTeam = scoreDoc?.team ?? null;
-          } catch (e) {
-            console.error(e);
-            userTeam = null; // fall back
-          }
-
-          /* NEW — dismiss the loader */
-          document.getElementById("loadingScreen").classList.add("hidden");
-
-          if (!VALID_TEAMS.includes(userTeam)) {
-            teamScreen.classList.remove("hidden"); // show picker
-          } else {
-            showStartScreen(); // carry on
-          }
-        })();
+        /* Dismiss the loader and go straight to the start screen */
+        document.getElementById("loadingScreen").classList.add("hidden");
+        showStartScreen();
         let audioStarted = false;
         function kickAudio() {
           if (!audioStarted) {

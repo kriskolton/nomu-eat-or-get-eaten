@@ -1,5 +1,5 @@
 const config = {
-  activeEvent: "Community Showdown",
+  activeEvent: "Season 6",
 };
 
 module.exports = config;
