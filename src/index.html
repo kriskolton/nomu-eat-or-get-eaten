@@ -189,7 +189,7 @@
               right: 6px;
             "
           >
-            v6.1
+            v6.2
           </p>
 
           <div
@@ -797,6 +797,13 @@
         console.warn(
           "chip.png not found – enemies will keep their normal sprite"
         );
+      const chipJellyImg = new Image();
+      chipJellyImg.src = "img/chip-jelly-6.png";
+      chipJellyImg.onerror = () => {
+        chipJellyImg.onerror = null;
+        console.warn("chip-jelly-6.png not found - falling back to chip-6.png");
+        chipJellyImg.src = chipImg.src;
+      };
 
       const pollyImg = new Image();
       pollyImg.src = "img/polly-6.png"; // 35 × 35 fish («Polly»)
@@ -825,6 +832,7 @@
       let fishList = [],
         score = 0,
         nextMilestone = 100000,
+        enemySpeedMultiplier = 1,
         player,
         touchTarget = null;
       let waterTrails = [],
@@ -1252,7 +1260,8 @@
             const extraMult = (Math.max(score - 1000, 0) / 99000) * 0.25; // linear 0 → 0.25 → …
 
             // ③ Total multiplier
-            let spd = spec.baseSpeed * (baseMult + extraMult);
+            let spd =
+              spec.baseSpeed * (baseMult + extraMult) * enemySpeedMultiplier;
 
             // keep the existing “fast / ultra” modifiers & direction
             if (spec.ultra) spd *= 5;
@@ -1331,7 +1340,8 @@
             const fromLeft = spec.fromLeft;
             const x = fromLeft ? -baseSize : WIDTH;
             const y = getRandom(0, HEIGHT - baseSize);
-            const spd = getRandom(0.2, 1.2) * (fromLeft ? 1 : -1);
+            const spd =
+              getRandom(0.2, 1.2) * enemySpeedMultiplier * (fromLeft ? 1 : -1);
             fishList.push(
               tagEntity(new Pufferfish(x, y, spd, baseSize), "puffer", idx)
             );
@@ -1541,23 +1551,30 @@
           let useFilter = true; // Whether to apply CSS filters
 
           /* Enemy re‑skin while Borgy power‑up is active */
+          const isJellyTarget = this.isJellyfish || this.isElectric;
+          const chipSprite =
+            isJellyTarget &&
+            chipJellyImg.complete &&
+            chipJellyImg.naturalWidth > 0
+              ? chipJellyImg
+              : chipImg;
           if (
             !this.isPlayer &&
             !this.isPolly && // ⬅️  NEW
             !this.isBorgy && // ⬅️  NEW (Chippy itself)
             !this.isPollyHelper &&
             borgyPowerUpTime > 0 &&
-            chipImg.complete &&
-            chipImg.naturalWidth > 0
+            chipSprite.complete &&
+            chipSprite.naturalWidth > 0
           ) {
-            imgToDraw = chipImg;
+            imgToDraw = chipSprite;
             useFilter = false; // no colour tweaks on Chip sprite
             this.drawFullHeight = true;
           } else {
             // when the potion is gone, go back to normal drawing
             // Power‑up ended: clear the flag *only* for the Chip skin itself.
             // Frozen sprites (or anything else) keep their own setting.
-            if (this.sprite === chipImg) {
+            if (this.sprite === chipImg || this.sprite === chipJellyImg) {
               this.drawFullHeight = false;
             }
           }
@@ -1752,7 +1769,7 @@
           if (this.remove) return;
           const df = dt * 60;
           if (!this.entered) {
-            this.y -= 2 * df;
+            this.y -= 2 * enemySpeedMultiplier * df;
             if (this.y + this.height <= HEIGHT) this.entered = true;
             return;
           }
@@ -1767,7 +1784,7 @@
           const dx = p.centerX - c.centerX,
             dy = p.centerY - c.centerY,
             dist = Math.hypot(dx, dy) || 1;
-          const s = 1.5;
+          const s = 1.5 * enemySpeedMultiplier;
           if (c.radiusX > p.radiusX) {
             this.x += (dx / dist) * s * df;
             this.y += (dy / dist) * s * df;
@@ -1792,7 +1809,7 @@
           this.oscA = getRandom(10, 15);
           this.oscO = Rand() * Math.PI * 2;
           this.baseX = x;
-          this.vSpeed = getRandom(0.5, 1.2);
+          this.vSpeed = getRandom(0.5, 1.2) * enemySpeedMultiplier;
           this.verticalDir = 1; // regular jellyfish move top -> bottom
         }
         update(dt) {
@@ -2046,6 +2063,20 @@
               f.isPollyHelper ||
               f.remove ||
               f.maxSide <= 0
+            )
+              continue;
+            if (f.width == null || f.height == null) {
+              if (typeof f.calculateDimensions === "function") {
+                f.calculateDimensions();
+              }
+            }
+            const fWidth = f.width ?? f.maxSide;
+            const fHeight = f.height ?? f.maxSide;
+            if (
+              f.x + fWidth < 0 ||
+              f.x > WIDTH ||
+              f.y + fHeight < 0 ||
+              f.y > HEIGHT
             )
               continue;
             const d = Math.hypot(f.x - this.x, f.y - this.y);
@@ -2558,8 +2589,9 @@
 
         if (score >= nextMilestone) {
           playAchvSound();
-          resetRound();
           const diff = Math.floor((score - nextMilestone) / 100000) + 1;
+          enemySpeedMultiplier *= Math.pow(1.5, diff);
+          resetRound();
           nextMilestone += diff * 100000;
         }
       }
@@ -2601,12 +2633,12 @@
           y +=
             drawTextWithBg(
               ctx,
-              `Banana Potion: ${borgyPowerUpTime.toFixed(1)}s`,
+              `Banana Power-Up: ${borgyPowerUpTime.toFixed(1)}s`,
               20,
               y,
               {
-                bgColor: "rgba(1, 60, 60, 0.72)", // dark teal
-                textColor: "#03b0b0",
+                bgColor: "rgba(60, 50, 0, 0.72)", // dark yellow
+                textColor: "#ffe066",
                 font: ctx.font,
               }
             ) + 4;
@@ -2634,8 +2666,8 @@
               20,
               y,
               {
-                bgColor: "rgba(0,40,80,0.72)",
-                textColor: "#9cf",
+                bgColor: "rgba(0, 60, 30, 0.72)",
+                textColor: "#7dff9a",
                 font: ctx.font,
               }
             ) + 4;
@@ -2703,6 +2735,7 @@
         resizeCanvas();
         score = 0;
         nextMilestone = 100000;
+        enemySpeedMultiplier = 1;
         gameTime = 0;
         gameTimeMs = 0;
         isGameOver = false;
@@ -2995,6 +3028,7 @@
         loadImage("img/chippy-6.png"),
         loadImage("img/pufferfish-6.png"),
         loadImage("img/chip-6.png"),
+        loadImage("img/chip-jelly-6.png"),
         loadImage("img/polly-6.png"),
         loadImage("img/polly-helper.png"),
       ]).then(() => {
