@@ -232,14 +232,14 @@ async function getUserScore(userId, eventName) {
  *
  * @param {string} userId – unique player ID
  * @param {string} username – display name (required for new documents)
- * @param {string} team – team name (must be "Nomu", "Polly", or "Chippy")
+ * @param {string} team – team name (must be "MonkeDAO" or "Nomu")
  * @returns {Promise<object>} – the updated score document
  */
 async function setTeam(userId, username, team) {
   await initDB();
 
   // Validate team parameter
-  const validTeams = ["Nomu", "Polly", "Chippy"];
+  const validTeams = ["MonkeDAO", "Nomu"];
   if (!validTeams.includes(team)) {
     throw new Error(`Invalid team. Must be one of: ${validTeams.join(", ")}`);
   }
