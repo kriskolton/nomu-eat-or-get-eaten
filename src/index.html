@@ -909,12 +909,12 @@
       let playerParalyzeTime = 0;
       let playerParalyzeCause = null; // "electric" | "rock" | null
       const PARALYZE_DURATION = 3;
-      const EATING_LEEWAY = 1.18;
+      const EATING_LEEWAY = 1.3;
       const JELLY_SHRINK_FACTOR = 0.6;
       const SNAKE_VINE_DROP_DURATION = 0.5;
       const SNAKE_VINE_FALL_ACCEL = 1800;
       const SNAKE_VINE_FALL_DRAG = 0.985;
-      const SNAKE_VINE_COLOR = "rgba(26, 78, 38, 0.95)";
+      const SNAKE_VINE_COLOR = "rgba(18, 58, 32, 0.92)";
       const MIN_PLAYER_SIZE = 25;
       const GROWTH_FACTOR = 0.04; // ↓ smaller than the old 0.05 means slower growth
       const GROWTH_CAP = 1.5; // (optional) lower the absolute cap too
@@ -1243,15 +1243,18 @@
         const controlY = midY + state.bendY;
         c.save();
         c.lineCap = "round";
-        c.strokeStyle = "rgba(60, 220, 100, 0.85)";
-        c.lineWidth = 3;
+        c.shadowBlur = 6;
+        c.shadowColor = "rgba(0, 0, 0, 0.25)";
+        c.strokeStyle = "rgba(22, 110, 62, 0.85)";
+        c.lineWidth = 3.2;
         c.beginPath();
         c.moveTo(topX, topY);
         c.quadraticCurveTo(controlX, controlY, anchorX, anchorY);
         c.stroke();
 
-        c.strokeStyle = "rgba(120, 255, 160, 0.7)";
-        c.lineWidth = 1.2;
+        c.shadowBlur = 0;
+        c.strokeStyle = "rgba(70, 165, 115, 0.55)";
+        c.lineWidth = 1.1;
         c.beginPath();
         c.moveTo(topX + 1, topY);
         c.quadraticCurveTo(controlX + 1.5, controlY, anchorX + 0.5, anchorY);
@@ -2064,7 +2067,7 @@
             const w = this.width ?? this.maxSide;
             const h = this.height ?? this.maxSide;
             const lineX = this.x + w / 2;
-            const lineEndY = this.y + h * 0.1;
+            const lineEndY = this.y + h * 0.35;
             c.save();
             c.strokeStyle = "rgba(255,255,255,0.7)";
             c.lineWidth = 1;
@@ -2314,12 +2317,26 @@
             Math.sin((now / 1000) * this.vineCurveSpeed + this.vineSwayPhase) *
               curveAmp;
           c.save();
-          c.strokeStyle = SNAKE_VINE_COLOR;
-          c.lineWidth = 3;
           c.lineCap = "round";
-          c.beginPath();
-          c.moveTo(vineX, startY);
-          c.quadraticCurveTo(curveX, midY, vineX, endY);
+          const drawVinePath = () => {
+            c.beginPath();
+            c.moveTo(vineX, startY);
+            c.quadraticCurveTo(curveX, midY, vineX, endY);
+          };
+          c.shadowBlur = 8;
+          c.shadowColor = "rgba(0, 0, 0, 0.3)";
+          c.strokeStyle = "rgba(10, 36, 20, 0.75)";
+          c.lineWidth = 5;
+          drawVinePath();
+          c.stroke();
+          c.shadowBlur = 0;
+          c.strokeStyle = SNAKE_VINE_COLOR;
+          c.lineWidth = 3.2;
+          drawVinePath();
+          c.stroke();
+          c.strokeStyle = "rgba(90, 170, 120, 0.35)";
+          c.lineWidth = 1.2;
+          drawVinePath();
           c.stroke();
           c.restore();
           if (!this.hideBody) {
@@ -3249,8 +3266,8 @@
 
         if (isJoystickEnabled && joystick.active) {
           ctx.save();
-          ctx.globalAlpha = 0.4;
-          ctx.fillStyle = "#ffffff22";
+          ctx.globalAlpha = 0.75;
+          ctx.fillStyle = "#ffffff33";
           ctx.beginPath();
           ctx.arc(
             joystick.baseX,
@@ -3260,7 +3277,10 @@
             Math.PI * 2
           );
           ctx.fill();
-          ctx.fillStyle = "#ffffff88";
+          ctx.strokeStyle = "#ffffffaa";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.fillStyle = "#ffffffcc";
           ctx.beginPath();
           ctx.arc(
             joystick.stickX,
@@ -3270,6 +3290,9 @@
             Math.PI * 2
           );
           ctx.fill();
+          ctx.strokeStyle = "#ffffffdd";
+          ctx.lineWidth = 2;
+          ctx.stroke();
           ctx.restore();
         }
 
