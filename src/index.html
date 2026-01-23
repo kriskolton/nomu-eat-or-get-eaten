@@ -14,7 +14,7 @@
       name="viewport"
       content="width=device-width, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Nomu: Eat or Get Eaten (Season 6): Jungle Adventure 🌴</title>
+    <title>Nomu: Eat or Get Eaten (Season 6): Nomu vs MonkeDAO 🌴</title>
 
     <!-- ----------------------------------------------------------------- -->
     <!--                       FONTS & AUDIO ASSETS                         -->
@@ -177,7 +177,7 @@
               letter-spacing: 2px;
             "
           >
-            SEASON 6: JUNGLE ADVENTURE 🌴
+            SEASON 6: NOMU VS MONKEDAO 🌴
           </p>
           <p
             style="
@@ -189,7 +189,7 @@
               right: 6px;
             "
           >
-            v6.2
+            v7.0
           </p>
 
           <div
@@ -378,6 +378,7 @@
       // ─── TEAM‑SELECT CONSTS ───────────────────────────────────────
       const VALID_TEAMS = ["MonkeDAO", "Nomu"];
       let userTeam = null; // populated after /api/score call
+      let usingMonkeSprites = false;
       const teamScreen = document.getElementById("teamScreen");
       // ───────────────────────────────────────────────────────────────
 
@@ -435,12 +436,23 @@
       /* ---------------------- NEW LIMITING CONSTANTS --------------------- */
       const MAX_WATER_TRAILS = 1500;
       const MAX_EXPLOSIONS = 100;
+      const MAX_ROCKS = 80;
       const RETAIN_SCHEDULE_ENTRIES = 1000;
 
       // Guest character constants
       const CHIPPY_SIZE = 90; // 45 × 2
       const POLLY_SIZE = 70; // 35 × 2
       const POLLY_HELPER_SIZE = 70;
+
+      // Gorilla + rocks
+      const GORILLA_SIZE = 120;
+      const ROCK_MIN_SIZE = 22;
+      const ROCK_MAX_SIZE = 40;
+      const ROCK_MIN_SPEED = 1.6;
+      const ROCK_MAX_SPEED = 3.0;
+      const GORILLA_THROW_MIN = 3.5;
+      const GORILLA_THROW_MAX = 6.5;
+      const GORILLA_RISE_SPEED = 1.4;
 
       // Power-up constants
       const SUSHI_DURATION = 10;
@@ -593,7 +605,7 @@
             body: JSON.stringify({
               score,
               gameTime: gameTimeMs, // existing
-              event: "Season 6",
+              event: "Nomu vs MonkeDAO",
               eaten,
               sessionId,
 
@@ -718,7 +730,14 @@
         { src: "img/fish2-6.png", minSize: 20, maxSize: 60, weight: 0.252 },
         { src: "img/fish3-6.png", minSize: 25, maxSize: 80, weight: 0.2 },
         { src: "img/fish4-6.png", minSize: 35, maxSize: 100, weight: 0.1 },
-        { src: "img/fish5-6.png", minSize: 200, maxSize: 300, weight: 0.013 },
+        {
+          src: "img/fish5-6.png",
+          minSize: 200,
+          maxSize: 300,
+          weight: 0.013,
+          vines: true,
+          useChipJellySprite: true,
+        },
         { src: "img/fish6-6.png", minSize: 400, maxSize: 500, weight: 0.003 },
       ];
       const fishTypes = fishTypeDefinitions.map((def) => {
@@ -729,6 +748,8 @@
           minSize: def.minSize,
           maxSize: def.maxSize,
           weight: def.weight,
+          vines: !!def.vines,
+          useChipJellySprite: !!def.useChipJellySprite,
         };
       });
 
@@ -755,36 +776,42 @@
       });
 
       const playerImg = new Image();
-      playerImg.src = "img/player_fish-6.png";
 
       // NEW: Additional player sprites for different states
       const playerPoweredUpImg = new Image();
-      playerPoweredUpImg.src = "img/player_fish_powered.png"; // You'll need to create this
       playerPoweredUpImg.onerror = () =>
         console.warn(
-          "player_fish_powered.png not found - using filters instead"
+          `${playerPoweredUpImg.src} not found - using filters instead`
         );
 
       const playerParalyzedImg = new Image();
-      playerParalyzedImg.src = "img/player_fish_paralyzed-6.png"; // You'll need to create this
       playerParalyzedImg.onerror = () =>
         console.warn(
-          "player_fish_paralyzed-5.png not found - using filters instead"
+          `${playerParalyzedImg.src} not found - using filters instead`
         );
 
       const playerBorgyImg = new Image();
-      playerBorgyImg.src = "img/player_fish_chippy-6.png"; // You'll need to create this
       playerBorgyImg.onerror = () =>
-        console.warn(
-          "player_fish_chippy-5.png not found - using filters instead"
-        );
+        console.warn(`${playerBorgyImg.src} not found - using filters instead`);
 
       const crabImg = new Image();
       crabImg.src = "img/crab-6.png";
+      const gorillaImg = new Image();
+      gorillaImg.src = "img/gorilla-6.png";
+      gorillaImg.onerror = () =>
+        console.warn("gorilla-6.png not found - gorilla will be invisible");
+      const rockImg = new Image();
+      rockImg.src = "img/rock-6.png";
+      rockImg.onerror = () =>
+        console.warn("rock-6.png not found - rocks will be invisible");
       const jellyfishImg = new Image();
-      jellyfishImg.src = "img/jellyfish-6.png";
+      jellyfishImg.src = "img/jellyfish-6-2.png";
       const electricJellyfishImg = new Image();
-      electricJellyfishImg.src = "img/electric-jellyfish-6.png";
+      electricJellyfishImg.src = "img/electric-jellyfish-6-2.png";
+      const snakeImg = new Image();
+      snakeImg.src = "img/snake-6.png";
+      snakeImg.onerror = () =>
+        console.warn("snake-6.png not found - snake will be invisible");
       const sushiImg = new Image();
       sushiImg.src = "img/sushi.png";
       const pufferImg = new Image();
@@ -812,7 +839,40 @@
       pollyHelperImg.src = "img/polly-6.png";
 
       const playerPollyImg = new Image();
-      playerPollyImg.src = "img/player_fish_polly-6.png";
+      playerPollyImg.onerror = () =>
+        console.warn(`${playerPollyImg.src} not found - using filters instead`);
+
+      const PLAYER_SPRITE_SETS = {
+        nomu: {
+          base: "img/player_fish-6.png",
+          powered: "img/player_fish_powered.png",
+          paralyzed: "img/player_fish_paralyzed-6.png",
+          borgy: "img/player_fish_chippy-6.png",
+          polly: "img/player_fish_polly-6.png",
+        },
+        monke: {
+          base: "img/player_fish_monkedao-6.png",
+          powered: "img/player_fish_monkedao_powered.png",
+          paralyzed: "img/player_fish_monkedao_paralyzed-6.png",
+          borgy: "img/player_fish_monkedao_chippy-6.png",
+          polly: "img/player_fish_monkedao_polly-6.png",
+        },
+      };
+
+      function applyPlayerSpriteSet(team) {
+        const useMonke = team === "MonkeDAO";
+        usingMonkeSprites = useMonke;
+        const set = useMonke
+          ? PLAYER_SPRITE_SETS.monke
+          : PLAYER_SPRITE_SETS.nomu;
+        playerImg.src = set.base;
+        playerPoweredUpImg.src = set.powered;
+        playerParalyzedImg.src = set.paralyzed;
+        playerBorgyImg.src = set.borgy;
+        playerPollyImg.src = set.polly;
+      }
+
+      applyPlayerSpriteSet(userTeam);
 
       // const frozenPlaceholderImg = new Image();
       // frozenPlaceholderImg.src = "img/fish-frozen-placeholder.png";
@@ -836,7 +896,8 @@
         player,
         touchTarget = null;
       let waterTrails = [],
-        explosions = [];
+        explosions = [],
+        rocks = [];
       let gameTime = 0, // seconds
         gameTimeMs = 0; // milliseconds
 
@@ -846,9 +907,14 @@
 
       /* Status effects */
       let playerParalyzeTime = 0;
+      let playerParalyzeCause = null; // "electric" | "rock" | null
       const PARALYZE_DURATION = 3;
       const EATING_LEEWAY = 1.18;
       const JELLY_SHRINK_FACTOR = 0.6;
+      const SNAKE_VINE_DROP_DURATION = 0.5;
+      const SNAKE_VINE_FALL_ACCEL = 1800;
+      const SNAKE_VINE_FALL_DRAG = 0.985;
+      const SNAKE_VINE_COLOR = "rgba(26, 78, 38, 0.95)";
       const MIN_PLAYER_SIZE = 25;
       const GROWTH_FACTOR = 0.04; // ↓ smaller than the old 0.05 means slower growth
       const GROWTH_CAP = 1.5; // (optional) lower the absolute cap too
@@ -1044,6 +1110,159 @@
         return height;
       }
 
+      const jetpackState = {
+        driftX: 0,
+        driftY: 1,
+        particles: [],
+        lastEmitAt: 0,
+        lastUpdateAt: 0,
+      };
+      const vineStates = new WeakMap();
+
+      function getVineState(entity) {
+        if (!entity) return null;
+        let state = vineStates.get(entity);
+        if (!state) {
+          state = { bendX: 0, bendY: 0 };
+          vineStates.set(entity, state);
+        }
+        return state;
+      }
+
+      function getEntityVelocity(entity) {
+        let vx = 0;
+        let vy = 0;
+        if (Number.isFinite(entity.vx)) vx = entity.vx;
+        else if (Number.isFinite(entity.speedX)) vx = entity.speedX;
+        if (Number.isFinite(entity.vy)) vy = entity.vy;
+        else if (Number.isFinite(entity.speedY)) vy = entity.speedY;
+        return { vx, vy };
+      }
+
+      function drawPlayerJetpack(c, p) {
+        if (!p) return;
+        if (p.width == null || p.height == null) p.calculateDimensions();
+        const w = p.width ?? p.maxSide;
+        const h = p.height ?? p.maxSide;
+        const baseX = p.x + w / 2;
+        const baseY = p.y + h;
+        const vx = Number.isFinite(p.vx) ? p.vx : 0;
+        const vy = Number.isFinite(p.vy) ? p.vy : 0;
+        const speed = Math.hypot(vx, vy);
+
+        const targetDriftX = -vx * 0.8;
+        const targetDriftY = 1 - vy * 0.15;
+        jetpackState.driftX += (targetDriftX - jetpackState.driftX) * 0.12;
+        jetpackState.driftY += (targetDriftY - jetpackState.driftY) * 0.12;
+
+        let dirX = jetpackState.driftX;
+        let dirY = jetpackState.driftY;
+        const mag = Math.hypot(dirX, dirY) || 1;
+        dirX /= mag;
+        dirY /= mag;
+
+        const now = performance.now();
+        const lastUpdateAt = jetpackState.lastUpdateAt || now;
+        const dt = Math.min(0.05, (now - lastUpdateAt) / 1000);
+        jetpackState.lastUpdateAt = now;
+
+        const side = Math.max(3, w * 0.12);
+        const perpX = -dirY;
+        const perpY = dirX;
+        const emissionRate = 140 + speed * 8; // particles per second
+        const emitInterval = 1000 / emissionRate;
+        if (!jetpackState.lastEmitAt) jetpackState.lastEmitAt = now;
+
+        while (now - jetpackState.lastEmitAt >= emitInterval) {
+          jetpackState.lastEmitAt += emitInterval;
+          for (const sideDir of [-1, 1]) {
+            const startX = baseX + perpX * side * sideDir;
+            const startY = baseY + perpY * side * sideDir;
+            const spread = 0.2;
+            const jitter = (Math.random() - 0.5) * spread;
+            const jitterX = dirX * Math.cos(jitter) - dirY * Math.sin(jitter);
+            const jitterY = dirX * Math.sin(jitter) + dirY * Math.cos(jitter);
+            const speedPx = 120 + Math.random() * 70 + speed * 6;
+            const size = 1.5 + Math.random() * 2.5;
+            const ttl = 0.35 + Math.random() * 0.2;
+            jetpackState.particles.push({
+              x: startX,
+              y: startY,
+              vx: jitterX * speedPx,
+              vy: jitterY * speedPx,
+              life: ttl,
+              ttl,
+              size,
+            });
+          }
+        }
+
+        for (let i = jetpackState.particles.length - 1; i >= 0; i--) {
+          const pfx = jetpackState.particles[i];
+          pfx.life -= dt;
+          if (pfx.life <= 0) {
+            jetpackState.particles.splice(i, 1);
+            continue;
+          }
+          pfx.x += pfx.vx * dt;
+          pfx.y += pfx.vy * dt;
+        }
+
+        if (jetpackState.particles.length > 400) {
+          jetpackState.particles.splice(0, jetpackState.particles.length - 400);
+        }
+
+        c.save();
+        for (const pfx of jetpackState.particles) {
+          const alpha = Math.max(0, pfx.life / pfx.ttl);
+          c.fillStyle = `rgba(220,235,255,${alpha * 0.7})`;
+          c.beginPath();
+          c.arc(pfx.x, pfx.y, pfx.size, 0, Math.PI * 2);
+          c.fill();
+        }
+        c.restore();
+      }
+
+      function drawEntityVine(c, p) {
+        if (!p) return;
+        if (p.width == null || p.height == null) p.calculateDimensions();
+        const w = p.width ?? p.maxSide;
+        const anchorX = p.x + w / 2;
+        const anchorY = p.y;
+        const topY = -60;
+        const topX = anchorX + Math.sin(performance.now() / 700) * 5;
+        const { vx, vy } = getEntityVelocity(p);
+        const state = getVineState(p);
+        const targetBendX = -vx * 6;
+        const targetBendY = -vy * 2;
+        state.bendX += (targetBendX - state.bendX) * 0.1;
+        state.bendY += (targetBendY - state.bendY) * 0.1;
+
+        const midY = topY + (anchorY - topY) * 0.5;
+        const controlX = anchorX + state.bendX;
+        const controlY = midY + state.bendY;
+        c.save();
+        c.lineCap = "round";
+        c.strokeStyle = "rgba(60, 220, 100, 0.85)";
+        c.lineWidth = 3;
+        c.beginPath();
+        c.moveTo(topX, topY);
+        c.quadraticCurveTo(controlX, controlY, anchorX, anchorY);
+        c.stroke();
+
+        c.strokeStyle = "rgba(120, 255, 160, 0.7)";
+        c.lineWidth = 1.2;
+        c.beginPath();
+        c.moveTo(topX + 1, topY);
+        c.quadraticCurveTo(controlX + 1.5, controlY, anchorX + 0.5, anchorY);
+        c.stroke();
+        c.restore();
+      }
+
+      function drawPlayerVine(c, p) {
+        drawEntityVine(c, p);
+      }
+
       const __tintCache = Object.create(null);
       /**
        * Returns a cached <canvas> with the sprite recoloured.
@@ -1143,6 +1362,13 @@
         return arr[arr.length - 1];
       }
 
+      function getRockSpeed(size) {
+        const t =
+          (size - ROCK_MIN_SIZE) / Math.max(ROCK_MAX_SIZE - ROCK_MIN_SIZE, 1);
+        const clamped = Math.max(0, Math.min(1, t));
+        return ROCK_MAX_SPEED - clamped * (ROCK_MAX_SPEED - ROCK_MIN_SPEED);
+      }
+
       function tagEntity(ent, type, manualIdx = null) {
         ent.spawnIdx = manualIdx !== null ? manualIdx : globalSpawnIdx++;
         ent.spawnType = type;
@@ -1164,12 +1390,13 @@
       const SPAWN_SPEC_WEIGHTS = [
         { kind: "fish", weight: 0.881 },
         { kind: "crab", weight: 0.00147 },
+        { kind: "gorilla", weight: 0.002 },
         { kind: "jelly", weight: 0.0294 },
-        { kind: "electricJelly", weight: 0.0147 },
+        { kind: "snake", weight: 0.0147 },
         // { kind: "sushi", weight: 0.0147 },
         { kind: "borgy", weight: 0.00735 },
         { kind: "polly", weight: 0.00735 }, // <<< NEW
-        { kind: "puffer", weight: 0.0587 },
+        { kind: "puffer", weight: 0 }, // disabled: keep code, stop spawning
       ];
       const TOTAL_SPEC_WEIGHT = SPAWN_SPEC_WEIGHTS.reduce(
         (s, w) => s + w.weight,
@@ -1191,10 +1418,12 @@
             return generateFishSpec();
           case "crab":
             return { kind: "crab", size: getSpecRandom(50, 120) };
+          case "gorilla":
+            return { kind: "gorilla", size: GORILLA_SIZE };
           case "jelly":
             return { kind: "jelly", size: getSpecRandom(30, 80) };
-          case "electricJelly":
-            return { kind: "electricJelly", size: getSpecRandom(40, 90) };
+          case "snake":
+            return { kind: "snake", size: getSpecRandom(40, 90) };
           case "sushi":
             return { kind: "sushi", fromLeft: specRand() < 0.5 };
           case "borgy":
@@ -1276,6 +1505,8 @@
             fish.fishType = t;
             fish.isUltraFast = spec.ultra;
             fish.isFast = spec.fast;
+            fish.isVineSwinging = !!t.vines;
+            fish.useChipJellySprite = !!t.useChipJellySprite;
             fishList.push(fish);
             break;
           }
@@ -1290,6 +1521,17 @@
             );
             break;
           }
+          case "gorilla": {
+            const size = spec.size ?? GORILLA_SIZE;
+            const maxX = Math.max(0, WIDTH - size);
+            const x = getRandom(0, maxX);
+            const targetY = Math.max(0, HEIGHT - size);
+            const y = HEIGHT + size;
+            fishList.push(
+              tagEntity(new Gorilla(x, y, size, targetY), "gorilla", idx)
+            );
+            break;
+          }
           case "jelly": {
             const size = spec.size;
             fishList.push(
@@ -1301,16 +1543,12 @@
             );
             break;
           }
-          case "electricJelly": {
+          case "snake": {
             const size = spec.size;
             fishList.push(
               tagEntity(
-                new ElectricJellyfish(
-                  getRandom(0, WIDTH - size),
-                  HEIGHT + size,
-                  size
-                ),
-                "elecJelly",
+                new Snake(getRandom(0, WIDTH - size), HEIGHT + size, size),
+                "snake",
                 idx
               )
             );
@@ -1375,12 +1613,16 @@
           const isEnemy =
             spec.kind !== "sushi" &&
             spec.kind !== "borgy" &&
-            spec.kind !== "crab";
+            spec.kind !== "crab" &&
+            spec.kind !== "gorilla";
           if (isEnemy && fishList.length >= maxEnemies) {
             nextScheduleIdx++;
             continue;
           }
-          if (spec.kind === "crab" && score < 2000) {
+          if (
+            (spec.kind === "crab" || spec.kind === "gorilla") &&
+            score < 2000
+          ) {
             nextScheduleIdx++;
             continue;
           }
@@ -1486,6 +1728,7 @@
             this.isPuffer =
             this.isPolly =
             this.isPollyHelper =
+            this.isGorilla =
               false;
           this.drawFullHeight = false;
           if (!isPlayer) {
@@ -1551,7 +1794,8 @@
           let useFilter = true; // Whether to apply CSS filters
 
           /* Enemy re‑skin while Borgy power‑up is active */
-          const isJellyTarget = this.isJellyfish || this.isElectric;
+          const isJellyTarget =
+            this.isJellyfish || this.isElectric || this.useChipJellySprite;
           const chipSprite =
             isJellyTarget &&
             chipJellyImg.complete &&
@@ -1563,6 +1807,7 @@
             !this.isPolly && // ⬅️  NEW
             !this.isBorgy && // ⬅️  NEW (Chippy itself)
             !this.isPollyHelper &&
+            !this.isGorilla &&
             borgyPowerUpTime > 0 &&
             chipSprite.complete &&
             chipSprite.naturalWidth > 0
@@ -1812,6 +2057,25 @@
           this.vSpeed = getRandom(0.5, 1.2) * enemySpeedMultiplier;
           this.verticalDir = 1; // regular jellyfish move top -> bottom
         }
+        draw(c) {
+          if (!this.isElectric) {
+            if (this.width == null || this.height == null)
+              this.calculateDimensions();
+            const w = this.width ?? this.maxSide;
+            const h = this.height ?? this.maxSide;
+            const lineX = this.x + w / 2;
+            const lineEndY = this.y + h * 0.1;
+            c.save();
+            c.strokeStyle = "rgba(255,255,255,0.7)";
+            c.lineWidth = 1;
+            c.beginPath();
+            c.moveTo(lineX, -10);
+            c.lineTo(lineX, lineEndY);
+            c.stroke();
+            c.restore();
+          }
+          super.draw(c);
+        }
         update(dt) {
           const df = dt * 60;
           this.y += this.vSpeed * df * this.verticalDir;
@@ -1891,6 +2155,7 @@
           const dist = Math.hypot(dx, dy);
           if (dist <= this.pulseRadius && borgyPowerUpTime <= 0) {
             playerParalyzeTime = PARALYZE_DURATION;
+            playerParalyzeCause = "electric";
             playShockSound();
           }
         }
@@ -1952,6 +2217,118 @@
           );
           if (waterTrails.length > MAX_WATER_TRAILS)
             waterTrails.splice(0, waterTrails.length - MAX_WATER_TRAILS);
+        }
+      }
+
+      /* ---- Snake ---- */
+      class Snake extends Jellyfish {
+        constructor(x, y, size) {
+          super(x, y, size);
+          this.sprite = snakeImg;
+          this.frozenSprite = frozenPlaceholderImg;
+          this.isSnake = true;
+          this.isElectric = false;
+          this.verticalDir = -1; // climb up
+          this.vineBaseX = x + size / 2;
+          this.vineX = this.vineBaseX;
+          this.vineProgress = 0;
+          this.vineFalling = false;
+          this.vineFallOffset = 0;
+          this.vineFallVelocity = 0;
+          this.hideBody = false;
+          this.noCollision = false;
+          this.vineSwayPhase = Rand() * Math.PI * 2;
+          this.vineSwaySpeed = getRandom(0.6, 1.1);
+          this.vineSwayAmp = getRandom(1.5, 4.5);
+          this.vineCurveSpeed = this.vineSwaySpeed * getRandom(0.8, 1.3);
+          this.vineCurveAmp = getRandom(4, 10);
+        }
+        getVineX(now = performance.now()) {
+          const t = now / 1000;
+          return (
+            this.vineBaseX +
+            Math.sin(t * this.vineSwaySpeed + this.vineSwayPhase) *
+              this.vineSwayAmp
+          );
+        }
+        startVineFall() {
+          if (this.vineFalling) return;
+          this.vineFalling = true;
+          this.vineProgress = 1;
+          this.vineFallOffset = 0;
+          this.vineFallVelocity = 0;
+          this.hideBody = true;
+          this.noCollision = true;
+        }
+        update(dt) {
+          if (this.vineFalling) {
+            this.vineFallVelocity += SNAKE_VINE_FALL_ACCEL * dt;
+            this.vineFallVelocity *= Math.pow(SNAKE_VINE_FALL_DRAG, dt * 60);
+            this.vineFallOffset += this.vineFallVelocity * dt;
+            if (this.vineFallOffset > HEIGHT + 80) {
+              this.remove = true;
+            }
+            return;
+          }
+          if (this.vineProgress < 1) {
+            this.vineProgress = Math.min(
+              1,
+              this.vineProgress + dt / SNAKE_VINE_DROP_DURATION
+            );
+            if (this.vineProgress < 1) return;
+          }
+          const df = dt * 60;
+          this.y += this.vSpeed * df * this.verticalDir;
+          if (this.width == null || this.height == null) {
+            this.calculateDimensions();
+          }
+          this.vineX = this.getVineX();
+          const w = this.width ?? this.maxSide;
+          this.x = this.vineX - w / 2;
+          const h = this.height ?? this.maxSide;
+          if (this.verticalDir < 0) {
+            if (this.y + h < -50) this.startVineFall();
+          } else {
+            if (this.y > HEIGHT + 50) this.startVineFall();
+          }
+        }
+        draw(c) {
+          if (this.width == null || this.height == null)
+            this.calculateDimensions();
+          const now = performance.now();
+          const vineX = Number.isFinite(this.vineX)
+            ? this.vineX
+            : this.getVineX(now);
+          const topY = -20;
+          const fullLen = HEIGHT + 60;
+          let startY = topY;
+          let endY = topY + fullLen * (this.vineProgress || 0);
+          if (this.vineFalling) {
+            startY += this.vineFallOffset;
+            endY += this.vineFallOffset;
+          }
+          const midY = (startY + endY) * 0.5;
+          const curveAmp = this.vineCurveAmp * (this.vineFalling ? 1.4 : 1);
+          const curveX =
+            vineX +
+            Math.sin((now / 1000) * this.vineCurveSpeed + this.vineSwayPhase) *
+              curveAmp;
+          c.save();
+          c.strokeStyle = SNAKE_VINE_COLOR;
+          c.lineWidth = 3;
+          c.lineCap = "round";
+          c.beginPath();
+          c.moveTo(vineX, startY);
+          c.quadraticCurveTo(curveX, midY, vineX, endY);
+          c.stroke();
+          c.restore();
+          if (!this.hideBody) {
+            Fish.prototype.draw.call(this, c);
+          }
+        }
+        createWaterTrail() {
+          if (this.vineFalling || this.vineProgress < 1) return;
+          super.createWaterTrail();
         }
       }
 
@@ -2030,6 +2407,128 @@
         }
       }
 
+      /* ---- Rock (gorilla projectile) ---- */
+      class Rock {
+        constructor(x, y, size, vx, vy) {
+          this.sprite = rockImg;
+          this.x = x;
+          this.y = y;
+          this.vx = vx;
+          this.vy = vy;
+          this.maxSide = size;
+          this.width = this.height = null;
+        }
+        calculateDimensions() {
+          const w = this.sprite.naturalWidth,
+            h = this.sprite.naturalHeight;
+          if (!w || !h) {
+            this.width = this.height = this.maxSide;
+            return;
+          }
+          const asp = w / h;
+          if (asp > 1) {
+            this.width = this.maxSide;
+            this.height = this.maxSide / asp;
+          } else {
+            this.height = this.maxSide;
+            this.width = this.maxSide * asp;
+          }
+        }
+        update(dt) {
+          const df = dt * 60;
+          this.x += this.vx * df;
+          this.y += this.vy * df;
+        }
+        getBounds() {
+          if (this.width == null || this.height == null)
+            this.calculateDimensions();
+          const scale = 0.7;
+          return {
+            centerX: this.x + this.width / 2,
+            centerY: this.y + this.height / 2,
+            radiusX: (this.width * scale) / 2,
+            radiusY: (this.height * scale) / 2,
+          };
+        }
+        draw(c) {
+          if (!this.sprite.complete) return;
+          if (!this.sprite.naturalWidth || !this.sprite.naturalHeight) return;
+          if (this.width == null || this.height == null)
+            this.calculateDimensions();
+          c.drawImage(this.sprite, this.x, this.y, this.width, this.height);
+        }
+      }
+
+      /* ---- Gorilla ---- */
+      class Gorilla extends Fish {
+        constructor(x, y, size, targetY) {
+          super(x, y, 0, 0, gorillaImg, size, false);
+          this.isGorilla = true;
+          this.targetY = targetY ?? y;
+          this.inPosition = false;
+          this.timeAlive = 0;
+          this.throwCooldown = getRandom(GORILLA_THROW_MIN, GORILLA_THROW_MAX);
+        }
+        update(dt) {
+          const df = dt * 60;
+          if (!this.inPosition) {
+            this.y -= GORILLA_RISE_SPEED * enemySpeedMultiplier * df;
+            if (this.y <= this.targetY) {
+              this.y = this.targetY;
+              this.inPosition = true;
+              this.throwCooldown = getRandom(
+                GORILLA_THROW_MIN,
+                GORILLA_THROW_MAX
+              );
+            }
+            return;
+          }
+
+          this.timeAlive += dt;
+          if (this.timeAlive > 15) {
+            this.remove = true;
+            return;
+          }
+          this.throwCooldown -= dt;
+          if (this.throwCooldown <= 0) {
+            this.throwRock();
+            this.throwCooldown = getRandom(
+              GORILLA_THROW_MIN,
+              GORILLA_THROW_MAX
+            );
+          }
+        }
+        throwRock() {
+          if (!player) return;
+          if (this.width == null || this.height == null) {
+            this.calculateDimensions();
+          }
+          if (player.width == null || player.height == null) {
+            player.calculateDimensions();
+          }
+          const startX = this.x + this.width / 2;
+          const startY = this.y + this.height * 0.2;
+          const targetX = player.x + player.width / 2;
+          const targetY = player.y + player.height / 2;
+          const dx = targetX - startX;
+          const dy = targetY - startY;
+          const dist = Math.hypot(dx, dy) || 1;
+          const size = getRandom(ROCK_MIN_SIZE, ROCK_MAX_SIZE);
+          const speed = getRockSpeed(size);
+          const vx = (dx / dist) * speed;
+          const vy = (dy / dist) * speed;
+          rocks.push(
+            new Rock(startX - size / 2, startY - size / 2, size, vx, vy)
+          );
+          if (rocks.length > MAX_ROCKS) {
+            rocks.splice(0, rocks.length - MAX_ROCKS);
+          }
+        }
+        createWaterTrail() {
+          /* gorilla does not leave trails */
+        }
+      }
+
       /* ---- Polly (helper power‑up) ---- */
       // <<< add directly after Borgy / Pufferfish classes ---------------
       class Polly extends Fish {
@@ -2061,6 +2560,7 @@
               f === this ||
               f.isPlayer ||
               f.isPollyHelper ||
+              f.isGorilla ||
               f.remove ||
               f.maxSide <= 0
             )
@@ -2092,9 +2592,12 @@
             const dy = eB.centerY - myB.centerY;
             const dist = Math.hypot(dx, dy) || 1;
             const s = this.speed;
-            this.x += (dx / dist) * s * df;
-            this.y += (dy / dist) * s * df;
-            this.speedX = dx > 0 ? 2 : -2;
+            const vx = (dx / dist) * s;
+            const vy = (dy / dist) * s;
+            this.x += vx * df;
+            this.y += vy * df;
+            this.speedX = vx;
+            this.speedY = vy;
           }
           if (this.width && this.height) {
             this.x = Math.min(Math.max(0, this.x), WIDTH - this.width);
@@ -2167,6 +2670,7 @@
         fishList = [];
         waterTrails = [];
         explosions = [];
+        rocks = [];
         player.maxSide = 25;
         player.width = player.height = null;
         player.x = WIDTH / 2;
@@ -2176,6 +2680,7 @@
         borgyPowerUpTime = 0;
         playerIsPoweredUp = false;
         playerParalyzeTime = 0;
+        playerParalyzeCause = null;
         pollyFreezeTime = 0;
         pollyHelper = null;
         joystick.active = false;
@@ -2246,7 +2751,10 @@
         /* status decrement */
         if (playerParalyzeTime > 0) {
           playerParalyzeTime -= dt;
-          if (playerParalyzeTime < 0) playerParalyzeTime = 0;
+          if (playerParalyzeTime <= 0) {
+            playerParalyzeTime = 0;
+            playerParalyzeCause = null;
+          }
         }
 
         /* spawn processing */
@@ -2338,9 +2846,11 @@
             continue;
           }
 
+          if (e.noCollision) continue;
+
           /* collision with player */
           if (checkCollisionOval(player, e)) {
-            if (e.isPollyHelper) continue;
+            if (e.isPollyHelper || e.isGorilla) continue;
             /* --- Polly pickup ------------------------------------------ */
             if (e.isPolly) {
               score += 75;
@@ -2423,11 +2933,16 @@
               if (e.isElectric && borgyPowerUpTime <= 0) {
                 // frozen electric still shocks!
                 playerParalyzeTime = PARALYZE_DURATION;
+                playerParalyzeCause = "electric";
                 playShockSound();
               }
 
               player.width = player.height = null; // force dimension recalc
-              fishList.splice(i, 1); // remove the enemy
+              if (e.isSnake && typeof e.startVineFall === "function") {
+                e.startVineFall();
+              } else {
+                fishList.splice(i, 1); // remove the enemy
+              }
               continue; // done with this entity
             }
 
@@ -2458,6 +2973,7 @@
 
               if (e.isElectric && borgyPowerUpTime <= 0) {
                 playerParalyzeTime = PARALYZE_DURATION;
+                playerParalyzeCause = "electric";
                 playShockSound();
               }
 
@@ -2466,7 +2982,11 @@
               //   sushiPowerUpTime = SUSHI_DURATION;
               //   playPowerUpSound();
               // }
-              fishList.splice(i, 1);
+              if (e.isSnake && typeof e.startVineFall === "function") {
+                e.startVineFall();
+              } else {
+                fishList.splice(i, 1);
+              }
               continue;
             }
 
@@ -2500,6 +3020,7 @@
 
               if (e.isElectric) {
                 playerParalyzeTime = PARALYZE_DURATION;
+                playerParalyzeCause = "electric";
                 playShockSound();
               }
 
@@ -2508,7 +3029,11 @@
               // sushiPowerUpTime = SUSHI_DURATION;
               // playPowerUpSound();
               // }
-              fishList.splice(i, 1);
+              if (e.isSnake && typeof e.startVineFall === "function") {
+                e.startVineFall();
+              } else {
+                fishList.splice(i, 1);
+              }
               continue;
             } else {
               /* player is eaten */
@@ -2542,7 +3067,14 @@
         if (pollyHelper) {
           for (let j = fishList.length - 1; j >= 0; j--) {
             const e = fishList[j];
-            if (e === pollyHelper || e.isPlayer || e.isPollyHelper) continue;
+            if (
+              e === pollyHelper ||
+              e.isPlayer ||
+              e.isPollyHelper ||
+              e.isGorilla
+            )
+              continue;
+            if (e.noCollision) continue;
             if (checkCollisionOval(pollyHelper, e)) {
               // Award points based on creature type (same logic as player eating)
               if (e.isSushi) {
@@ -2582,8 +3114,36 @@
                 pollyFreezeTime = POLLY_DURATION; // helper active timer
                 playPollyPowerUpSound();
               }
-              fishList.splice(j, 1);
+              if (e.isSnake && typeof e.startVineFall === "function") {
+                e.startVineFall();
+              } else {
+                fishList.splice(j, 1);
+              }
             }
+          }
+        }
+
+        /* Gorilla rocks */
+        for (let i = rocks.length - 1; i >= 0; i--) {
+          const rock = rocks[i];
+          rock.update(dt);
+          const b = rock.getBounds();
+          if (
+            b.centerX + b.radiusX < -200 ||
+            b.centerX - b.radiusX > WIDTH + 200 ||
+            b.centerY + b.radiusY < -200 ||
+            b.centerY - b.radiusY > HEIGHT + 200
+          ) {
+            rocks.splice(i, 1);
+            continue;
+          }
+          if (checkCollisionOval(player, rock)) {
+            if (borgyPowerUpTime <= 0) {
+              playerParalyzeTime = PARALYZE_DURATION;
+              playerParalyzeCause = "rock";
+              playShockSound();
+            }
+            rocks.splice(i, 1);
           }
         }
 
@@ -2601,8 +3161,20 @@
       function renderGame() {
         ctx.clearRect(0, 0, WIDTH, HEIGHT);
         waterTrails.forEach((t) => t.draw(ctx));
-        if (player && !(isGameOver && pendingGameOver)) player.draw(ctx);
+        if (player && !(isGameOver && pendingGameOver)) {
+          if (usingMonkeSprites) drawPlayerVine(ctx, player);
+          else drawPlayerJetpack(ctx, player);
+          player.draw(ctx);
+        }
+        const showEnemyVines = borgyPowerUpTime <= 0;
+        fishList.forEach((f) => {
+          if (!showEnemyVines) return;
+          if (f.isPolly || f.isPollyHelper || f.isVineSwinging) {
+            drawEntityVine(ctx, f);
+          }
+        });
         fishList.forEach((f) => f.draw(ctx));
+        rocks.forEach((r) => r.draw(ctx));
         explosions.forEach((ex) => ex.draw(ctx));
 
         const scoreText = `Score: ${score}`;
@@ -2615,11 +3187,13 @@
 
         let y = 55;
         ctx.font = "16px 'Poppins', sans-serif";
+        const paralyzeLabel =
+          playerParalyzeCause === "rock" ? "KO" : "Paralyzed";
         if (playerParalyzeTime > 0) {
           y +=
             drawTextWithBg(
               ctx,
-              `Paralyzed: ${playerParalyzeTime.toFixed(1)}s`,
+              `${paralyzeLabel}: ${playerParalyzeTime.toFixed(1)}s`,
               20,
               y,
               {
@@ -2743,11 +3317,13 @@
         fishList = [];
         explosions = [];
         waterTrails = [];
+        rocks = [];
         player = new Fish(WIDTH / 2, HEIGHT / 2, 0, 0, playerImg, 25, true);
         sushiPowerUpTime = 0;
         borgyPowerUpTime = 0;
         playerIsPoweredUp = false;
         playerParalyzeTime = 0;
+        playerParalyzeCause = null;
         pollyFreezeTime = 0;
         pollyHelper = null;
         clearKeys();
@@ -2983,6 +3559,7 @@
           });
           if (!resp.ok) throw new Error(await resp.text());
           userTeam = chosen;
+          applyPlayerSpriteSet(userTeam);
           teamScreen.classList.add("hidden");
           showStartScreen();
         } catch (err) {
@@ -2995,7 +3572,7 @@
 
       /*********************    PRELOAD & BOOT     **************************/
       Promise.all([
-        loadImage("img/player_fish-6.png"),
+        loadImage(PLAYER_SPRITE_SETS.nomu.base),
         // These are optional - game will fall back to filters if they don't exist
         new Promise((resolve) => {
           playerPoweredUpImg.onload = resolve;
@@ -3013,6 +3590,11 @@
           playerPollyImg.onload = resolve;
           playerPollyImg.onerror = resolve;
         }),
+        loadImage(PLAYER_SPRITE_SETS.monke.base),
+        loadImage(PLAYER_SPRITE_SETS.monke.powered),
+        loadImage(PLAYER_SPRITE_SETS.monke.paralyzed),
+        loadImage(PLAYER_SPRITE_SETS.monke.borgy),
+        loadImage(PLAYER_SPRITE_SETS.monke.polly),
         ...fishTypes.map(
           ({ image }) =>
             new Promise((resolve) => {
@@ -3022,13 +3604,16 @@
             })
         ),
         loadImage("img/crab-6.png"),
-        loadImage("img/jellyfish-6.png"),
-        loadImage("img/electric-jellyfish-6.png"),
+        loadImage("img/gorilla-6.png"),
+        loadImage("img/jellyfish-6-2.png"),
+        loadImage("img/electric-jellyfish-6-2.png"),
+        loadImage("img/snake-6.png"),
         loadImage("img/sushi.png"),
         loadImage("img/chippy-6.png"),
         loadImage("img/pufferfish-6.png"),
         loadImage("img/chip-6.png"),
         loadImage("img/chip-jelly-6.png"),
+        loadImage("img/rock-6.png"),
         loadImage("img/polly-6.png"),
         loadImage("img/polly-helper.png"),
       ]).then(() => {
@@ -3049,6 +3634,7 @@
             console.error(e);
             userTeam = null; // fall back
           }
+          applyPlayerSpriteSet(userTeam);
 
           /* Dismiss the loader */
           document.getElementById("loadingScreen").classList.add("hidden");
