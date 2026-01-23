@@ -189,7 +189,7 @@
               right: 6px;
             "
           >
-            v7.0
+            v7.1
           </p>
 
           <div
@@ -1166,10 +1166,10 @@
         const dt = Math.min(0.05, (now - lastUpdateAt) / 1000);
         jetpackState.lastUpdateAt = now;
 
-        const side = Math.max(3, w * 0.12);
+        const side = Math.max(2, w * 0.08);
         const perpX = -dirY;
         const perpY = dirX;
-        const emissionRate = 140 + speed * 8; // particles per second
+        const emissionRate = 70 + speed * 4; // particles per second (subtle)
         const emitInterval = 1000 / emissionRate;
         if (!jetpackState.lastEmitAt) jetpackState.lastEmitAt = now;
 
@@ -1182,9 +1182,9 @@
             const jitter = (Math.random() - 0.5) * spread;
             const jitterX = dirX * Math.cos(jitter) - dirY * Math.sin(jitter);
             const jitterY = dirX * Math.sin(jitter) + dirY * Math.cos(jitter);
-            const speedPx = 120 + Math.random() * 70 + speed * 6;
-            const size = 1.5 + Math.random() * 2.5;
-            const ttl = 0.35 + Math.random() * 0.2;
+            const speedPx = 60 + Math.random() * 40 + speed * 3;
+            const size = 0.8 + Math.random() * 1.2;
+            const ttl = 0.2 + Math.random() * 0.15;
             jetpackState.particles.push({
               x: startX,
               y: startY,
@@ -1208,14 +1208,14 @@
           pfx.y += pfx.vy * dt;
         }
 
-        if (jetpackState.particles.length > 400) {
-          jetpackState.particles.splice(0, jetpackState.particles.length - 400);
+        if (jetpackState.particles.length > 180) {
+          jetpackState.particles.splice(0, jetpackState.particles.length - 180);
         }
 
         c.save();
         for (const pfx of jetpackState.particles) {
           const alpha = Math.max(0, pfx.life / pfx.ttl);
-          c.fillStyle = `rgba(220,235,255,${alpha * 0.7})`;
+          c.fillStyle = `rgba(220,235,255,${alpha * 0.35})`;
           c.beginPath();
           c.arc(pfx.x, pfx.y, pfx.size, 0, Math.PI * 2);
           c.fill();
