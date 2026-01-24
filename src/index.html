@@ -1135,14 +1135,69 @@
         );
       }
 
+      function renderTutorialPowerups(ctx, now, w, h) {
+        const t = (now - tutorialStepStart) / 1000;
+        const bob = Math.sin(t * 2.2) * 4;
+        const size = Math.min(h * 0.42, 52);
+        const leftX = w * 0.2;
+        const rightX = w * 0.6;
+        const baseY = h * 0.36 + bob;
+
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, "rgba(12, 26, 34, 0.7)");
+        grad.addColorStop(1, "rgba(6, 14, 20, 0.85)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+
+        const drawFallback = (x, y, color) => {
+          ctx.save();
+          ctx.fillStyle = color;
+          ctx.globalAlpha = 0.8;
+          ctx.beginPath();
+          ctx.arc(x + size / 2, y + size / 2, size * 0.28, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        };
+
+        const chippyReady = borgyImg.complete && borgyImg.naturalWidth > 0;
+        const pollyReady = pollyImg.complete && pollyImg.naturalWidth > 0;
+
+        if (chippyReady) {
+          drawTutorialSprite(ctx, borgyImg, leftX, baseY, size, { flip: true });
+        } else {
+          drawFallback(leftX, baseY, "rgba(3, 176, 176, 0.9)");
+        }
+
+        if (pollyReady) {
+          drawTutorialSprite(ctx, pollyImg, rightX, baseY, size, {
+            flip: true,
+          });
+        } else {
+          drawFallback(rightX, baseY, "rgba(125, 255, 154, 0.9)");
+        }
+
+        ctx.save();
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
+        ctx.font = "12px 'Poppins', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.fillText("Banana Power-up", leftX + size / 2, baseY + size + 4);
+        ctx.fillText("Monke Helper", rightX + size / 2, baseY + size + 4);
+        ctx.restore();
+      }
+
       const tutorialSteps = [
         {
-          text: "Eat smaller creatures to grow.",
+          text: "Eat creatures smaller than you to grow.",
           render: renderTutorialEat,
         },
         {
-          text: "Touch a larger creature and you lose.",
+          text: "You lose if you hit a creature larger than you.",
           render: renderTutorialLose,
+        },
+        {
+          text: "These are power-ups you can always eat.",
+          render: renderTutorialPowerups,
         },
         {
           text: "Watch out for poisonous creatures and other special abilities!",
@@ -1474,7 +1529,7 @@
       let playerParalyzeTime = 0;
       let playerParalyzeCause = null; // "electric" | "rock" | null
       const PARALYZE_DURATION = 3;
-      const EATING_LEEWAY = 1.25;
+      const EATING_LEEWAY = 1.3;
       const JELLY_SHRINK_FACTOR = 0.6;
       const SNAKE_VINE_DROP_DURATION = 0.5;
       const SNAKE_VINE_FALL_ACCEL = 1800;
