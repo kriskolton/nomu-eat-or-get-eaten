@@ -19,6 +19,7 @@ const {
   getUserScore,
   getActiveEventHighScores,
   setTeam,
+  setTutorialSeen,
 } = require("./repositories/scoreRepository");
 
 const {
@@ -265,6 +266,22 @@ app.get(
     const { id: userId } = req.telegramUser;
     const score = await getUserScore(userId, activeEvent);
     res.json(score);
+  }
+);
+
+app.post(
+  "/api/tutorial/seen",
+  verifyTelegramData,
+  verifyApiPassword,
+  async (req, res) => {
+    try {
+      const { id: userId, username } = req.telegramUser;
+      const updated = await setTutorialSeen(userId, username, activeEvent);
+      res.json({ ok: true, tutorialSeen: !!updated?.tutorialSeen });
+    } catch (err) {
+      console.error("Error marking tutorial seen:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
   }
 );
 

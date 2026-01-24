@@ -127,6 +127,63 @@
       .overlay p {
         font-size: 14px;
       }
+      .tutorialBtn {
+        position: absolute;
+        bottom: 6px;
+        left: 6px;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: none;
+        font-family: "Londrina Solid", sans-serif;
+        font-size: 22px;
+        line-height: 1;
+        background: rgba(0, 0, 0, 0.45);
+        color: #fff;
+        cursor: pointer;
+      }
+      /* --- tutorial overlay --- */
+      #tutorialScreen {
+        z-index: 10000;
+        cursor: pointer;
+      }
+      #tutorialScreen .tutorialCard {
+        width: 88%;
+        max-width: 360px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      #tutorialScreen h2 {
+        font-family: "Londrina Solid", sans-serif;
+        letter-spacing: 1px;
+        margin: 6px 0 10px;
+      }
+      .tutorialViewport {
+        width: 100%;
+        max-width: 320px;
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        padding: 8px;
+        margin-bottom: 12px;
+      }
+      #tutorialCanvas {
+        width: 100%;
+        height: 150px;
+        display: block;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.2);
+      }
+      #tutorialText {
+        font-size: 15px;
+      }
+      #tutorialHint {
+        font-size: 12px;
+        opacity: 0.7;
+        margin-top: 4px;
+      }
     </style>
   </head>
 
@@ -189,8 +246,11 @@
               right: 6px;
             "
           >
-            v7.2
+            v7.3
           </p>
+          <button id="tutorialBtn" class="tutorialBtn" aria-label="Tutorial">
+            ?
+          </button>
 
           <div
             id="telegramStatus"
@@ -286,6 +346,28 @@
         </div>
       </div>
       <!-- ─────────────────── /TEAM‑SELECT OVERLAY ─────────────────── -->
+
+      <!-- ─────────────────── TUTORIAL OVERLAY ─────────────────── -->
+      <div id="tutorialScreen" class="overlay hidden">
+        <div class="tutorialCard">
+          <h2
+            style="
+              font-family: 'Londrina Solid', sans-serif;
+              font-size: 24px;
+              letter-spacing: 1px;
+              color: #fff;
+            "
+          >
+            How to Play
+          </h2>
+          <div class="tutorialViewport">
+            <canvas id="tutorialCanvas"></canvas>
+          </div>
+          <p id="tutorialText"></p>
+          <p id="tutorialHint"></p>
+        </div>
+      </div>
+      <!-- ───────────────── /TUTORIAL OVERLAY ─────────────────── -->
 
       <!-- ---------- Game-over overlay ---------- -->
       <div id="gameOverScreen" class="overlay hidden" style="width: 100%">
@@ -658,6 +740,7 @@
             ent.y = Math.min(Math.max(0, ent.y), maxY);
           }
         });
+        resizeTutorialCanvas();
       }
       window.addEventListener("resize", resizeCanvas);
 
@@ -685,6 +768,11 @@
       const arrowDown = document.getElementById("arrowDown");
       const arrowLeft = document.getElementById("arrowLeft");
       const arrowRight = document.getElementById("arrowRight");
+      const tutorialBtn = document.getElementById("tutorialBtn");
+      const tutorialScreen = document.getElementById("tutorialScreen");
+      const tutorialCanvas = document.getElementById("tutorialCanvas");
+      const tutorialText = document.getElementById("tutorialText");
+      const tutorialHint = document.getElementById("tutorialHint");
 
       const showStartScreen = () => {
         startScreen.classList.remove("hidden");
@@ -716,10 +804,347 @@
       };
       const hideGameOverScreen = () => gameOverScreen.classList.add("hidden");
 
+      /* Tutorial overlay */
+      const tutorialCtx = tutorialCanvas
+        ? tutorialCanvas.getContext("2d")
+        : null;
+      const TUTORIAL_POISON_COLOR = { r: 178, g: 90, b: 238 };
+
+      function resizeTutorialCanvas() {
+        if (!tutorialCanvas || !tutorialCtx) return;
+        const dpr = window.devicePixelRatio || 1;
+        const rect = tutorialCanvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        tutorialCanvas.width = Math.round(rect.width * dpr);
+        tutorialCanvas.height = Math.round(rect.height * dpr);
+        tutorialCtx.setTransform(1, 0, 0, 1, 0, 0);
+        tutorialCtx.scale(dpr, dpr);
+        tutorialCanvasWidth = rect.width;
+        tutorialCanvasHeight = rect.height;
+      }
+
+      function getSpriteDimensions(img, maxSide) {
+        const safeSide = Math.max(1, maxSide);
+        const w = img?.naturalWidth || safeSide;
+        const h = img?.naturalHeight || safeSide;
+        if (!w || !h) return { w: safeSide, h: safeSide };
+        const asp = w / h;
+        if (asp > 1) return { w: safeSide, h: safeSide / asp };
+        return { w: safeSide * asp, h: safeSide };
+      }
+
+      function drawTutorialSprite(
+        ctx,
+        img,
+        x,
+        y,
+        maxSide,
+        { flip = false, alpha = 1 } = {}
+      ) {
+        if (!ctx || !img) return null;
+        const { w, h } = getSpriteDimensions(img, maxSide);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        if (flip) {
+          ctx.translate(x + w / 2, y + h / 2);
+          ctx.scale(-1, 1);
+          ctx.drawImage(img, -w / 2, -h / 2, w, h);
+        } else {
+          ctx.drawImage(img, x, y, w, h);
+        }
+        ctx.restore();
+        return { w, h };
+      }
+
+      const getTutorialPlayerSprite = () => {
+        if (playerImg.complete && playerImg.naturalWidth > 0) return playerImg;
+        return fishTypes?.[0]?.image || playerImg;
+      };
+
+      function renderTutorialEat(ctx, now, w, h) {
+        const cycle = 3.2;
+        const t = ((now - tutorialStepStart) / 1000) % cycle;
+        const eatTime = 1.4;
+        const padding = w * 0.1;
+        const baseSize = Math.min(h * 0.32, 34);
+        const smallSize = baseSize * 0.6;
+        const travel = w - padding * 2 - baseSize;
+        const moveProgress = Math.min(t / eatTime, 1);
+        const playerX = padding + travel * moveProgress;
+        const fishX = padding + travel * 0.55;
+        const fishY = h * 0.56 - smallSize / 2;
+        const contactProgress = Math.min(
+          Math.max((fishX - padding - baseSize * 0.6) / travel, 0),
+          1
+        );
+        const contactTime = contactProgress * eatTime;
+        const growthProgress =
+          t >= contactTime ? Math.min((t - contactTime) / 0.3, 1) : 0;
+        const playerSize = baseSize * (1 + 0.25 * growthProgress);
+        const playerY = h * 0.56 - playerSize / 2;
+
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, "rgba(18, 40, 60, 0.5)");
+        grad.addColorStop(1, "rgba(8, 20, 30, 0.8)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+
+        const smallSprite = fishTypes?.[0]?.image || playerImg;
+        if (t < contactTime) {
+          drawTutorialSprite(ctx, smallSprite, fishX, fishY, smallSize, {
+            flip: true,
+          });
+        } else {
+          const burstProgress = Math.min((t - contactTime) / 0.4, 1);
+          for (let i = 0; i < 6; i++) {
+            const angle = (i / 6) * Math.PI * 2;
+            const dist = 10 * burstProgress;
+            ctx.fillStyle = `rgba(255,255,255,${0.7 * (1 - burstProgress)})`;
+            ctx.beginPath();
+            ctx.arc(
+              fishX + smallSize / 2 + Math.cos(angle) * dist,
+              fishY + smallSize / 2 + Math.sin(angle) * dist,
+              2.2,
+              0,
+              Math.PI * 2
+            );
+            ctx.fill();
+          }
+        }
+
+        drawTutorialSprite(
+          ctx,
+          getTutorialPlayerSprite(),
+          playerX,
+          playerY,
+          playerSize
+        );
+      }
+
+      function renderTutorialLose(ctx, now, w, h) {
+        const cycle = 3;
+        const t = ((now - tutorialStepStart) / 1000) % cycle;
+        const impactTime = 1.3;
+        const explosionDuration = 0.7;
+        const padding = w * 0.08;
+        const playerSize = Math.min(h * 0.28, 30);
+        const bigSize = Math.min(h * 0.55, 64);
+        const playerStartX = padding;
+        const playerEndX = w * 0.52;
+        const progress = Math.min(t / impactTime, 1);
+        const playerX = playerStartX + (playerEndX - playerStartX) * progress;
+        const playerY = h * 0.58 - playerSize / 2;
+        const bigX = w * 0.62;
+        const bigY = h * 0.52 - bigSize / 2;
+
+        ctx.fillStyle = "rgba(12, 18, 26, 0.8)";
+        ctx.fillRect(0, 0, w, h);
+
+        const bigSprite = fishTypes?.[fishTypes.length - 1]?.image || playerImg;
+        drawTutorialSprite(ctx, bigSprite, bigX, bigY, bigSize, { flip: true });
+
+        const impactX = playerX + playerSize * 0.75;
+        const impactY = playerY + playerSize * 0.55;
+
+        if (t < impactTime) {
+          drawTutorialSprite(
+            ctx,
+            getTutorialPlayerSprite(),
+            playerX,
+            playerY,
+            playerSize
+          );
+        } else {
+          const explosionProgress = Math.min(
+            (t - impactTime) / explosionDuration,
+            1
+          );
+          const flash = Math.min((t - impactTime) / 0.2, 1);
+          ctx.fillStyle = `rgba(255,255,255,${0.35 * (1 - explosionProgress)})`;
+          ctx.beginPath();
+          ctx.arc(impactX, impactY, 18 + flash * 6, 0, Math.PI * 2);
+          ctx.fill();
+
+          const bubbleCount = 14;
+          for (let i = 0; i < bubbleCount; i++) {
+            const angle = (i / bubbleCount) * Math.PI * 2;
+            const speed = 22 + 8 * Math.sin(i * 1.7);
+            const dist = speed * explosionProgress;
+            const bx = impactX + Math.cos(angle) * dist;
+            const by = impactY + Math.sin(angle) * dist;
+            const radius = 2.5 + (1 - explosionProgress) * 2;
+            const alpha = 0.8 * (1 - explosionProgress);
+            ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+            ctx.beginPath();
+            ctx.arc(bx, by, radius, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+
+      function renderTutorialPoison(ctx, now, w, h) {
+        const cycle = 3.4;
+        const t = ((now - tutorialStepStart) / 1000) % cycle;
+        const eatTime = 1.6;
+        const padding = w * 0.1;
+        const baseSize = Math.min(h * 0.32, 32);
+        const shrinkSize = baseSize * 0.7;
+        const playerProgress = Math.min(t / eatTime, 1);
+        const playerX = padding + (w * 0.45 - padding) * playerProgress;
+        const jellySize = baseSize * 0.9;
+        const jellyX = w * 0.62;
+        const jellyY = h * 0.5 - jellySize / 2 + Math.sin(t * 3) * 4;
+
+        ctx.fillStyle = "rgba(10, 20, 18, 0.75)";
+        ctx.fillRect(0, 0, w, h);
+
+        if (t < eatTime) {
+          ctx.save();
+          const trailCount = 14;
+          for (let i = 0; i < trailCount; i++) {
+            const progress = i / (trailCount - 1);
+            const alpha = (1 - progress) * 0.65;
+            const wobble = Math.sin(t * 6 + i * 0.8) * 2;
+            const trailX =
+              jellyX + jellySize * 0.48 + Math.sin(t * 3 + i * 0.7) * 3;
+            const trailY =
+              -24 +
+              jellyY +
+              jellySize * 0.15 +
+              progress * jellySize * 1.2 +
+              wobble;
+            const radius = 1.2 + (1 - progress) * 2.2;
+            ctx.shadowBlur = 8 * (1 - progress);
+            ctx.shadowColor = `rgba(${TUTORIAL_POISON_COLOR.r},${TUTORIAL_POISON_COLOR.g},${TUTORIAL_POISON_COLOR.b},${alpha})`;
+            ctx.fillStyle = `rgba(${TUTORIAL_POISON_COLOR.r},${
+              TUTORIAL_POISON_COLOR.g
+            },${TUTORIAL_POISON_COLOR.b},${alpha * 0.9})`;
+            ctx.beginPath();
+            ctx.arc(trailX, trailY, radius, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        if (t < eatTime) {
+          drawTutorialSprite(ctx, jellyfishImg, jellyX, jellyY, jellySize, {
+            flip: true,
+          });
+        }
+
+        let playerSize = baseSize;
+        if (t > eatTime) {
+          const shrinkProgress = Math.min((t - eatTime) / 0.5, 1);
+          playerSize = baseSize - (baseSize - shrinkSize) * shrinkProgress;
+        }
+        const playerY = h * 0.6 - playerSize / 2;
+        drawTutorialSprite(
+          ctx,
+          getTutorialPlayerSprite(),
+          playerX,
+          playerY,
+          playerSize
+        );
+      }
+
+      const tutorialSteps = [
+        {
+          text: "Eat smaller creatures to grow.",
+          render: renderTutorialEat,
+        },
+        {
+          text: "Touch a larger creature and you lose.",
+          render: renderTutorialLose,
+        },
+        {
+          text: "Watch out for poisonous creatures and other special abilities!",
+          render: renderTutorialPoison,
+        },
+      ];
+
+      function updateTutorialStep() {
+        const step = tutorialSteps[tutorialStep];
+        tutorialText.textContent = step?.text ?? "";
+        tutorialHint.textContent = `Tap to continue (${tutorialStep + 1}/${
+          tutorialSteps.length
+        })`;
+        tutorialStepStart = performance.now();
+      }
+
+      function renderTutorialFrame(now) {
+        if (tutorialScreen.classList.contains("hidden")) return;
+        if (!tutorialCanvasWidth || !tutorialCanvasHeight)
+          resizeTutorialCanvas();
+        const w = tutorialCanvasWidth || tutorialCanvas.clientWidth;
+        const h = tutorialCanvasHeight || tutorialCanvas.clientHeight;
+        if (!tutorialCtx || !w || !h) return;
+        tutorialCtx.clearRect(0, 0, w, h);
+        const step = tutorialSteps[tutorialStep];
+        if (step?.render) step.render(tutorialCtx, now, w, h);
+        tutorialAnimId = requestAnimationFrame(renderTutorialFrame);
+      }
+
+      function startTutorialAnimation() {
+        if (!tutorialCtx) return;
+        stopTutorialAnimation();
+        resizeTutorialCanvas();
+        tutorialAnimId = requestAnimationFrame(renderTutorialFrame);
+      }
+
+      function stopTutorialAnimation() {
+        if (tutorialAnimId) cancelAnimationFrame(tutorialAnimId);
+        tutorialAnimId = null;
+      }
+
+      function showTutorialScreen() {
+        tutorialStep = 0;
+        updateTutorialStep();
+        hideStartScreen();
+        hideGameOverScreen();
+        tutorialScreen.classList.remove("hidden");
+        startTutorialAnimation();
+      }
+
+      function hideTutorialScreen() {
+        tutorialScreen.classList.add("hidden");
+        stopTutorialAnimation();
+      }
+
+      function maybeShowTutorialOrStart() {
+        if (!tutorialScreen || tutorialSeen) {
+          showStartScreen();
+          return;
+        }
+        showTutorialScreen();
+      }
+
+      async function markTutorialSeen() {
+        if (!userId) return;
+        try {
+          await fetch("/api/tutorial/seen", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `tma ${initDataRaw}`,
+              "x-api-password": getApiPassword(),
+            },
+            body: JSON.stringify({}),
+          });
+        } catch (e) {
+          console.warn("Tutorial seen send error:", e);
+        }
+      }
+
       /* Game-state flags */
       let gameState = "start"; // "start" | "playing" | "over"
       let isGameOver = false;
       let pendingGameOver = false; // wait until explosions finish
+      let tutorialSeen = false;
+      let tutorialStep = 0;
+      let tutorialStepStart = 0;
+      let tutorialAnimId = null;
+      let tutorialCanvasWidth = 0;
+      let tutorialCanvasHeight = 0;
 
       /* Anti-cheat tracking */
       let eatenEvents = [];
@@ -918,7 +1343,7 @@
       const SNAKE_VINE_FALL_DRAG = 0.985;
       const SNAKE_VINE_COLOR = "rgba(18, 58, 32, 0.92)";
       const POISON_TRAIL_COLOR = { r: 178, g: 90, b: 238 }; // bright purple
-      const MAX_POISON_PARTICLES = 700;
+      const MAX_POISON_PARTICLES = 100;
       const MIN_PLAYER_SIZE = 25;
       const GROWTH_FACTOR = 0.04; // ↓ smaller than the old 0.05 means slower growth
       const GROWTH_CAP = 1.5; // (optional) lower the absolute cap too
@@ -967,6 +1392,9 @@
         shrink: new Howl({ src: ["sounds/shrink.mp3"], volume: 0.3 }),
         electric: new Howl({ src: ["sounds/electric.mp3"], volume: 0.3 }),
         shock: new Howl({ src: ["sounds/shock.mp3"], volume: 0.5 }),
+        gorilla: new Howl({ src: ["sounds/gorilla.mp3"], volume: 0.2 }),
+        rock: new Howl({ src: ["sounds/rock.mp3"], volume: 0.2 }),
+        crab: new Howl({ src: ["sounds/crab.mp3"], volume: 0.2 }),
       };
 
       let isSfxEnabled = true;
@@ -1008,6 +1436,9 @@
       const playShrinkSound = () => playSfx(sounds.shrink);
       const playElectricSound = () => playSfx(sounds.electric);
       const playShockSound = () => playSfx(sounds.shock);
+      const playGorillaSpawnSound = () => playSfx(sounds.gorilla);
+      const playRockThrowSound = () => playSfx(sounds.rock);
+      const playCrabSpawnSound = () => playSfx(sounds.crab);
       const playPollySpawnSound = () => playSfx(sounds.pollySpawn);
       const playPollyPowerUpSound = () => playSfx(sounds.pollyPowerUp);
 
@@ -1056,6 +1487,9 @@
         sounds.shrink.volume(isSfxEnabled ? 0.3 : 0);
         sounds.electric.volume(isSfxEnabled ? 0.3 : 0);
         sounds.shock.volume(isSfxEnabled ? 0.5 : 0);
+        sounds.gorilla.volume(isSfxEnabled ? 0.45 : 0);
+        sounds.rock.volume(isSfxEnabled ? 0.45 : 0);
+        sounds.crab.volume(isSfxEnabled ? 0.45 : 0);
         updateSfxButtons();
       };
 
@@ -1526,6 +1960,7 @@
                 idx
               )
             );
+            playCrabSpawnSound();
             break;
           }
           case "gorilla": {
@@ -1537,6 +1972,7 @@
             fishList.push(
               tagEntity(new Gorilla(x, y, size, targetY), "gorilla", idx)
             );
+            playGorillaSpawnSound();
             break;
           }
           case "jelly": {
@@ -2121,6 +2557,25 @@
           this.baseX = x;
           this.vSpeed = getRandom(0.5, 1.2) * enemySpeedMultiplier;
           this.verticalDir = 1; // regular jellyfish move top -> bottom
+          this.webRising = false;
+          this.webRiseOffset = 0;
+          this.webRiseSpeed = 240;
+          this.webAnchorX = x + size / 2;
+          this.webEndY = y + size * 0.35;
+          this.hideBody = false;
+        }
+        startWebRise() {
+          if (this.webRising) return;
+          if (this.width == null || this.height == null)
+            this.calculateDimensions();
+          const w = this.width ?? this.maxSide;
+          const h = this.height ?? this.maxSide;
+          this.webRising = true;
+          this.webRiseOffset = 0;
+          this.webAnchorX = this.x + w / 2;
+          this.webEndY = this.y + h * 0.35;
+          this.hideBody = true;
+          this.noCollision = true;
         }
         draw(c) {
           if (!this.isElectric) {
@@ -2128,33 +2583,52 @@
               this.calculateDimensions();
             const w = this.width ?? this.maxSide;
             const h = this.height ?? this.maxSide;
-            const lineX = this.x + w / 2;
-            const lineEndY = this.y + h * 0.35;
+            const lineX = this.webRising ? this.webAnchorX : this.x + w / 2;
+            const lineEndY = this.webRising
+              ? this.webEndY - this.webRiseOffset
+              : this.y + h * 0.35;
+            const lineStartY = this.webRising ? -10 - this.webRiseOffset : -10;
             c.save();
             c.strokeStyle = "rgba(255,255,255,0.7)";
             c.lineWidth = 1;
             c.beginPath();
-            c.moveTo(lineX, -10);
+            c.moveTo(lineX, lineStartY);
             c.lineTo(lineX, lineEndY);
             c.stroke();
             c.restore();
           }
-          super.draw(c);
+          if (!this.hideBody) super.draw(c);
         }
         update(dt) {
+          if (this.webRising) {
+            this.webRiseOffset += this.webRiseSpeed * dt;
+            if (this.webEndY - this.webRiseOffset < -20) {
+              this.remove = true;
+            }
+            return;
+          }
           const df = dt * 60;
           this.y += this.vSpeed * df * this.verticalDir;
           this.x =
             this.baseX +
             Math.sin(performance.now() * this.oscS + this.oscO) * this.oscA;
           const h = this.height ?? this.maxSide;
-          if (this.verticalDir < 0) {
-            if (this.y + h < -50) this.maxSide = 0;
+          if (!this.isElectric) {
+            if (this.verticalDir < 0) {
+              if (this.y + h < -50) this.startWebRise();
+            } else {
+              if (this.y > HEIGHT + 50) this.startWebRise();
+            }
           } else {
-            if (this.y > HEIGHT + 50) this.maxSide = 0;
+            if (this.verticalDir < 0) {
+              if (this.y + h < -50) this.maxSide = 0;
+            } else {
+              if (this.y > HEIGHT + 50) this.maxSide = 0;
+            }
           }
         }
         createWaterTrail() {
+          if (this.webRising) return;
           if (!this.width || !this.height) return;
           const now = performance.now();
           if (now - this.lastTrailTime < 55) return;
@@ -2250,6 +2724,7 @@
           }
         }
         createWaterTrail() {
+          if (this.webRising) return;
           if (!this.width || !this.height) return;
           const now = performance.now();
           if (now - this.lastTrailTime < 80) return;
@@ -2476,7 +2951,7 @@
 
       /* ---- Rock (gorilla projectile) ---- */
       class Rock {
-        constructor(x, y, size, vx, vy) {
+        constructor(x, y, size, vx, vy, delay = 0) {
           this.sprite = rockImg;
           this.x = x;
           this.y = y;
@@ -2484,6 +2959,7 @@
           this.vy = vy;
           this.maxSide = size;
           this.width = this.height = null;
+          this.delayRemaining = delay;
         }
         calculateDimensions() {
           const w = this.sprite.naturalWidth,
@@ -2502,6 +2978,10 @@
           }
         }
         update(dt) {
+          if (this.delayRemaining > 0) {
+            this.delayRemaining = Math.max(0, this.delayRemaining - dt);
+            return;
+          }
           const df = dt * 60;
           this.x += this.vx * df;
           this.y += this.vy * df;
@@ -2553,6 +3033,10 @@
 
           this.timeAlive += dt;
           if (this.timeAlive > 15) {
+            if (this.width == null || this.height == null) {
+              this.calculateDimensions();
+            }
+            spawnExplosion(this);
             this.remove = true;
             return;
           }
@@ -2584,9 +3068,11 @@
           const speed = getRockSpeed(size);
           const vx = (dx / dist) * speed;
           const vy = (dy / dist) * speed;
+          const delay = 0.35;
           rocks.push(
-            new Rock(startX - size / 2, startY - size / 2, size, vx, vy)
+            new Rock(startX - size / 2, startY - size / 2, size, vx, vy, delay)
           );
+          playRockThrowSound();
           if (rocks.length > MAX_ROCKS) {
             rocks.splice(0, rocks.length - MAX_ROCKS);
           }
@@ -2915,11 +3401,13 @@
           e.createWaterTrail();
 
           const b = e.getBounds();
+          const skipBoundsCull = e.webRising;
           if (
-            e.maxSide <= 0 ||
-            b.centerX + b.radiusX < -200 ||
-            b.centerX - b.radiusX > WIDTH + 200 ||
-            e.y > HEIGHT + 200
+            !skipBoundsCull &&
+            (e.maxSide <= 0 ||
+              b.centerX + b.radiusX < -200 ||
+              b.centerX - b.radiusX > WIDTH + 200 ||
+              e.y > HEIGHT + 200)
           ) {
             fishList.splice(i, 1);
             continue;
@@ -3017,7 +3505,13 @@
               }
 
               player.width = player.height = null; // force dimension recalc
-              if (e.isSnake && typeof e.startVineFall === "function") {
+              if (
+                e.isJellyfish &&
+                !e.isElectric &&
+                typeof e.startWebRise === "function"
+              ) {
+                e.startWebRise();
+              } else if (e.isSnake && typeof e.startVineFall === "function") {
                 e.startVineFall();
               } else {
                 fishList.splice(i, 1); // remove the enemy
@@ -3061,7 +3555,13 @@
               //   sushiPowerUpTime = SUSHI_DURATION;
               //   playPowerUpSound();
               // }
-              if (e.isSnake && typeof e.startVineFall === "function") {
+              if (
+                e.isJellyfish &&
+                !e.isElectric &&
+                typeof e.startWebRise === "function"
+              ) {
+                e.startWebRise();
+              } else if (e.isSnake && typeof e.startVineFall === "function") {
                 e.startVineFall();
               } else {
                 fishList.splice(i, 1);
@@ -3108,7 +3608,13 @@
               // sushiPowerUpTime = SUSHI_DURATION;
               // playPowerUpSound();
               // }
-              if (e.isSnake && typeof e.startVineFall === "function") {
+              if (
+                e.isJellyfish &&
+                !e.isElectric &&
+                typeof e.startWebRise === "function"
+              ) {
+                e.startWebRise();
+              } else if (e.isSnake && typeof e.startVineFall === "function") {
                 e.startVineFall();
               } else {
                 fishList.splice(i, 1);
@@ -3216,6 +3722,7 @@
             rocks.splice(i, 1);
             continue;
           }
+          if (rock.delayRemaining > 0) continue;
           if (checkCollisionOval(player, rock)) {
             if (borgyPowerUpTime <= 0) {
               playerParalyzeTime = PARALYZE_DURATION;
@@ -3248,7 +3755,7 @@
         }
         const showEnemyVines = borgyPowerUpTime <= 0;
         fishList.forEach((f) => {
-          if (!showEnemyVines) return;
+          if (!showEnemyVines && !f.isPollyHelper) return;
           if (f.isPolly || f.isPollyHelper || f.isVineSwinging) {
             drawEntityVine(ctx, f);
           }
@@ -3509,6 +4016,25 @@
         showOrHideArrowKeys(controlsContainer.style.display === "none");
       joystickBtn.onclick = toggleJoystick;
       joystickBtnGameOver.onclick = toggleJoystick;
+      if (tutorialBtn) tutorialBtn.onclick = showTutorialScreen;
+      tutorialScreen.addEventListener(
+        "pointerdown",
+        (e) => {
+          if (tutorialScreen.classList.contains("hidden")) return;
+          e.preventDefault();
+          e.stopPropagation();
+          tutorialStep += 1;
+          if (tutorialStep >= tutorialSteps.length) {
+            tutorialSeen = true;
+            hideTutorialScreen();
+            markTutorialSeen();
+            showStartScreen();
+          } else {
+            updateTutorialStep();
+          }
+        },
+        { passive: false }
+      );
 
       /* hardware keyboard */
       window.addEventListener("keydown", (e) => {
@@ -3645,10 +4171,12 @@
             body: JSON.stringify({ team: chosen }),
           });
           if (!resp.ok) throw new Error(await resp.text());
-          userTeam = chosen;
+          const scoreDoc = await resp.json();
+          userTeam = scoreDoc?.team ?? chosen;
+          tutorialSeen = !!scoreDoc?.tutorialSeen;
           applyPlayerSpriteSet(userTeam);
           teamScreen.classList.add("hidden");
-          showStartScreen();
+          maybeShowTutorialOrStart();
         } catch (err) {
           console.error(err);
           alert("Couldn’t save team – try again?");
@@ -3717,9 +4245,11 @@
             if (!scoreResp.ok) throw new Error("score fetch failed");
             const scoreDoc = await scoreResp.json();
             userTeam = scoreDoc?.team ?? null;
+            tutorialSeen = !!scoreDoc?.tutorialSeen;
           } catch (e) {
             console.error(e);
             userTeam = null; // fall back
+            tutorialSeen = false;
           }
           applyPlayerSpriteSet(userTeam);
 
@@ -3729,7 +4259,7 @@
           if (!VALID_TEAMS.includes(userTeam)) {
             teamScreen.classList.remove("hidden"); // show picker
           } else {
-            showStartScreen(); // carry on
+            maybeShowTutorialOrStart(); // carry on
           }
         })();
         let audioStarted = false;

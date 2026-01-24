@@ -283,6 +283,54 @@ async function setTeam(userId, username, team) {
   }
 }
 
+/**
+ * Mark the tutorial as seen for the current event.
+ *
+ * @param {string} userId – unique player ID
+ * @param {string=} username – display name (optional)
+ * @param {string=} event – event name (defaults to active event)
+ * @returns {Promise<object>} – the updated score document
+ */
+async function setTutorialSeen(userId, username, event = activeEvent) {
+  await initDB();
+
+  const now = new Date();
+  const resolvedEvent = event || activeEvent || "Season 1";
+
+  try {
+    const scores = db.collection("scores");
+    const { value } = await scores.findOneAndUpdate(
+      { userId, event: resolvedEvent },
+      {
+        $set: {
+          tutorialSeen: true,
+          tutorialSeenAt: now,
+        },
+        $setOnInsert: {
+          userId,
+          event: resolvedEvent,
+          username: username || null,
+          team: null,
+          lastScore: 0,
+          lastGameTime: 0,
+          lastPlayed: now,
+          highScore: 0,
+          highScoreGameTime: 0,
+        },
+      },
+      {
+        upsert: true,
+        returnDocument: "after",
+      }
+    );
+
+    return value;
+  } catch (error) {
+    console.error("Error setting tutorial seen:", error);
+    throw error;
+  }
+}
+
 module.exports = {
   initDB,
   updateScore,
@@ -290,4 +338,5 @@ module.exports = {
   getUserScore,
   getActiveEventHighScores,
   setTeam,
+  setTutorialSeen,
 };
