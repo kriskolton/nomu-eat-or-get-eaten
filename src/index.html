@@ -142,6 +142,46 @@
         color: #fff;
         cursor: pointer;
       }
+      .teamInfo {
+        margin: 6px 0 10px;
+      }
+      .teamInfo .teamLabel {
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.4px;
+        margin: 4px 0 6px;
+      }
+      .avatarToggle {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: center;
+        margin-bottom: 4px;
+      }
+      .choiceBtn {
+        background: rgba(0, 0, 0, 0.45);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #fff;
+        font-size: 12px;
+        padding: 6px 10px;
+        border-radius: 16px;
+        min-width: 120px;
+        opacity: 0.7;
+      }
+      .choiceBtn.active {
+        background: #f78719;
+        border-color: #f78719;
+        color: #fff;
+        opacity: 1;
+        outline: 2px solid rgba(255, 255, 255, 0.7);
+        outline-offset: 2px;
+        box-shadow: 0 0 0 3px rgba(247, 135, 25, 0.25);
+      }
+      .teamHint {
+        font-size: 11px;
+        opacity: 0.65;
+        margin: 0;
+      }
       /* --- tutorial overlay --- */
       #tutorialScreen {
         z-index: 10000;
@@ -261,6 +301,18 @@
               margin-bottom: 12px;
             "
           ></div>
+
+          <div class="teamInfo">
+            <p id="playerTeamDisplay" class="teamLabel">Team: --</p>
+            <div class="avatarToggle">
+              <button id="playAsNomuBtn" class="choiceBtn" type="button">
+                Play as Nomu
+              </button>
+              <button id="playAsMonkeBtn" class="choiceBtn" type="button">
+                Play as Monke
+              </button>
+            </div>
+          </div>
 
           <p style="font-size: 24px; font-weight: bold; letter-spacing: 1px">
             Rules
@@ -426,6 +478,24 @@
               🕹️ Joystick On
             </button>
           </div>
+          <div class="teamInfo">
+            <div class="avatarToggle">
+              <button
+                id="playAsNomuBtnGameOver"
+                class="choiceBtn"
+                type="button"
+              >
+                Play as Nomu
+              </button>
+              <button
+                id="playAsMonkeBtnGameOver"
+                class="choiceBtn"
+                type="button"
+              >
+                Play as Monke
+              </button>
+            </div>
+          </div>
           <button
             id="playAgainBtn"
             style="font-size: 24px; padding: 12px 24px; margin-top: 12px"
@@ -461,6 +531,7 @@
       // ─── TEAM‑SELECT CONSTS ───────────────────────────────────────
       const VALID_TEAMS = ["MonkeDAO", "Nomu"];
       let userTeam = null; // populated after /api/score call
+      let playerAvatarTeam = null;
       let usingMonkeSprites = false;
       const teamScreen = document.getElementById("teamScreen");
       // ───────────────────────────────────────────────────────────────
@@ -541,6 +612,7 @@
       const SUSHI_DURATION = 10;
       const BORGY_DURATION = 15;
       const BORGY_SPEED_MULT = 3;
+      const STATUS_MESSAGE_DURATION = 3;
 
       // Spawn schedule (server-verifiable)
       const spawnSchedule = []; // { idx, spawnTime (s), spec }
@@ -773,6 +845,15 @@
       const tutorialCanvas = document.getElementById("tutorialCanvas");
       const tutorialText = document.getElementById("tutorialText");
       const tutorialHint = document.getElementById("tutorialHint");
+      const playerTeamDisplay = document.getElementById("playerTeamDisplay");
+      const playAsNomuBtn = document.getElementById("playAsNomuBtn");
+      const playAsMonkeBtn = document.getElementById("playAsMonkeBtn");
+      const playAsNomuBtnGameOver = document.getElementById(
+        "playAsNomuBtnGameOver"
+      );
+      const playAsMonkeBtnGameOver = document.getElementById(
+        "playAsMonkeBtnGameOver"
+      );
 
       const showStartScreen = () => {
         startScreen.classList.remove("hidden");
@@ -783,6 +864,7 @@
         updateMusicButtons();
         updateSfxButtons();
         updateJoystickButtons();
+        updatePlayerAvatarUI();
       };
       const hideStartScreen = () => startScreen.classList.add("hidden");
       const showGameOverScreen = (scoreVal) => {
@@ -1298,7 +1380,57 @@
         playerPollyImg.src = set.polly;
       }
 
-      applyPlayerSpriteSet(userTeam);
+      function getPlayerAvatarTeam() {
+        if (VALID_TEAMS.includes(playerAvatarTeam)) return playerAvatarTeam;
+        if (VALID_TEAMS.includes(userTeam)) return userTeam;
+        return "Nomu";
+      }
+
+      function updatePlayerAvatarUI() {
+        if (playerTeamDisplay) {
+          playerTeamDisplay.textContent = userTeam
+            ? `Team: ${userTeam}`
+            : "Team: --";
+        }
+        const active = getPlayerAvatarTeam();
+        if (playAsNomuBtn) {
+          playAsNomuBtn.classList.toggle("active", active === "Nomu");
+          playAsNomuBtn.setAttribute("aria-pressed", active === "Nomu");
+        }
+        if (playAsMonkeBtn) {
+          playAsMonkeBtn.classList.toggle("active", active === "MonkeDAO");
+          playAsMonkeBtn.setAttribute("aria-pressed", active === "MonkeDAO");
+        }
+        if (playAsNomuBtnGameOver) {
+          playAsNomuBtnGameOver.classList.toggle("active", active === "Nomu");
+          playAsNomuBtnGameOver.setAttribute("aria-pressed", active === "Nomu");
+        }
+        if (playAsMonkeBtnGameOver) {
+          playAsMonkeBtnGameOver.classList.toggle(
+            "active",
+            active === "MonkeDAO"
+          );
+          playAsMonkeBtnGameOver.setAttribute(
+            "aria-pressed",
+            active === "MonkeDAO"
+          );
+        }
+      }
+
+      function syncPlayerAvatarSprites() {
+        const active = getPlayerAvatarTeam();
+        playerAvatarTeam = active;
+        applyPlayerSpriteSet(active);
+        updatePlayerAvatarUI();
+      }
+
+      function setPlayerAvatarTeam(team) {
+        if (!VALID_TEAMS.includes(team)) return;
+        playerAvatarTeam = team;
+        syncPlayerAvatarSprites();
+      }
+
+      syncPlayerAvatarSprites();
 
       // const frozenPlaceholderImg = new Image();
       // frozenPlaceholderImg.src = "img/fish-frozen-placeholder.png";
@@ -1350,6 +1482,8 @@
       let sushiPowerUpTime = 0;
       let borgyPowerUpTime = 0;
       let playerIsPoweredUp = false;
+      let statusMessage = "";
+      let statusMessageTime = 0;
 
       // <<< Polly power‑up globals & asset -------------------------------
       const POLLY_DURATION = 15; // seconds helper stays active
@@ -1546,6 +1680,11 @@
         ctx.fillText(text, x + padding, y + padding * 0.75);
         ctx.restore();
         return height;
+      }
+
+      function showStatusMessage(text, duration = STATUS_MESSAGE_DURATION) {
+        statusMessage = text;
+        statusMessageTime = duration;
       }
 
       const jetpackState = {
@@ -3302,6 +3441,11 @@
         }
         playerIsPoweredUp = sushiPowerUpTime > 0 || borgyPowerUpTime > 0;
 
+        if (statusMessageTime > 0) {
+          statusMessageTime = Math.max(0, statusMessageTime - dt);
+          if (statusMessageTime === 0) statusMessage = "";
+        }
+
         /* status decrement */
         if (playerParalyzeTime > 0) {
           playerParalyzeTime -= dt;
@@ -3423,6 +3567,7 @@
               score += 75;
               pollyFreezeTime = POLLY_DURATION; // helper active timer
               playPollyPowerUpSound();
+              showStatusMessage("You've got help!");
               eatenEvents.push({
                 t: gameTimeMs,
                 idx: e.spawnIdx,
@@ -3460,6 +3605,7 @@
               score += 75;
               borgyPowerUpTime = BORGY_DURATION;
               playBorgyPowerUpSound();
+              showStatusMessage("Eat anything!");
               eatenEvents.push({
                 t: gameTimeMs,
                 idx: e.spawnIdx,
@@ -3834,6 +3980,24 @@
             ) + 4;
         }
 
+        if (statusMessageTime > 0 && statusMessage) {
+          const alpha = Math.min(
+            1,
+            statusMessageTime / STATUS_MESSAGE_DURATION
+          );
+          ctx.save();
+          ctx.textAlign = "center";
+          ctx.textBaseline = "top";
+          ctx.font = "32px 'Londrina Solid', sans-serif";
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = `rgba(0, 0, 0, ${0.35 * alpha})`;
+          ctx.fillStyle = `rgba(255, 255, 255, ${0.7 * alpha})`;
+          const msgY = 250;
+          ctx.strokeText(statusMessage, WIDTH / 2, msgY);
+          ctx.fillText(statusMessage, WIDTH / 2, msgY);
+          ctx.restore();
+        }
+
         if (isJoystickEnabled && joystick.active) {
           ctx.save();
           ctx.globalAlpha = 0.75;
@@ -3940,6 +4104,7 @@
         updateMusicButtons();
         updateSfxButtons();
         updateJoystickButtons();
+        updatePlayerAvatarUI();
       };
 
       /* ---- Start Game ---- */
@@ -4016,6 +4181,14 @@
         showOrHideArrowKeys(controlsContainer.style.display === "none");
       joystickBtn.onclick = toggleJoystick;
       joystickBtnGameOver.onclick = toggleJoystick;
+      if (playAsNomuBtn)
+        playAsNomuBtn.onclick = () => setPlayerAvatarTeam("Nomu");
+      if (playAsMonkeBtn)
+        playAsMonkeBtn.onclick = () => setPlayerAvatarTeam("MonkeDAO");
+      if (playAsNomuBtnGameOver)
+        playAsNomuBtnGameOver.onclick = () => setPlayerAvatarTeam("Nomu");
+      if (playAsMonkeBtnGameOver)
+        playAsMonkeBtnGameOver.onclick = () => setPlayerAvatarTeam("MonkeDAO");
       if (tutorialBtn) tutorialBtn.onclick = showTutorialScreen;
       tutorialScreen.addEventListener(
         "pointerdown",
@@ -4174,7 +4347,7 @@
           const scoreDoc = await resp.json();
           userTeam = scoreDoc?.team ?? chosen;
           tutorialSeen = !!scoreDoc?.tutorialSeen;
-          applyPlayerSpriteSet(userTeam);
+          syncPlayerAvatarSprites();
           teamScreen.classList.add("hidden");
           maybeShowTutorialOrStart();
         } catch (err) {
@@ -4251,7 +4424,7 @@
             userTeam = null; // fall back
             tutorialSeen = false;
           }
-          applyPlayerSpriteSet(userTeam);
+          syncPlayerAvatarSprites();
 
           /* Dismiss the loader */
           document.getElementById("loadingScreen").classList.add("hidden");
