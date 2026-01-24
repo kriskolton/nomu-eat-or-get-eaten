@@ -897,6 +897,7 @@
         player,
         touchTarget = null;
       let waterTrails = [],
+        poisonParticles = [],
         explosions = [],
         rocks = [];
       let gameTime = 0, // seconds
@@ -910,12 +911,14 @@
       let playerParalyzeTime = 0;
       let playerParalyzeCause = null; // "electric" | "rock" | null
       const PARALYZE_DURATION = 3;
-      const EATING_LEEWAY = 1.3;
+      const EATING_LEEWAY = 1.25;
       const JELLY_SHRINK_FACTOR = 0.6;
       const SNAKE_VINE_DROP_DURATION = 0.5;
       const SNAKE_VINE_FALL_ACCEL = 1800;
       const SNAKE_VINE_FALL_DRAG = 0.985;
       const SNAKE_VINE_COLOR = "rgba(18, 58, 32, 0.92)";
+      const POISON_TRAIL_COLOR = { r: 178, g: 90, b: 238 }; // bright purple
+      const MAX_POISON_PARTICLES = 700;
       const MIN_PLAYER_SIZE = 25;
       const GROWTH_FACTOR = 0.04; // ↓ smaller than the old 0.05 means slower growth
       const GROWTH_CAP = 1.5; // (optional) lower the absolute cap too
@@ -1711,6 +1714,64 @@
         }
       }
 
+      /* ---- PoisonParticle ---- */
+      class PoisonParticle {
+        constructor(x, y, vx, vy, size, ttl) {
+          this.x = x;
+          this.y = y;
+          this.vx = vx;
+          this.vy = vy;
+          this.size = size;
+          this.life = ttl;
+          this.ttl = ttl;
+        }
+        update(dt) {
+          const df = dt * 60;
+          this.life -= dt;
+          this.x += this.vx * dt;
+          this.y += this.vy * dt;
+          this.vx *= Math.pow(0.96, df);
+          this.vy *= Math.pow(0.96, df);
+        }
+        draw(c) {
+          if (this.life <= 0) return;
+          if (!Number.isFinite(this.x) || !Number.isFinite(this.y)) return;
+          const alpha = Math.max(0, this.life / this.ttl);
+          c.save();
+          c.shadowBlur = 10;
+          c.shadowColor = `rgba(${POISON_TRAIL_COLOR.r},${POISON_TRAIL_COLOR.g},${POISON_TRAIL_COLOR.b},${alpha})`;
+          c.fillStyle = `rgba(${POISON_TRAIL_COLOR.r},${POISON_TRAIL_COLOR.g},${
+            POISON_TRAIL_COLOR.b
+          },${alpha * 0.9})`;
+          c.beginPath();
+          c.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          c.fill();
+          c.restore();
+        }
+      }
+
+      function spawnPoisonParticles(x, y, dir) {
+        const count = Math.floor(getRandom(6, 10));
+        for (let i = 0; i < count; i++) {
+          const jitterX = getRandom(-6, 6);
+          const jitterY = getRandom(-6, 6);
+          const vx = getRandom(-18, 18);
+          const baseVy = dir >= 0 ? getRandom(12, 30) : getRandom(-30, -12);
+          const vy = baseVy + getRandom(-8, 8);
+          const size = getRandom(1.8, 3.4);
+          const ttl = getRandom(0.35, 0.6);
+          poisonParticles.push(
+            new PoisonParticle(x + jitterX, y + jitterY, vx, vy, size, ttl)
+          );
+        }
+        if (poisonParticles.length > MAX_POISON_PARTICLES) {
+          poisonParticles.splice(
+            0,
+            poisonParticles.length - MAX_POISON_PARTICLES
+          );
+        }
+      }
+
       /* ---- Fish (base + player) ---- */
       class Fish {
         constructor(x, y, sx, sy, img, maxSide, isPlayer = false) {
@@ -2096,24 +2157,12 @@
         createWaterTrail() {
           if (!this.width || !this.height) return;
           const now = performance.now();
-          if (now - this.lastTrailTime < 80) return;
+          if (now - this.lastTrailTime < 55) return;
           this.lastTrailTime = now;
           const movingDown = this.verticalDir >= 0;
           const trailDir = movingDown ? -1 : 1;
           const trailY = movingDown ? this.y : this.y + this.height;
-          waterTrails.push(
-            new WaterTrail(
-              this.x + this.width / 2,
-              trailY,
-              trailDir,
-              this.maxSide * 0.4,
-              false,
-              { r: 120, g: 0, b: 0 },
-              true
-            )
-          );
-          if (waterTrails.length > MAX_WATER_TRAILS)
-            waterTrails.splice(0, waterTrails.length - MAX_WATER_TRAILS);
+          spawnPoisonParticles(this.x + this.width / 2, trailY, trailDir);
         }
       }
 
@@ -2687,6 +2736,7 @@
       function resetRound() {
         fishList = [];
         waterTrails = [];
+        poisonParticles = [];
         explosions = [];
         rocks = [];
         player.maxSide = 25;
@@ -2785,6 +2835,17 @@
         }
         if (waterTrails.length > MAX_WATER_TRAILS) {
           waterTrails.splice(0, waterTrails.length - MAX_WATER_TRAILS);
+        }
+        /* poison particles */
+        for (let i = poisonParticles.length - 1; i >= 0; i--) {
+          poisonParticles[i].update(dt);
+          if (poisonParticles[i].life <= 0) poisonParticles.splice(i, 1);
+        }
+        if (poisonParticles.length > MAX_POISON_PARTICLES) {
+          poisonParticles.splice(
+            0,
+            poisonParticles.length - MAX_POISON_PARTICLES
+          );
         }
 
         /* player input */
@@ -3179,6 +3240,7 @@
       function renderGame() {
         ctx.clearRect(0, 0, WIDTH, HEIGHT);
         waterTrails.forEach((t) => t.draw(ctx));
+        poisonParticles.forEach((p) => p.draw(ctx));
         if (player && !(isGameOver && pendingGameOver)) {
           if (usingMonkeSprites) drawPlayerVine(ctx, player);
           else drawPlayerJetpack(ctx, player);
@@ -3341,6 +3403,7 @@
         fishList = [];
         explosions = [];
         waterTrails = [];
+        poisonParticles = [];
         rocks = [];
         player = new Fish(WIDTH / 2, HEIGHT / 2, 0, 0, playerImg, 25, true);
         sushiPowerUpTime = 0;
